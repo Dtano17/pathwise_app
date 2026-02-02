@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450" width="300" height="450">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#e94560"/>
+      <stop offset="100%" style="stop-color:#ff6b6b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="300" height="450" fill="url(#bg)" rx="8"/>
+
+  <!-- Film reel icon -->
+  <g transform="translate(150, 160)">
+    <circle cx="0" cy="0" r="50" fill="none" stroke="#3a3a5c" stroke-width="4"/>
+    <circle cx="0" cy="0" r="15" fill="#3a3a5c"/>
+    <circle cx="0" cy="-35" r="8" fill="#3a3a5c"/>
+    <circle cx="30" cy="-18" r="8" fill="#3a3a5c"/>
+    <circle cx="30" cy="18" r="8" fill="#3a3a5c"/>
+    <circle cx="0" cy="35" r="8" fill="#3a3a5c"/>
+    <circle cx="-30" cy="18" r="8" fill="#3a3a5c"/>
+    <circle cx="-30" cy="-18" r="8" fill="#3a3a5c"/>
+  </g>
+
+  <!-- Film strip decoration -->
+  <rect x="20" y="250" width="260" height="20" fill="#3a3a5c" rx="2"/>
+  <rect x="30" y="253" width="15" height="14" fill="#1a1a2e" rx="1"/>
+  <rect x="55" y="253" width="15" height="14" fill="#1a1a2e" rx="1"/>
+  <rect x="80" y="253" width="15" height="14" fill="#1a1a2e" rx="1"/>
+  <rect x="105" y="253" width="15" height="14" fill="#1a1a2e" rx="1"/>
+  <rect x="130" y="253" width="15" height="14" fill="#1a1a2e" rx="1"/>
+  <rect x="155" y="253" width="15" height="14" fill="#1a1a2e" rx="1"/>
+  <rect x="180" y="253" width="15" height="14" fill="#1a1a2e" rx="1"/>
+  <rect x="205" y="253" width="15" height="14" fill="#1a1a2e" rx="1"/>
+  <rect x="230" y="253" width="15" height="14" fill="#1a1a2e" rx="1"/>
+  <rect x="255" y="253" width="15" height="14" fill="#1a1a2e" rx="1"/>
+
+  <!-- Coming Soon text -->
+  <text x="150" y="320" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="700" fill="url(#accent)" text-anchor="middle">COMING SOON</text>
+
+  <!-- Subtitle -->
+  <text x="150" y="355" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#8888a8" text-anchor="middle">Title not yet available</text>
+  <text x="150" y="375" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#6666888" text-anchor="middle">in our database</text>
+
+  <!-- Decorative line -->
+  <rect x="100" y="395" width="100" height="2" fill="url(#accent)" rx="1"/>
+</svg>

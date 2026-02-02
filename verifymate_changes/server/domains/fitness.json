@@ -1,0 +1,163 @@
+{
+  "domain": "fitness",
+  "aliases": ["workout", "exercise", "fitness plan", "training", "gym", "workout plan"],
+  "description": "Creating workout and fitness plans with exercises, progression, and nutrition guidance",
+
+  "questions": {
+    "quick_plan": [
+      {
+        "id": "fitness_goal",
+        "question": "What's your main fitness goal? (Weight loss, muscle building, endurance, general fitness?)",
+        "why_matters": "Determines the type of exercises and intensity",
+        "type": "choice",
+        "options": ["weight_loss", "muscle_building", "endurance", "general_fitness", "strength"],
+        "required": true,
+        "slot_path": "fitnessGoal"
+      },
+      {
+        "id": "experience_level",
+        "question": "What's your current fitness level? (Beginner, intermediate, advanced?)",
+        "why_matters": "Ensures exercises are appropriate and safe",
+        "type": "choice",
+        "options": ["beginner", "intermediate", "advanced"],
+        "required": true,
+        "slot_path": "experienceLevel"
+      },
+      {
+        "id": "workout_time",
+        "question": "What time of day do you prefer to workout?",
+        "why_matters": "Helps build a sustainable routine",
+        "type": "text",
+        "required": true,
+        "slot_path": "timing.time"
+      },
+      {
+        "id": "duration",
+        "question": "How long can you workout each session?",
+        "why_matters": "Determines workout structure and volume",
+        "type": "text",
+        "required": true,
+        "slot_path": "duration"
+      },
+      {
+        "id": "equipment",
+        "question": "What equipment do you have access to? (Gym, home equipment, bodyweight only?)",
+        "why_matters": "Determines which exercises to include",
+        "type": "text",
+        "required": true,
+        "slot_path": "equipmentAvailable"
+      }
+    ],
+
+    "smart_plan": [
+      {
+        "id": "fitness_goal",
+        "question": "What's your main fitness goal? (Weight loss, muscle building, endurance, general fitness?)",
+        "why_matters": "Determines the type of exercises and intensity",
+        "type": "choice",
+        "options": ["weight_loss", "muscle_building", "endurance", "general_fitness", "strength"],
+        "required": true,
+        "slot_path": "fitnessGoal"
+      },
+      {
+        "id": "experience_level",
+        "question": "What's your current fitness level? (Beginner, intermediate, advanced?)",
+        "why_matters": "Ensures exercises are appropriate and safe",
+        "type": "choice",
+        "options": ["beginner", "intermediate", "advanced"],
+        "required": true,
+        "slot_path": "experienceLevel"
+      },
+      {
+        "id": "workout_time",
+        "question": "What time of day do you prefer to workout?",
+        "why_matters": "Helps build a sustainable routine",
+        "type": "text",
+        "required": true,
+        "slot_path": "timing.time"
+      },
+      {
+        "id": "duration",
+        "question": "How long can you workout each session?",
+        "why_matters": "Determines workout structure and volume",
+        "type": "text",
+        "required": true,
+        "slot_path": "duration"
+      },
+      {
+        "id": "equipment",
+        "question": "What equipment do you have access to? (Gym, home equipment, bodyweight only?)",
+        "why_matters": "Determines which exercises to include",
+        "type": "text",
+        "required": true,
+        "slot_path": "equipmentAvailable"
+      },
+      {
+        "id": "days_per_week",
+        "question": "How many days per week can you commit to working out?",
+        "why_matters": "Helps structure weekly programming and recovery",
+        "type": "number",
+        "required": false,
+        "slot_path": "frequency"
+      },
+      {
+        "id": "specific_focus",
+        "question": "Any specific areas you want to focus on or avoid? (e.g., knee issues, want to focus on abs, etc.)",
+        "why_matters": "Ensures plan is safe and aligned with your needs",
+        "type": "text",
+        "required": false,
+        "slot_path": "specificFocus"
+      }
+    ]
+  },
+
+  "enrichment_rules": [
+    {
+      "condition": "has_fitnessGoal",
+      "web_searches": [
+        "best {fitnessGoal} exercises",
+        "{fitnessGoal} workout plan",
+        "nutrition for {fitnessGoal}"
+      ]
+    }
+  ],
+
+  "plan_template": {
+    "sections": [
+      {
+        "title": "🎯 Your Fitness Goal & Strategy",
+        "required_data": ["goal_overview"]
+      },
+      {
+        "title": "💪 Weekly Workout Schedule",
+        "required_data": ["weekly_plan"]
+      },
+      {
+        "title": "🏋️ Exercise Breakdown",
+        "required_data": ["exercises"]
+      },
+      {
+        "title": "📈 Progression Plan",
+        "required_data": ["progression"]
+      },
+      {
+        "title": "🥗 Nutrition Guidance",
+        "required_data": ["nutrition_tips"]
+      },
+      {
+        "title": "😴 Recovery & Rest Days",
+        "required_data": ["recovery"]
+      },
+      {
+        "title": "💡 Pro Tips",
+        "required_data": ["fitness_tips"]
+      }
+    ]
+  },
+
+  "safety_checks": [
+    "recommend_medical_clearance_if_needed",
+    "include_proper_warm_up",
+    "emphasize_proper_form"
+  ]
+}

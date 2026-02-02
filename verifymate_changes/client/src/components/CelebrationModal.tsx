@@ -1,0 +1,219 @@
+import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Trophy, Star, Zap, X } from 'lucide-react';
+import Confetti from 'react-confetti';
+import { hapticsCelebrate, hapticsLight } from '@/lib/haptics';
+import { isNative } from '@/lib/platform';
+
+interface CelebrationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  achievement: {
+    title: string;
+    description: string;
+    type: 'task' | 'streak' | 'milestone';
+    points?: number;
+  };
+}
+
+export default function CelebrationModal({ isOpen, onClose, achievement }: CelebrationModalProps) {
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Milestone achievements get enhanced celebration
+  const isMilestone = achievement.type === 'milestone';
+  const confettiPieces = isMilestone ? 500 : 300;
+  const confettiDuration = isMilestone ? 6000 : 4000;
+  const confettiGravity = isMilestone ? 0.15 : 0.25;
+
+  useEffect(() => {
+    if (isOpen) {
+      setShowConfetti(true);
+
+      // Trigger celebration haptic when modal opens
+      if (isNative()) {
+        hapticsCelebrate();
+      }
+
+      const timer = setTimeout(() => setShowConfetti(false), confettiDuration);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, confettiDuration]);
+
+  // Haptic feedback when closing
+  const handleClose = async () => {
+    if (isNative()) {
+      await hapticsLight();
+    }
+    onClose();
+  };
+
+  const getIcon = () => {
+    switch (achievement.type) {
+      case 'streak':
+        return <Zap className="w-12 h-12 text-yellow-500" />;
+      case 'milestone':
+        return <Trophy className="w-12 h-12 text-yellow-500" />;
+      default:
+        return <Star className="w-12 h-12 text-yellow-500" />;
+    }
+  };
+
+  const getCelebrationMessage = () => {
+    const messages = {
+      task: ['Amazing!', 'Well done!', 'Great job!', 'Fantastic!', 'You did it!'],
+      streak: ['On fire!', 'Unstoppable!', 'Keep it up!', 'Incredible streak!'],
+      milestone: ['Milestone achieved!', 'Outstanding!', 'Legendary!', 'Epic achievement!']
+    };
+    
+    const typeMessages = messages[achievement.type] || messages.task;
+    return typeMessages[Math.floor(Math.random() * typeMessages.length)];
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {showConfetti && (
+            <Confetti
+              width={window.innerWidth}
+              height={window.innerHeight}
+              recycle={false}
+              numberOfPieces={confettiPieces}
+              colors={['#6C5CE7', '#00B894', '#FDCB6E', '#FF6B6B', '#4ECDC4', '#FFD93D', '#FF85A2']}
+              gravity={confettiGravity}
+              wind={0.02}
+            />
+          )}
+          
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={handleClose}
+            data-testid="modal-celebration"
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0, y: 50 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.5, opacity: 0, y: 50 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md"
+            >
+              <Card className="p-8 text-center space-y-6 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handleClose}
+                  className="absolute top-4 right-4 h-8 w-8"
+                  data-testid="button-close-celebration"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+
+                {/* Celebration Icon with Glow Effect */}
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{
+                    delay: 0.2,
+                    type: "spring",
+                    scale: isMilestone ? { repeat: 3, duration: 0.6 } : undefined
+                  }}
+                  className="flex justify-center"
+                >
+                  <div className="relative">
+                    {/* Pulsing glow effect for milestones */}
+                    {isMilestone && (
+                      <div className="absolute inset-0 w-24 h-24 rounded-full bg-yellow-400/40 animate-ping" />
+                    )}
+                    <div className={`w-24 h-24 rounded-full flex items-center justify-center relative ${
+                      isMilestone
+                        ? 'bg-gradient-to-br from-yellow-400/30 to-orange-400/30 shadow-lg shadow-yellow-400/30'
+                        : 'bg-gradient-to-br from-primary/20 to-secondary/20'
+                    }`}>
+                      {getIcon()}
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Celebration Message */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="space-y-2"
+                >
+                  <h2 className="text-3xl font-bold text-primary">
+                    {getCelebrationMessage()}
+                  </h2>
+                  <div className="flex justify-center">
+                    <motion.div
+                      animate={{ rotate: [0, 10, -10, 0] }}
+                      transition={{ repeat: 3, duration: 0.5 }}
+                    >
+                      {getIcon()}
+                    </motion.div>
+                  </div>
+                </motion.div>
+
+                {/* Achievement Details */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="space-y-3"
+                >
+                  <h3 className="text-xl font-semibold text-foreground">
+                    {achievement.title}
+                  </h3>
+                  <p className="text-muted-foreground">
+                    {achievement.description}
+                  </p>
+                  
+                  {achievement.points && (
+                    <div className="flex items-center justify-center gap-2">
+                      <Star className="w-5 h-5 text-yellow-500" />
+                      <span className="font-semibold text-primary">
+                        +{achievement.points} points
+                      </span>
+                    </div>
+                  )}
+                </motion.div>
+
+                {/* Action Button */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  <Button
+                    onClick={handleClose}
+                    className="w-full gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+                    data-testid="button-continue"
+                  >
+                    <Star className="w-4 h-4" />
+                    Continue Your Journey
+                  </Button>
+                </motion.div>
+
+                {/* Fun Motivational Quote */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                  className="text-sm text-muted-foreground italic"
+                >
+                  "Progress, not perfection. Every step counts! 🚀"
+                </motion.div>
+              </Card>
+            </motion.div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}

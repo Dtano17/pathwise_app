@@ -1,0 +1,139 @@
+{
+  "domain": "daily_planning",
+  "aliases": ["plan my day", "daily schedule", "day planning", "daily routine", "schedule my day"],
+  "description": "Creating hour-by-hour schedules balancing work, wellness, and personal goals",
+
+  "questions": {
+    "quick_plan": [
+      {
+        "id": "target_date",
+        "question": "Which day are we planning for?",
+        "why_matters": "Determines if it's a workday, weekend, or special day",
+        "type": "text",
+        "required": true,
+        "slot_path": "timing.date"
+      },
+      {
+        "id": "fixed_commitments",
+        "question": "Do you have any fixed appointments or commitments that day?",
+        "why_matters": "Anchors the schedule around non-negotiable items",
+        "type": "text",
+        "required": true,
+        "slot_path": "fixedCommitments"
+      },
+      {
+        "id": "top_priorities",
+        "question": "What are your top 3 priorities for this day?",
+        "why_matters": "Ensures important tasks get scheduled during peak energy times",
+        "type": "text",
+        "required": true,
+        "slot_path": "priorities"
+      },
+      {
+        "id": "wellness_activities",
+        "question": "What wellness activities do you want to include? (exercise, meditation, meals, etc.)",
+        "why_matters": "Ensures self-care is built into the schedule",
+        "type": "text",
+        "required": true,
+        "slot_path": "wellnessBlocks"
+      },
+      {
+        "id": "wake_sleep_times",
+        "question": "What time do you usually wake up and go to bed?",
+        "why_matters": "Defines the boundaries of your day",
+        "type": "text",
+        "required": true,
+        "slot_path": "sleepSchedule"
+      }
+    ],
+
+    "smart_plan": [
+      {
+        "id": "target_date",
+        "question": "Which day are we planning for?",
+        "why_matters": "Determines if it's a workday, weekend, or special day",
+        "type": "text",
+        "required": true,
+        "slot_path": "timing.date"
+      },
+      {
+        "id": "fixed_commitments",
+        "question": "Do you have any fixed appointments or commitments that day?",
+        "why_matters": "Anchors the schedule around non-negotiable items",
+        "type": "text",
+        "required": true,
+        "slot_path": "fixedCommitments"
+      },
+      {
+        "id": "top_priorities",
+        "question": "What are your top 3 priorities for this day?",
+        "why_matters": "Ensures important tasks get scheduled during peak energy times",
+        "type": "text",
+        "required": true,
+        "slot_path": "priorities"
+      },
+      {
+        "id": "wellness_activities",
+        "question": "What wellness activities do you want to include? (exercise, meditation, meals, etc.)",
+        "why_matters": "Ensures self-care is built into the schedule",
+        "type": "text",
+        "required": true,
+        "slot_path": "wellnessBlocks"
+      },
+      {
+        "id": "wake_sleep_times",
+        "question": "What time do you usually wake up and go to bed?",
+        "why_matters": "Defines the boundaries of your day",
+        "type": "text",
+        "required": true,
+        "slot_path": "sleepSchedule"
+      },
+      {
+        "id": "energy_levels",
+        "question": "When do you have the most energy? (Morning person, evening person, or varies?)",
+        "why_matters": "Helps schedule demanding tasks during peak productivity times",
+        "type": "choice",
+        "options": ["morning", "afternoon", "evening", "varies"],
+        "required": false,
+        "slot_path": "energyPeaks"
+      },
+      {
+        "id": "work_schedule",
+        "question": "Do you have work/school hours we need to work around?",
+        "why_matters": "Ensures personal time is scheduled outside work hours",
+        "type": "text",
+        "required": false,
+        "slot_path": "workSchedule"
+      }
+    ]
+  },
+
+  "enrichment_rules": [],
+
+  "plan_template": {
+    "sections": [
+      {
+        "title": "🌅 Your Day at a Glance",
+        "required_data": ["overview"]
+      },
+      {
+        "title": "⏰ Hour-by-Hour Schedule",
+        "required_data": ["detailed_schedule"]
+      },
+      {
+        "title": "🎯 Priority Tasks",
+        "required_data": ["priority_blocks"]
+      },
+      {
+        "title": "🧘 Wellness Blocks",
+        "required_data": ["wellness_schedule"]
+      },
+      {
+        "title": "💡 Productivity Tips",
+        "required_data": ["tips"]
+      }
+    ]
+  },
+
+  "safety_checks": []
+}

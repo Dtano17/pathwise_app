@@ -1,193 +1,194 @@
-# VerifyMate Changes
+# 🔍 VerifyMate - Verify Before You Trust
 
-This folder contains all the VerifyMate-specific code changes that can be easily moved to a new project.
+> AI-powered fact-checking, business verification, and AI detection for social media
 
-## Folder Structure
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-verifymate.ai-blue?style=for-the-badge)](https://verifymate.ai)
+[![App Store](https://img.shields.io/badge/📱_App_Store-Coming_Soon-black?style=for-the-badge)](https://verifymate.ai)
+[![Google Play](https://img.shields.io/badge/📱_Google_Play-Coming_Soon-green?style=for-the-badge)](https://verifymate.ai)
+
+---
+
+## 🎯 What is VerifyMate?
+
+VerifyMate is an AI-powered verification app that helps you check the credibility of any social media post, verify if businesses are legitimate, and detect AI-generated content. Simply share any post from Instagram, TikTok, YouTube, or any platform, and get an instant trust score with detailed analysis.
+
+### ✨ Key Features
+
+- **🔍 Fact-Check Claims**: Verify claims in posts with real-time web verification
+- **🏪 Business Verification**: Check if promoted businesses are legitimate (BBB, reviews, domain age)
+- **🤖 AI Detection**: Detect AI-generated text, images, and deepfake videos
+- **👤 Account Analysis**: Determine if accounts are bots or authentic
+- **📊 Trust Score**: Get a clear 0-100 credibility score with detailed breakdown
+- **📤 Share Results**: Share verification results to warn others about scams
+
+---
+
+## 📱 Supported Platforms
+
+| Platform | Posts | Stories | Reels | Ads |
+|----------|-------|---------|-------|-----|
+| Instagram | ✅ | ✅ | ✅ | ✅ |
+| TikTok | ✅ | - | ✅ | ✅ |
+| YouTube | ✅ | - | ✅ | ✅ |
+| X (Twitter) | ✅ | - | - | ✅ |
+| Facebook | ✅ | ✅ | ✅ | ✅ |
+| Threads | ✅ | - | - | - |
+| LinkedIn | ✅ | - | - | ✅ |
+| News Articles | ✅ | - | - | - |
+| Screenshots | ✅ | - | - | - |
+
+---
+
+## 🚀 How It Works
+
+### For Consumers
+1. **See a suspicious post** on any social media platform
+2. **Tap Share** → Select VerifyMate
+3. **Get instant analysis** with trust score and claim breakdown
+4. **Share the warning** if it's a scam
+
+### For Creators
+1. **Draft your content** with claims or statistics
+2. **Verify before posting** to ensure accuracy
+3. **Get a credibility badge** for verified content
+4. **Build trust** with your audience
+
+---
+
+## 💳 Pricing
+
+| Plan | Price | Verifications | Features |
+|------|-------|---------------|----------|
+| **Free** | $0/month | 5/month | Basic analysis |
+| **Pro** | $4.99/month | Unlimited | Detailed reports, history, creator badges |
+| **Business** | $29.99/month | Unlimited | API access, white-label, priority support |
+
+---
+
+## 🛠️ Technical Stack
+
+- **Frontend**: React 18 + TypeScript + Tailwind CSS
+- **Backend**: Node.js + Express.js
+- **Database**: PostgreSQL + Drizzle ORM
+- **AI**: Google Gemini with web grounding
+- **Mobile**: Capacitor for iOS/Android
+- **Auth**: Google Sign-In (OAuth 2.0)
+
+---
+
+## 🔧 Development Setup
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL database
+- Google Gemini API key
+- Apify API key (for social media extraction)
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/verifymate.git
+cd verifymate
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your API keys
+
+# Initialize the database
+npm run db:push
+
+# Start development server
+npm run dev
+```
+
+### Environment Variables
+
+```bash
+# Required
+DATABASE_URL=postgresql://...
+GEMINI_API_KEY=your_gemini_api_key
+SESSION_SECRET=your_session_secret
+
+# Optional (for social media extraction)
+APIFY_TOKEN=your_apify_token
+HIVE_API_KEY=your_hive_api_key
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+```
+
+---
+
+## 📁 Project Structure
 
 ```
-verifymate_changes/
-├── assets/
-│   ├── verifymate-logo.svg              # Main logo with background
-│   └── verifymate-logo-transparent.svg  # Transparent logo for overlays
-├── schema/
-│   └── schema.ts           # Complete database schema for VerifyMate
-├── services/
-│   └── geminiVerificationService.ts  # Core AI verification service
-├── components/
-│   └── VerdictCard.tsx     # Verification result display component
-├── pages/
-│   ├── VerifyPage.tsx      # Main verification interface
-│   ├── VerifyLogin.tsx     # Branded login page
-│   └── VerifyLandingPage.tsx  # Marketing landing page
-├── config/
-│   ├── capacitor.config.ts # Mobile app configuration
-│   ├── manifest.json       # PWA manifest
-│   └── index.html          # HTML template with VerifyMate branding
-└── README.md               # This file
+verifymate/
+├── client/src/           # React frontend
+│   ├── components/       # UI components
+│   │   └── VerdictCard.tsx    # Main result display
+│   ├── pages/            # App screens
+│   │   ├── VerifyPage.tsx     # Main verification screen
+│   │   └── HistoryPage.tsx    # Past verifications
+│   └── lib/              # Utilities
+├── server/               # Express backend
+│   ├── services/         # Core services
+│   │   ├── geminiVerificationService.ts  # Fact-checking
+│   │   ├── businessVerificationService.ts # BBB, reviews
+│   │   └── aiDetectionService.ts         # AI detection
+│   └── routes.ts         # API endpoints
+├── shared/               # Shared types
+│   └── schema.ts         # Database schema
+└── capacitor.config.ts   # Mobile config
 ```
 
-## File Descriptions
+---
 
-### Assets (`assets/`)
-Brand logos for VerifyMate:
-- **verifymate-logo.svg** - Main logo with gradient background circle
-  - Shield + magnifying glass + checkmark design
-  - Colors: Sky blue (#0EA5E9) to Emerald (#10B981) gradient
-  - Size: 200x200px viewBox
-- **verifymate-logo-transparent.svg** - Transparent background version
-  - For use on dark/colored backgrounds
-  - Shield shape with gradient fill
+## 🎨 Brand Guidelines
 
-### Schema (`schema/schema.ts`)
-Complete database schema with:
-- **users** - User accounts with subscription management
-- **sessions** - Session storage for auth
-- **verifications** - Core verification records with:
-  - Claims analysis
-  - AI content detection
-  - Account/bot analysis
-  - Business verification
-  - Bias analysis
-  - **Source Tracing** - Find original source of content
-  - **Event Correlation** - Match posts to real-world events
-  - **Timeline Analysis** - Detect recycled/old content
-- **authIdentities** - OAuth provider links
-- **externalOAuthTokens** - OAuth token storage
-
-### Services (`services/geminiVerificationService.ts`)
-Core Gemini AI verification service with:
-- Web grounding for real-time fact-checking
-- Source tracing to find original content
-- Event correlation to match posts to news/incidents
-- Timeline analysis to detect recycled content
-- AI content detection
-- Business verification
-- Bias analysis
-
-### Components (`components/VerdictCard.tsx`)
-Full verification result display component with:
-- Trust score visualization
-- Verdict badge (verified/false/mixed/etc.)
-- Claims breakdown with sources
-- AI detection results
-- Account/bot analysis
-- Business verification details
-- **Source Tracing section** - Shows original source if reshared
-- **Event Correlation section** - Shows matched real-world events
-- **Timeline Analysis section** - Shows content age and recycling warnings
-- Share and copy link functionality
-
-### Pages
-
-#### `pages/VerifyPage.tsx`
-Main verification interface with:
-- URL input for social media posts
-- Text input for direct content
-- Verification history
-- Share sheet integration (native mobile)
-- Result display using VerdictCard
-
-#### `pages/VerifyLogin.tsx`
-Branded login page with:
-- VerifyMate logo and branding
-- Google OAuth integration
-- Features preview
-- Redirect handling for pending verifications
-
-#### `pages/VerifyLandingPage.tsx`
-Marketing landing page with:
-- Hero section with quick verify input
-- Features showcase
-- Pricing plans (Free/Pro)
-- How it works section
-- Mobile app download section
-- SEO optimization
-
-### Config Files
-
-#### `config/capacitor.config.ts`
-Mobile app configuration:
-- App ID: `ai.verifymate.app`
-- App Name: `VerifyMate - AI Fact Checker`
-- Production URL: `https://verifymate.ai`
-- Theme colors: Sky blue (#0EA5E9) + Dark slate (#0F172A)
-
-#### `config/manifest.json`
-PWA manifest with:
-- Share target for web share API
-- App icons
-- Theme colors
-- Categories: news, utilities, reference
-
-#### `config/index.html`
-HTML template with:
-- VerifyMate meta tags
-- Open Graph / Twitter cards
-- Mobile web app configuration
-- Font loading (Inter, Plus Jakarta Sans)
-
-## How to Use These Files
-
-1. **Copy to new project structure:**
-   - `assets/*.svg` → `client/public/` (logos)
-   - `schema/schema.ts` → `shared/schema.ts`
-   - `services/geminiVerificationService.ts` → `server/services/`
-   - `components/VerdictCard.tsx` → `client/src/components/`
-   - `pages/*.tsx` → `client/src/pages/`
-   - `config/capacitor.config.ts` → project root
-   - `config/manifest.json` → project root
-   - `config/index.html` → `client/index.html`
-
-2. **Install dependencies:**
-   ```bash
-   npm install @google/generative-ai drizzle-orm drizzle-zod zod
-   npm install @tanstack/react-query wouter framer-motion
-   npm install lucide-react react-icons
-   ```
-
-3. **Configure environment:**
-   ```bash
-   GEMINI_API_KEY=your-api-key
-   DATABASE_URL=postgresql://...
-   GOOGLE_CLIENT_ID=your-google-client-id
-   GOOGLE_CLIENT_SECRET=your-google-client-secret
-   ```
-
-4. **Update routes in App.tsx:**
-   ```tsx
-   <Route path="/" component={VerifyLandingPage} />
-   <Route path="/verify" component={VerifyPage} />
-   <Route path="/verify/login" component={VerifyLogin} />
-   <Route path="/verify/result/:shareToken" component={VerifyPage} />
-   ```
-
-## Key Features
-
-### Source Tracing
-Finds the original source of content by:
-- Searching for earliest appearance online
-- Tracking how content spread across platforms
-- Identifying if the poster is the original author
-- Calculating virality score
-
-### Event Correlation
-Matches posts to real-world events by:
-- Searching news sources for related incidents
-- Verifying event dates and locations
-- Identifying discrepancies between post and actual events
-- Flagging manipulation indicators (wrong date, location, fabricated)
-
-### Timeline Analysis
-Analyzes temporal aspects by:
-- Detecting if content is recycled/old
-- Comparing event date vs posting date
-- Flagging significant timeline mismatches
-- Providing content age and relevance assessment
-
-## Brand Colors
-
+### Colors
 - **Trust Blue**: `#0EA5E9` - Primary brand color
 - **Verify Green**: `#10B981` - Success/verified states
 - **Caution Amber**: `#F59E0B` - Warning states
 - **Danger Red**: `#EF4444` - False/scam states
 - **Background**: `#0F172A` - Dark slate
+
+### Logo
+Magnifying glass with checkmark inside - represents searching for truth and verification.
+
+### Tagline
+"Verify before you trust"
+
+---
+
+## 🔒 Privacy & Security
+
+- **Minimal Data**: We only store verification results, not the content itself
+- **No Tracking**: We don't track your browsing or social media activity
+- **Secure Auth**: Google OAuth with session-based authentication
+- **Encrypted**: All data encrypted in transit (HTTPS)
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License.
+
+---
+
+## 🙏 Acknowledgments
+
+- **Google Gemini** for AI-powered fact-checking
+- **Apify** for social media content extraction
+- **Hive Moderation** for AI detection
+- **JournalMate** for the foundational codebase
+
+---
+
+**Made with 💙 by the VerifyMate Team**
+
+> *"In an age of misinformation, trust is the most valuable currency. VerifyMate helps you spend it wisely."*

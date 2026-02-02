@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Logo glow effect: radial gradient purple -->
+<!-- Center color: rgba(139, 92, 246, 0.4) = #668b5cf6 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <gradient
+        android:type="radial"
+        android:gradientRadius="50dp"
+        android:centerColor="#668b5cf6"
+        android:endColor="#00000000" />
+</shape>

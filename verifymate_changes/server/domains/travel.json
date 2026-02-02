@@ -1,0 +1,196 @@
+{
+  "domain": "travel",
+  "aliases": ["trip", "vacation", "travel planning", "journey", "visit", "traveling"],
+  "description": "Planning trips and travel experiences including flights, accommodation, activities, and itineraries",
+
+  "questions": {
+    "quick_plan": [
+      {
+        "id": "destination",
+        "question": "Where are you planning to travel?",
+        "why_matters": "Determines everything from budget to packing list",
+        "type": "text",
+        "required": true,
+        "slot_path": "location.destination"
+      },
+      {
+        "id": "dates_duration",
+        "question": "When are you going and for how long?",
+        "why_matters": "Affects pricing, weather, and what events you'll catch",
+        "type": "date_range",
+        "required": true,
+        "slot_path": "timing.date"
+      },
+      {
+        "id": "budget",
+        "question": "What's your total budget for the trip?",
+        "why_matters": "Determines accommodation, dining, and activity options",
+        "type": "text",
+        "required": true,
+        "slot_path": "budget.range"
+      },
+      {
+        "id": "purpose",
+        "question": "Is this for business or leisure?",
+        "why_matters": "Business trips prioritize efficiency, leisure trips prioritize experience",
+        "type": "choice",
+        "options": ["business", "leisure", "family", "solo_adventure"],
+        "required": true,
+        "slot_path": "purpose"
+      },
+      {
+        "id": "transportation",
+        "question": "How will you get there - flying or driving?",
+        "why_matters": "Affects timing, costs, and what you can pack",
+        "type": "choice",
+        "options": ["flying", "driving", "train", "other"],
+        "required": true,
+        "slot_path": "transportation"
+      }
+    ],
+
+    "smart_plan": [
+      {
+        "id": "destination",
+        "question": "Where are you planning to travel?",
+        "why_matters": "Determines everything from budget to packing list",
+        "type": "text",
+        "required": true,
+        "slot_path": "location.destination"
+      },
+      {
+        "id": "dates_duration",
+        "question": "When are you going and for how long?",
+        "why_matters": "Affects pricing, weather, and what events you'll catch",
+        "type": "date_range",
+        "required": true,
+        "slot_path": "timing.date"
+      },
+      {
+        "id": "budget",
+        "question": "What's your total budget for the trip?",
+        "why_matters": "Determines accommodation, dining, and activity options",
+        "type": "text",
+        "required": true,
+        "slot_path": "budget.range"
+      },
+      {
+        "id": "purpose",
+        "question": "Is this for business or leisure?",
+        "why_matters": "Business trips prioritize efficiency, leisure trips prioritize experience",
+        "type": "choice",
+        "options": ["business", "leisure", "family", "solo_adventure"],
+        "required": true,
+        "slot_path": "purpose"
+      },
+      {
+        "id": "transportation",
+        "question": "How will you get there - flying or driving?",
+        "why_matters": "Affects timing, costs, and what you can pack",
+        "type": "choice",
+        "options": ["flying", "driving", "train", "other"],
+        "required": true,
+        "slot_path": "transportation"
+      },
+      {
+        "id": "accommodation_preferences",
+        "question": "Any preferences for where you stay? (hotel, Airbnb, hostel, etc.)",
+        "why_matters": "Affects budget allocation and overall experience",
+        "type": "text",
+        "required": false,
+        "slot_path": "accommodation.type"
+      },
+      {
+        "id": "must_do_activities",
+        "question": "Are there specific experiences or attractions you don't want to miss?",
+        "why_matters": "Helps prioritize itinerary and book in advance",
+        "type": "text",
+        "required": false,
+        "slot_path": "mustDoActivities"
+      }
+    ]
+  },
+
+  "enrichment_rules": [
+    {
+      "condition": "has_destination && has_date",
+      "apis": [
+        {
+          "type": "weather",
+          "params": {
+            "location": "{location.destination}",
+            "dates": "{timing.date}"
+          }
+        },
+        {
+          "type": "events",
+          "params": {
+            "location": "{location.destination}",
+            "dates": "{timing.date}"
+          }
+        }
+      ],
+      "web_searches": [
+        "top things to do in {location.destination}",
+        "best restaurants {location.destination}",
+        "{location.destination} packing list"
+      ]
+    },
+    {
+      "condition": "transportation == 'flying'",
+      "apis": [
+        {
+          "type": "flight_prices",
+          "params": {
+            "from": "{user.location}",
+            "to": "{location.destination}",
+            "dates": "{timing.date}"
+          }
+        }
+      ]
+    }
+  ],
+
+  "plan_template": {
+    "sections": [
+      {
+        "title": "🌤️ Weather & Best Time to Go",
+        "required_data": ["weather_forecast"]
+      },
+      {
+        "title": "🎯 Top Things to Do",
+        "required_data": ["attractions", "events"]
+      },
+      {
+        "title": "📅 Sample Itinerary",
+        "required_data": ["timeline"]
+      },
+      {
+        "title": "✈️ Getting There & Around",
+        "required_data": ["transportation"]
+      },
+      {
+        "title": "🏨 Where to Stay",
+        "required_data": ["accommodation_options"]
+      },
+      {
+        "title": "💰 Budget Breakdown",
+        "required_data": ["budget_estimate"]
+      },
+      {
+        "title": "🎒 Packing List",
+        "required_data": ["packing_suggestions"]
+      },
+      {
+        "title": "💡 Pro Tips",
+        "required_data": ["local_tips"]
+      }
+    ]
+  },
+
+  "safety_checks": [
+    "check_travel_advisories",
+    "recommend_travel_insurance",
+    "verify_passport_visa_requirements"
+  ]
+}

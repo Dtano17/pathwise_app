@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- JournalMate Theme Colors -->
+    <!-- Primary purple color matching the app theme -->
+    <color name="colorPrimary">#6C5CE7</color>
+    <!-- Darker purple for status bar -->
+    <color name="colorPrimaryDark">#0B0F1A</color>
+    <!-- Accent color -->
+    <color name="colorAccent">#6C5CE7</color>
+
+    <!-- System bar colors - matches dark background -->
+    <color name="statusBarColor">#0B0F1A</color>
+    <color name="navigationBarColor">#0B0F1A</color>
+
+    <!-- Splash screen background - deep navy-black for premium aesthetic -->
+    <color name="splashBackground">#0B0F1A</color>
+</resources>

@@ -1,0 +1,5 @@
+# Appfile - Android App Information
+# This file contains app-specific information for Fastlane
+
+json_key_file("#{ENV['PLAY_STORE_JSON_KEY']}") # Path to the json secret file
+package_name("ai.journalmate.app") # Package name from AndroidManifest.xml
