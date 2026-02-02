@@ -293,6 +293,7 @@ export interface IStorage {
 
   // Task Reminders
   createTaskReminder(reminder: InsertTaskReminder & { userId: string }): Promise<TaskReminder>;
+  getTaskReminders(taskId: string): Promise<TaskReminder[]>;
   getUserTaskReminders(userId: string): Promise<TaskReminder[]>;
   getPendingReminders(): Promise<TaskReminder[]>;
   getPendingTaskReminders(beforeTime: Date): Promise<TaskReminder[]>;
@@ -678,6 +679,33 @@ export class DatabaseStorage implements IStorage {
     userId: string,
     expectedVersion?: number
   ): Promise<{ task?: Task; conflict?: boolean; currentTask?: Task }> {
+    // Helper function to sanitize date fields
+    const sanitizeDates = (data: Partial<Task>) => {
+      const sanitized = { ...data };
+      if ('dueDate' in sanitized) {
+        if (sanitized.dueDate === null || sanitized.dueDate === undefined) {
+          sanitized.dueDate = null;
+        } else if (typeof sanitized.dueDate === 'string') {
+          sanitized.dueDate = new Date(sanitized.dueDate);
+        }
+      }
+      if ('completedAt' in sanitized) {
+        if (sanitized.completedAt === null || sanitized.completedAt === undefined) {
+          sanitized.completedAt = null;
+        } else if (typeof sanitized.completedAt === 'string') {
+          sanitized.completedAt = new Date(sanitized.completedAt);
+        }
+      }
+      if ('snoozeUntil' in sanitized) {
+        if (sanitized.snoozeUntil === null || sanitized.snoozeUntil === undefined) {
+          sanitized.snoozeUntil = null;
+        } else if (typeof sanitized.snoozeUntil === 'string') {
+          sanitized.snoozeUntil = new Date(sanitized.snoozeUntil);
+        }
+      }
+      return sanitized;
+    };
+
     // Simple update - version checking is no longer supported
     if (expectedVersion !== undefined) {
       // Get the current task
@@ -689,9 +717,7 @@ export class DatabaseStorage implements IStorage {
 
       // Just update the task (no version field available)
       const result = await db.update(tasks)
-        .set({
-          ...updates,
-        })
+        .set(sanitizeDates(updates))
         .where(and(
           eq(tasks.id, taskId),
           eq(tasks.userId, userId)
@@ -711,9 +737,7 @@ export class DatabaseStorage implements IStorage {
 
     // No version check - simple update
     const result = await db.update(tasks)
-      .set({
-        ...updates,
-      })
+      .set(sanitizeDates(updates))
       .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
       .returning();
     return { task: result[0], conflict: false };
@@ -1775,6 +1799,12 @@ export class DatabaseStorage implements IStorage {
     await db.update(taskReminders)
       .set({ isSent: true, sentAt: new Date() })
       .where(eq(taskReminders.id, reminderId));
+  }
+
+  async getTaskReminders(taskId: string): Promise<TaskReminder[]> {
+    return await db.select().from(taskReminders)
+      .where(eq(taskReminders.taskId, taskId))
+      .orderBy(taskReminders.scheduledAt);
   }
 
   async deleteTaskReminder(reminderId: string, userId: string): Promise<void> {
