@@ -104,7 +104,8 @@ export const users = pgTable("users", {
   
   // Import tracking for tier-based limits
   discoveryBonusImports: integer("discovery_bonus_imports").default(0), // +2 bonus imports earned each time user publishes to Discovery
-  
+  hasDiscoveryBonus: boolean("has_discovery_bonus").default(false), // Whether user has claimed their discovery bonus
+
   // User role for special plan publishing (emergency/sponsored)
   userRole: varchar("user_role").default("standard"), // 'standard' | 'government' | 'sponsor' | 'admin'
   organizationName: text("organization_name"), // Organization/agency name for government/sponsor users
@@ -519,6 +520,21 @@ export const notificationPreferences = pgTable("notification_preferences", {
   dailyPlanningTime: text("daily_planning_time").default("09:00"), // HH:MM format
   quietHoursStart: text("quiet_hours_start").default("22:00"), // HH:MM format
   quietHoursEnd: text("quiet_hours_end").default("08:00"), // HH:MM format
+
+  // Additional notification preferences (synced from production)
+  enableAccountabilityReminders: boolean("enable_accountability_reminders").default(true),
+  enableStreakReminders: boolean("enable_streak_reminders").default(true),
+  enableMediaReleaseAlerts: boolean("enable_media_release_alerts").default(true),
+  enableTripPrepReminders: boolean("enable_trip_prep_reminders").default(true),
+  weeklyCheckinDay: text("weekly_checkin_day").default("sunday"), // Day of week for weekly check-in
+  weeklyCheckinTime: text("weekly_checkin_time").default("10:00"), // HH:MM format
+  enableVibration: boolean("enable_vibration").default(true),
+  enableSound: boolean("enable_sound").default(true),
+  channelSettings: jsonb("channel_settings").$type<{
+    [channelId: string]: { enabled: boolean; sound?: string; vibration?: boolean };
+  }>(),
+  streakReminderTime: text("streak_reminder_time").default("20:00"), // HH:MM format
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -622,6 +638,7 @@ export const smartNotifications = pgTable("smart_notifications", {
     priority?: string;
     [key: string]: any;
   }>(),
+  route: text("route"), // Navigation route for the notification (synced from production)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -1038,6 +1055,9 @@ export const activities = pgTable("activities", {
   creatorAvatar: text("creator_avatar"), // Avatar URL for discovery cards
   seasonalTags: jsonb("seasonal_tags").$type<string[]>().default([]), // 'summer' | 'winter' | 'spring' | 'fall' | 'holiday' | 'year-round'
 
+  // Calendar integration
+  googleCalendarEventId: varchar("google_calendar_event_id"), // Google Calendar event ID for synced activities
+
   // Share-to-earn metrics
   shareCount: integer("share_count").default(0), // Total shares (downloads of share cards)
   adoptionCount: integer("adoption_count").default(0), // Total times plan was copied/adopted
@@ -1448,10 +1468,13 @@ export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
   nickname: text("nickname"), // Display name / preferred name
+  bio: text("bio"), // General bio field (synced from production)
   publicBio: text("public_bio"), // Public bio visible to others
   privateBio: text("private_bio"), // Private notes only visible to the user
   height: text("height"), // Height as string (e.g., "5'10" or "178cm")
+  heightCm: integer("height_cm"), // Height in centimeters (numeric for calculations)
   weight: text("weight"), // Weight as string (e.g., "170 lbs" or "77kg")
+  weightKg: real("weight_kg"), // Weight in kilograms (numeric for calculations)
   birthDate: text("birth_date"), // YYYY-MM-DD format for age calculation
   sex: text("sex"), // 'male' | 'female' | 'other' | 'prefer_not_to_say'
   ethnicity: text("ethnicity"), // Self-identified ethnicity
