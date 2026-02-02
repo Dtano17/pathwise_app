@@ -601,6 +601,36 @@ export const deviceTokens = pgTable("device_tokens", {
   tokenIndex: index("device_tokens_token_index").on(table.token),
 }));
 
+// Smart notifications for scheduled alerts (tasks, activities, goals)
+export const smartNotifications = pgTable("smart_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  sourceType: text("source_type").notNull(), // 'task' | 'activity' | 'goal'
+  sourceId: varchar("source_id").notNull(), // ID of the task/activity/goal
+  notificationType: text("notification_type").notNull(), // 'reminder' | 'deadline' | 'streak' | 'check_in'
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  timezone: text("timezone").default("UTC"),
+  status: text("status").default("pending"), // 'pending' | 'sent' | 'failed' | 'cancelled'
+  sentAt: timestamp("sent_at"),
+  failureReason: text("failure_reason"),
+  metadata: jsonb("metadata").$type<{
+    haptic?: string;
+    channel?: string;
+    deepLink?: string;
+    priority?: string;
+    [key: string]: any;
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdStatusIndex: index("smart_notifications_user_status_index").on(table.userId, table.status),
+  scheduledAtIndex: index("smart_notifications_scheduled_at_index").on(table.scheduledAt),
+  pendingIndex: index("smart_notifications_pending_index").on(table.status, table.scheduledAt),
+  sourceIndex: index("smart_notifications_source_index").on(table.sourceType, table.sourceId),
+}));
+
 // Smart scheduling suggestions
 export const schedulingSuggestions = pgTable("scheduling_suggestions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -662,6 +692,14 @@ export const insertSchedulingSuggestionSchema = createInsertSchema(schedulingSug
   userId: true,
   createdAt: true,
   acceptedAt: true,
+});
+
+export const insertSmartNotificationSchema = createInsertSchema(smartNotifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  sentAt: true,
+  failureReason: true,
 });
 
 // Types
@@ -737,6 +775,9 @@ export type InsertDeviceToken = z.infer<typeof insertDeviceTokenSchema>;
 
 export type SchedulingSuggestion = typeof schedulingSuggestions.$inferSelect;
 export type InsertSchedulingSuggestion = z.infer<typeof insertSchedulingSuggestionSchema>;
+
+export type SmartNotification = typeof smartNotifications.$inferSelect;
+export type InsertSmartNotification = z.infer<typeof insertSmartNotificationSchema>;
 
 // Lifestyle Planner Session for conversational planning
 export const lifestylePlannerSessions = pgTable("lifestyle_planner_sessions", {

@@ -28,6 +28,8 @@ import {
   type InsertDeviceToken,
   type SchedulingSuggestion,
   type InsertSchedulingSuggestion,
+  type SmartNotification,
+  type InsertSmartNotification,
   type AuthIdentity,
   type InsertAuthIdentity,
   type ExternalOAuthToken,
@@ -104,6 +106,7 @@ import {
   activityReminders,
   deviceTokens,
   schedulingSuggestions,
+  smartNotifications,
   authIdentities,
   externalOAuthTokens,
   contacts,
@@ -319,7 +322,14 @@ export interface IStorage {
   getUserSchedulingSuggestions(userId: string, date?: string): Promise<SchedulingSuggestion[]>;
   acceptSchedulingSuggestion(suggestionId: string, userId: string): Promise<SchedulingSuggestion | undefined>;
   deleteSchedulingSuggestion(suggestionId: string, userId: string): Promise<void>;
-  
+
+  // Smart Notifications (scheduled alerts for tasks, activities, goals)
+  createSmartNotification(data: Omit<InsertSmartNotification, 'id' | 'createdAt' | 'updatedAt'>): Promise<SmartNotification>;
+  getPendingSmartNotifications(beforeTime: Date): Promise<SmartNotification[]>;
+  updateSmartNotification(id: string, updates: Partial<SmartNotification>): Promise<SmartNotification | undefined>;
+  cancelSmartNotifications(sourceType: string, sourceId: string): Promise<void>;
+  getUserSmartNotifications(userId: string, status?: string): Promise<SmartNotification[]>;
+
   // User Context for Personalized Planning
   getUserContext(userId: string): Promise<{
     user: User;
@@ -1873,6 +1883,56 @@ export class DatabaseStorage implements IStorage {
     await db.update(deviceTokens)
       .set({ lastUsedAt: new Date() })
       .where(eq(deviceTokens.token, token));
+  }
+
+  // Smart Notifications (scheduled alerts for tasks, activities, goals)
+  async createSmartNotification(data: Omit<InsertSmartNotification, 'id' | 'createdAt' | 'updatedAt'>): Promise<SmartNotification> {
+    const [notification] = await db.insert(smartNotifications).values(data).returning();
+    return notification;
+  }
+
+  async getPendingSmartNotifications(beforeTime: Date): Promise<SmartNotification[]> {
+    return await db.select()
+      .from(smartNotifications)
+      .where(and(
+        eq(smartNotifications.status, 'pending'),
+        lte(smartNotifications.scheduledAt, beforeTime)
+      ))
+      .orderBy(smartNotifications.scheduledAt);
+  }
+
+  async updateSmartNotification(id: string, updates: Partial<SmartNotification>): Promise<SmartNotification | undefined> {
+    const [updated] = await db.update(smartNotifications)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(smartNotifications.id, id))
+      .returning();
+    return updated;
+  }
+
+  async cancelSmartNotifications(sourceType: string, sourceId: string): Promise<void> {
+    await db.update(smartNotifications)
+      .set({ status: 'cancelled', updatedAt: new Date() })
+      .where(and(
+        eq(smartNotifications.sourceType, sourceType),
+        eq(smartNotifications.sourceId, sourceId),
+        eq(smartNotifications.status, 'pending')
+      ));
+  }
+
+  async getUserSmartNotifications(userId: string, status?: string): Promise<SmartNotification[]> {
+    if (status) {
+      return await db.select()
+        .from(smartNotifications)
+        .where(and(
+          eq(smartNotifications.userId, userId),
+          eq(smartNotifications.status, status)
+        ))
+        .orderBy(desc(smartNotifications.scheduledAt));
+    }
+    return await db.select()
+      .from(smartNotifications)
+      .where(eq(smartNotifications.userId, userId))
+      .orderBy(desc(smartNotifications.scheduledAt));
   }
 
   // Scheduling Suggestions
