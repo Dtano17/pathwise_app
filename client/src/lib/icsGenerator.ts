@@ -150,8 +150,12 @@ export async function downloadOrShareICS(events: ICSEvent[], filename: string): 
       // Try to use FileOpener to directly open in calendar app
       // This avoids the share sheet and goes straight to calendar picker
       try {
-        // Dynamic import with error handling for environments where plugin isn't available
-        const fileOpenerModule = await import('@capacitor-community/file-opener').catch(() => null);
+        // Use Function constructor to bypass Vite's static import analysis
+        // This prevents build errors when the plugin isn't installed in all environments
+        const modulePath = ['@capacitor-community', 'file-opener'].join('/');
+        const importFn = new Function('path', 'return import(path)');
+        const fileOpenerModule = await importFn(modulePath).catch(() => null);
+
         if (fileOpenerModule?.FileOpener) {
           await fileOpenerModule.FileOpener.open({
             filePath: fileUri.uri,
