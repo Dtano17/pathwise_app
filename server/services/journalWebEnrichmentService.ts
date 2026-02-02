@@ -774,38 +774,49 @@ Respond with ONLY a JSON object in this format:
       // This prevents cache collisions when entries share the same ID but have different content
       const cacheKey = this.generateCacheKeyFromVenue(venueName || '', city || '');
       
+      // Check cache - but handle force refresh differently for verified vs unverified entries
+      try {
+        const dbCached = await storage.getJournalEnrichmentCache(cacheKey);
+
+        if (dbCached) {
+          // IMPORTANT: On force refresh, SKIP verified TMDB entries (don't waste time re-fetching)
+          // Only refresh "Coming Soon" placeholders and unverified entries
+          if (forceRefresh) {
+            if (dbCached.verified && dbCached.enrichmentSource === 'tmdb' && !dbCached.isComingSoon) {
+              // This is a verified TMDB entry - keep it, don't re-fetch
+              const enrichedData = dbCached.enrichedData as WebEnrichedData;
+              this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+              console.log(`[JOURNAL_WEB_ENRICH] SKIP refresh for verified TMDB entry: "${venueName}" (tmdbId: ${dbCached.tmdbId})`);
+              return { entryId: entry.id, success: true, enrichedData };
+            } else {
+              // Unverified or Coming Soon - clear cache and re-enrich
+              this.cache.delete(cacheKey);
+              await storage.deleteJournalEnrichmentCache(cacheKey);
+              console.log(`[JOURNAL_WEB_ENRICH] Clearing ${dbCached.isComingSoon ? 'Coming Soon placeholder' : 'unverified entry'} for refresh: "${venueName}"`);
+            }
+          } else {
+            // Normal cache hit (no force refresh)
+            const enrichedData = dbCached.enrichedData as WebEnrichedData;
+            this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+            console.log(`[JOURNAL_WEB_ENRICH] DB cache hit for "${venueName}" (source: ${dbCached.enrichmentSource}, verified: ${dbCached.verified})`);
+            return { entryId: entry.id, success: true, enrichedData };
+          }
+        }
+      } catch (dbError) {
+        console.warn(`[JOURNAL_WEB_ENRICH] DB cache lookup failed for "${venueName}":`, dbError);
+        // Continue with fresh enrichment if DB lookup fails
+      }
+
+      // Also check in-memory cache if not force refresh
       if (!forceRefresh) {
-        // STEP 1: Check in-memory cache first (fastest)
         const cached = this.cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
           console.log(`[JOURNAL_WEB_ENRICH] Memory cache hit for "${venueName}"`);
           return { entryId: entry.id, success: true, enrichedData: cached.data };
         }
-
-        // STEP 2: Check persistent database cache (survives server restarts)
-        try {
-          const dbCached = await storage.getJournalEnrichmentCache(cacheKey);
-          if (dbCached) {
-            const enrichedData = dbCached.enrichedData as WebEnrichedData;
-            // Populate in-memory cache for faster subsequent lookups
-            this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
-            console.log(`[JOURNAL_WEB_ENRICH] DB cache hit for "${venueName}" (source: ${dbCached.enrichmentSource})`);
-            return { entryId: entry.id, success: true, enrichedData };
-          }
-        } catch (dbError) {
-          console.warn(`[JOURNAL_WEB_ENRICH] DB cache lookup failed for "${venueName}":`, dbError);
-          // Continue with fresh enrichment if DB lookup fails
-        }
       } else {
-        // Clear BOTH in-memory cache and DB cache on force refresh
-        // This ensures stale "Coming Soon" placeholders are re-evaluated with updated matching logic
+        // Clear in-memory cache on force refresh
         this.cache.delete(cacheKey);
-        try {
-          await storage.deleteJournalEnrichmentCache(cacheKey);
-          console.log(`[JOURNAL_WEB_ENRICH] Memory + DB cache cleared for forced refresh of "${venueName}"`);
-        } catch (dbError) {
-          console.warn(`[JOURNAL_WEB_ENRICH] Failed to clear DB cache for "${venueName}":`, dbError);
-        }
       }
 
       if (!venueName) {
@@ -911,16 +922,20 @@ Respond with ONLY a JSON object in this format:
           };
 
           // Save to both in-memory and persistent DB cache
+          // Include tmdbId for deduplication and to skip re-fetching on future refreshes
           this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
           try {
             await storage.saveJournalEnrichmentCache({
               cacheKey,
               enrichedData: enrichedData as any,
               imageUrl: enrichedData.primaryImageUrl,
-              verified: enrichedData.venueVerified,
+              verified: true, // TMDB is authoritative source
               enrichmentSource: 'tmdb',
               isComingSoon: false,
+              tmdbId: tmdbResult.tmdbId,
+              mediaType: tmdbResult.mediaType,
             });
+            console.log(`[JOURNAL_WEB_ENRICH] Saved verified TMDB entry: "${tmdbResult.title}" (tmdbId: ${tmdbResult.tmdbId})`);
           } catch (saveError) {
             console.warn(`[JOURNAL_WEB_ENRICH] Failed to save TMDB result to DB cache:`, saveError);
           }
@@ -958,15 +973,17 @@ Respond with ONLY a JSON object in this format:
         };
 
         // Save Coming Soon placeholder to both caches
+        // Note: These will be refreshed on next force refresh since verified=false and isComingSoon=true
         this.cache.set(cacheKey, { data: comingSoonData, timestamp: Date.now() });
         try {
           await storage.saveJournalEnrichmentCache({
             cacheKey,
             enrichedData: comingSoonData as any,
             imageUrl: comingSoonData.primaryImageUrl,
-            verified: false,
+            verified: false, // NOT verified - will be refreshed on next force refresh
             enrichmentSource: 'placeholder',
-            isComingSoon: true,
+            isComingSoon: true, // Flag to indicate this needs re-enrichment
+            mediaType: 'movie',
           });
         } catch (saveError) {
           console.warn(`[JOURNAL_WEB_ENRICH] Failed to save Coming Soon placeholder to DB cache:`, saveError);

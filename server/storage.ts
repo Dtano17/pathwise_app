@@ -4517,6 +4517,8 @@ export class DatabaseStorage implements IStorage {
           verified: data.verified,
           enrichmentSource: data.enrichmentSource,
           isComingSoon: data.isComingSoon,
+          tmdbId: data.tmdbId,
+          mediaType: data.mediaType,
           updatedAt: new Date(),
         },
       })
@@ -4536,6 +4538,59 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(journalEnrichmentCache)
       .where(inArray(journalEnrichmentCache.cacheKey, cacheKeys));
+  }
+
+  // Get cache stats - useful for understanding what needs refresh
+  async getJournalEnrichmentCacheStats(): Promise<{
+    total: number;
+    verified: number;
+    unverified: number;
+    comingSoon: number;
+    bySource: Record<string, number>;
+  }> {
+    const allEntries = await db.select().from(journalEnrichmentCache);
+    const bySource: Record<string, number> = {};
+
+    for (const entry of allEntries) {
+      const source = entry.enrichmentSource || 'unknown';
+      bySource[source] = (bySource[source] || 0) + 1;
+    }
+
+    return {
+      total: allEntries.length,
+      verified: allEntries.filter(e => e.verified).length,
+      unverified: allEntries.filter(e => !e.verified).length,
+      comingSoon: allEntries.filter(e => e.isComingSoon).length,
+      bySource,
+    };
+  }
+
+  // Clear only unverified/Coming Soon entries - leaves verified TMDB entries intact
+  async clearUnverifiedEnrichmentCache(): Promise<number> {
+    const result = await db
+      .delete(journalEnrichmentCache)
+      .where(
+        or(
+          eq(journalEnrichmentCache.verified, false),
+          eq(journalEnrichmentCache.isComingSoon, true)
+        )
+      )
+      .returning();
+    return result.length;
+  }
+
+  // Get entries that need refresh (Coming Soon or placeholder source)
+  async getEnrichmentEntriesNeedingRefresh(): Promise<JournalEnrichmentCache[]> {
+    return db
+      .select()
+      .from(journalEnrichmentCache)
+      .where(
+        or(
+          eq(journalEnrichmentCache.isComingSoon, true),
+          eq(journalEnrichmentCache.enrichmentSource, 'placeholder'),
+          eq(journalEnrichmentCache.verified, false)
+        )
+      );
   }
 
   // ============================================
