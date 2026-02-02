@@ -131,7 +131,6 @@ export async function downloadOrShareICS(events: ICSEvent[], filename: string): 
   if (Capacitor.isNativePlatform()) {
     try {
       const { Filesystem, Directory } = await import('@capacitor/filesystem');
-      const { FileOpener } = await import('@capacitor-community/file-opener');
 
       // Write the ICS file to cache directory
       const filePath = `${safeFilename}.ics`;
@@ -148,13 +147,41 @@ export async function downloadOrShareICS(events: ICSEvent[], filename: string): 
         directory: Directory.Cache,
       });
 
-      // Open the file with the default handler for .ics (calendar app)
-      // This triggers ACTION_VIEW intent on Android, UTI handler on iOS
-      // which directly opens the native calendar picker instead of share sheet
-      await FileOpener.open({
-        filePath: fileUri.uri,
-        contentType: 'text/calendar',
-        openWithDefault: true,
+      // Try to use FileOpener to directly open in calendar app
+      // This avoids the share sheet and goes straight to calendar picker
+      try {
+        // Dynamic import with error handling for environments where plugin isn't available
+        const fileOpenerModule = await import('@capacitor-community/file-opener').catch(() => null);
+        if (fileOpenerModule?.FileOpener) {
+          await fileOpenerModule.FileOpener.open({
+            filePath: fileUri.uri,
+            contentType: 'text/calendar',
+            openWithDefault: true,
+          });
+
+          // Clean up the temporary file after a delay
+          setTimeout(async () => {
+            try {
+              await Filesystem.deleteFile({
+                path: filePath,
+                directory: Directory.Cache,
+              });
+            } catch (e) {
+              // Ignore cleanup errors
+            }
+          }, 60000);
+
+          return true;
+        }
+      } catch (fileOpenerError) {
+        console.log('[ICS] FileOpener not available, falling back to Share');
+      }
+
+      // Fallback: Use Share API if FileOpener isn't available
+      const { Share } = await import('@capacitor/share');
+      await Share.share({
+        title: 'Add to Calendar',
+        files: [fileUri.uri],
       });
 
       // Clean up the temporary file after a delay
@@ -167,11 +194,11 @@ export async function downloadOrShareICS(events: ICSEvent[], filename: string): 
         } catch (e) {
           // Ignore cleanup errors
         }
-      }, 60000); // Delete after 1 minute
+      }, 60000);
 
       return true;
     } catch (error) {
-      console.error('[ICS] FileOpener failed:', error);
+      console.error('[ICS] Mobile calendar failed:', error);
       // Fall back to web download method
       return downloadICSWeb(icsContent, safeFilename);
     }
