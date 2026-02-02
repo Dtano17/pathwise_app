@@ -5371,6 +5371,17 @@ ${sitemaps
       const userId = getUserId(req) || DEMO_USER_ID;
       const { reminders, ...updates } = req.body;
 
+      // Sanitize date fields - convert ISO strings to Date objects
+      if (updates.dueDate !== undefined) {
+        updates.dueDate = updates.dueDate ? new Date(updates.dueDate) : null;
+      }
+      if (updates.completedAt !== undefined) {
+        updates.completedAt = updates.completedAt ? new Date(updates.completedAt) : null;
+      }
+      if (updates.snoozeUntil !== undefined) {
+        updates.snoozeUntil = updates.snoozeUntil ? new Date(updates.snoozeUntil) : null;
+      }
+
       // Validate task exists and belongs to user
       const existingTask = await storage.getTask(taskId, userId);
       if (!existingTask) {
