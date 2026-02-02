@@ -171,6 +171,8 @@ import { NotificationBell } from "@/components/NotificationBell";
 import NotificationManager from "@/components/NotificationManager";
 import SmartScheduler from "@/components/SmartScheduler";
 import CelebrationModal from "@/components/CelebrationModal";
+import AddTaskDialog from "@/components/AddTaskDialog";
+import EditTaskDialog from "@/components/EditTaskDialog";
 import { initializeSocket, disconnectSocket } from "@/lib/socket";
 import OnboardingTutorial from "@/components/OnboardingTutorial";
 import { UpgradeModal } from "@/components/UpgradeModal";
@@ -289,6 +291,14 @@ export default function MainApp({
 
   // Conversation history for contextual plan regeneration
   const [conversationHistory, setConversationHistory] = useState<string[]>([]);
+  // Full conversation messages with roles for proper session storage
+  const [conversationMessages, setConversationMessages] = useState<
+    Array<{
+      role: "user" | "assistant";
+      content: string;
+      timestamp: string;
+    }>
+  >([]);
   const [planVersion, setPlanVersion] = useState(0);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
@@ -407,6 +417,10 @@ export default function MainApp({
   const [selectedPriority, setSelectedPriority] = useState("all");
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Task dialog state
+  const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Activity completion celebration state
   const [completedActivities, setCompletedActivities] = useState(
@@ -541,11 +555,20 @@ export default function MainApp({
 
       const session = await response.json();
 
-      // Extract conversation history
+      // Extract conversation history content for string-based state
       const history = session.conversationHistory.map(
         (msg: any) => msg.content,
       );
       setConversationHistory(history);
+
+      // Restore full conversation messages with roles for proper session storage
+      setConversationMessages(
+        session.conversationHistory.map((msg: any) => ({
+          role: msg.role || "user",
+          content: msg.content,
+          timestamp: msg.timestamp || new Date().toISOString(),
+        })),
+      );
 
       // Set plan output if available
       if (session.generatedPlan) {
@@ -557,8 +580,12 @@ export default function MainApp({
           console.log("📥 Loaded session with activityId:", activityId);
         }
 
+        // Handle both 'title' and 'planTitle' keys for backwards compatibility
+        const planTitle =
+          session.generatedPlan.title || session.generatedPlan.planTitle;
+
         setCurrentPlanOutput({
-          planTitle: session.generatedPlan.title,
+          planTitle: planTitle,
           summary: session.generatedPlan.summary,
           tasks: session.generatedPlan.tasks || [],
           estimatedTimeframe: session.generatedPlan.estimatedTimeframe,
@@ -575,7 +602,11 @@ export default function MainApp({
       // Set plan version based on conversation length
       setPlanVersion(history.length);
 
-      // Navigate to input tab
+      // Log the planning mode from the session for debugging
+      const savedMode = session.externalContext?.currentMode;
+      console.log("📥 Resumed session with planning mode:", savedMode);
+
+      // Navigate to input tab to show the loaded plan
       setActiveTab("input");
     } catch (error) {
       console.error("Failed to load conversation:", error);
@@ -1346,12 +1377,25 @@ export default function MainApp({
 
       // Auto-save conversation session
       try {
-        const conversationMessages = updatedHistory.map((msg, idx) => ({
+        // Build proper conversation with user/assistant roles
+        const newUserMessage = {
           role: "user" as const,
-          content: msg,
+          content: variables,
           timestamp: new Date().toISOString(),
-          type: "question" as const,
-        }));
+        };
+        const newAssistantMessage = {
+          role: "assistant" as const,
+          content: `Created plan "${data.planTitle}" with ${data.tasks?.length || 0} tasks. ${data.summary || ""}`,
+          timestamp: new Date().toISOString(),
+        };
+
+        // Update the full conversation messages state
+        const updatedConversationMessages = [
+          ...conversationMessages,
+          newUserMessage,
+          newAssistantMessage,
+        ];
+        setConversationMessages(updatedConversationMessages);
 
         // Use the same plan data with preserved activityId
         const planToSave = {
@@ -1368,8 +1412,9 @@ export default function MainApp({
         if (currentSessionId) {
           // Update existing session
           await apiRequest("PUT", `/api/conversations/${currentSessionId}`, {
-            conversationHistory: conversationMessages,
+            conversationHistory: updatedConversationMessages,
             generatedPlan: planToSave,
+            planningMode: "direct",
           });
         } else {
           // Create new session
@@ -1377,8 +1422,9 @@ export default function MainApp({
             "POST",
             "/api/conversations",
             {
-              conversationHistory: conversationMessages,
+              conversationHistory: updatedConversationMessages,
               generatedPlan: planToSave,
+              planningMode: "direct",
             },
           );
           const session = await sessionResponse.json();
@@ -3471,6 +3517,14 @@ export default function MainApp({
                         Manage and track all your tasks. Use filters to find
                         specific tasks.
                       </p>
+                      <Button
+                        onClick={() => setShowAddTaskDialog(true)}
+                        className="mt-4 gap-2"
+                        data-testid="button-add-task"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Task
+                      </Button>
                     </>
                   )}
                 </div>
@@ -3500,16 +3554,25 @@ export default function MainApp({
                       No Tasks Yet
                     </h3>
                     <p className="text-muted-foreground mb-6">
-                      Create activities with goals to generate tasks
-                      automatically
+                      Create a task manually or generate tasks from activities.
                     </p>
-                    <Button
-                      onClick={() => setActiveTab("input")}
-                      className="gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create Your First Goal
-                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <Button
+                        onClick={() => setShowAddTaskDialog(true)}
+                        className="gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Task
+                      </Button>
+                      <Button
+                        onClick={() => setActiveTab("input")}
+                        variant="outline"
+                        className="gap-2"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Create a Plan
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4 max-w-4xl mx-auto">
@@ -3670,6 +3733,15 @@ export default function MainApp({
                             handleArchiveTask.mutate(taskId)
                           }
                           onUncomplete={handleUncompleteTask}
+                          onEdit={(taskData) => {
+                            // Find the full task from the appropriate tasks array
+                            // (activityTasks when viewing an activity, or all tasks otherwise)
+                            const searchArray = selectedActivityId ? activityTasks : tasks;
+                            const fullTask = searchArray?.find(t => t.id === taskData.id);
+                            if (fullTask) {
+                              setEditingTask(fullTask);
+                            }
+                          }}
                           showConfetti={true}
                           data-testid={`task-card-${task.id}`}
                         />
@@ -5235,6 +5307,22 @@ export default function MainApp({
         onOpenChange={setShowDiscoverSignIn}
         title="Sign In to Use This Plan"
         description="Sign in to use this plan and track your progress"
+      />
+
+      {/* Add Task Dialog */}
+      <AddTaskDialog
+        open={showAddTaskDialog}
+        onOpenChange={setShowAddTaskDialog}
+        activityId={selectedActivityId || undefined}
+      />
+
+      {/* Edit Task Dialog */}
+      <EditTaskDialog
+        task={editingTask}
+        open={!!editingTask}
+        onOpenChange={(open) => {
+          if (!open) setEditingTask(null);
+        }}
       />
     </div>
   );

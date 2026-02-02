@@ -22,12 +22,21 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { tavilySearch, isTavilyConfigured } from './tavilyProvider';
+import {
+  generateWithGrounding,
+  isGeminiConfigured,
+  formatGroundingSources,
+  injectGroundingUrlsIntoTasks,
+  type GeminiMessage,
+  type GeminiGroundingConfig,
+} from './geminiProvider';
 import type { IStorage } from '../storage';
 import type { User, UserProfile, UserPreferences, JournalEntry } from '@shared/schema';
 import { DOMAIN_TO_JOURNAL_CATEGORIES } from '../config/journalTags';
 import { transcriptFilterService, FilteredContent } from './transcriptFilterService';
 import { socialMediaVideoService } from './socialMediaVideoService';
 import { parseDateReference, type DateReference } from './dateReferenceParser';
+import { getWeatherForecast, checkWeatherAlerts, getWeatherSummary } from './weatherService';
 
 // ============================================================================
 // SEARCH CACHE
@@ -469,6 +478,7 @@ interface GeneratedPlan {
   description: string;
   startDate?: string;  // Activity start date in ISO format (YYYY-MM-DD)
   endDate?: string;    // Activity end date in ISO format (YYYY-MM-DD)
+  destinationUrl?: string;  // Google Maps URL for main destination (clickable link)
   tasks: Array<{
     taskName: string;
     duration: number;
@@ -530,6 +540,18 @@ interface PlanningContext {
     themeId: string;
     themeName: string;
   } | null;
+  // GPS location from device (for Gemini Maps grounding)
+  userLocation?: {
+    latitude: number;
+    longitude: number;
+    city?: string;
+  };
+  // Weather data (auto-fetched when location is detected)
+  weather?: {
+    summary: string | null;
+    alerts: Array<{ type: string; description: string }>;
+    hasAlerts: boolean;
+  };
 }
 
 // ============================================================================
@@ -1092,11 +1114,258 @@ class AnthropicProvider implements LLMProvider {
 }
 
 // ============================================================================
+// GEMINI PROVIDER (with Google Search & Maps Grounding)
+// ============================================================================
+
+class GeminiProvider implements LLMProvider {
+  async generate(
+    messages: ConversationMessage[],
+    systemPrompt: string,
+    tools: any[],
+    context: PlanningContext,
+    mode: 'quick' | 'smart'
+  ): Promise<PlanningResponse> {
+    try {
+      // Count assistant messages to determine turn
+      const assistantMessageCount = messages.filter(m => m.role === 'assistant').length;
+      const currentTurn = assistantMessageCount + 1;
+      const isPreviewTurn = mode === 'quick' ? currentTurn >= 3 : currentTurn >= 4;
+
+      console.log(`[GEMINI_PROVIDER] Turn ${currentTurn}: ${isPreviewTurn ? 'preview with grounding' : 'question gathering'}`);
+
+      // Configure grounding based on turn and context
+      const groundingConfig: GeminiGroundingConfig = {
+        // Enable Google Search on preview turns for real-time data
+        enableGoogleSearch: isPreviewTurn,
+        // Enable Google Maps if we have user location
+        enableGoogleMaps: isPreviewTurn && !!context.userLocation,
+        userLocation: context.userLocation,
+      };
+
+      if (context.userLocation) {
+        console.log(`[GEMINI_PROVIDER] Using location: ${context.userLocation.city || `${context.userLocation.latitude}, ${context.userLocation.longitude}`}`);
+      }
+
+      // Convert messages to Gemini format
+      const geminiMessages: GeminiMessage[] = messages.map(m => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        content: m.content,
+      }));
+
+      // Build enhanced system prompt with grounding instructions
+      let enhancedSystemPrompt = systemPrompt;
+      if (isPreviewTurn) {
+        enhancedSystemPrompt += `
+
+## Real-Time Data via Google Grounding
+
+You have access to LIVE data through Google Search and Maps grounding:
+1. Weather forecasts are REAL-TIME - always include current conditions
+2. Restaurant/venue data includes real ratings, hours, and addresses
+3. Prices and availability are current
+4. ${context.userLocation ? `User is located in ${context.userLocation.city || 'their current location'} - use this for "near me" queries` : 'No GPS location provided'}
+
+IMPORTANT:
+- Use REAL venue names from grounding, not placeholders
+- Include specific addresses and ratings
+- Show actual prices when available
+- DO NOT include "Activity Link" or "🔗 Activity Link" sections in the message
+- The destinationUrl goes in the JSON plan object, NOT in the message text
+`;
+      }
+
+      // Add JSON response format instruction
+      enhancedSystemPrompt += `
+
+## Response Format (CRITICAL)
+You MUST respond with a valid JSON object with this exact structure:
+{
+  "message": "Your conversational response here (markdown formatted)",
+  "extractedInfo": {
+    "activityType": "string or null",
+    "location": "string or null",
+    "timing": "string or null",
+    "budget": "number or null",
+    "preferences": ["array of strings"],
+    "questionCount": number
+  },
+  "readyToGenerate": boolean,
+  "plan": null or {
+    "title": "Activity Title",
+    "emoji": "Single emoji representing the activity (🍽️ for dining, ✈️ for travel, 💪 for fitness, 🎬 for movies, etc.)",
+    "description": "Brief overview of the plan",
+    "destinationUrl": "https://www.google.com/maps/search/?api=1&query=Main+Destination+Name",
+    "startDate": "YYYY-MM-DD format if user mentioned dates",
+    "endDate": "YYYY-MM-DD format for multi-day activities",
+    "tasks": [
+      {
+        "taskName": "Task/Step title",
+        "duration": 60,
+        "scheduledDate": "YYYY-MM-DD",
+        "startTime": "HH:MM (24-hour format)",
+        "notes": "Detailed description with real venue names, times, costs",
+        "category": "dining/travel/activity/etc",
+        "priority": "high/medium/low"
+      }
+    ],
+    "budget": {
+      "total": number,
+      "breakdown": [
+        { "category": "Item name", "amount": number, "notes": "e.g., $50 × 2 people = $100" }
+      ],
+      "buffer": number
+    },
+    "tips": ["General tips for the activity"]
+  },
+  "conversationHints": ["array of suggested follow-ups"]
+}
+
+IMPORTANT for destinationUrl:
+- When generating a plan, ALWAYS include "destinationUrl" in the plan JSON object
+- Format: https://www.google.com/maps/search/?api=1&query=URL_ENCODED_DESTINATION
+- Example: For "San Diego trip" → "https://www.google.com/maps/search/?api=1&query=San+Diego+CA"
+- Example: For "Pizzeria Mozza" → "https://www.google.com/maps/search/?api=1&query=Pizzeria+Mozza+Los+Angeles"
+- DO NOT include "Activity Link" section in the message - put the URL ONLY in plan.destinationUrl
+- The frontend will render the title as a clickable link using plan.destinationUrl
+
+IMPORTANT for emoji:
+- Always include an "emoji" field in your plan with a SINGLE emoji character
+- Choose the most fitting emoji for the activity type (🍽️ dining, ✈️ travel, 💪 fitness, 🎬 movies, 🎉 parties, etc.)
+`;
+
+      const response = await generateWithGrounding(
+        geminiMessages,
+        enhancedSystemPrompt,
+        groundingConfig,
+        'gemini-2.5-flash'
+      );
+
+      // Parse the JSON response
+      let result: PlanningResponse;
+      try {
+        // Try to extract JSON from the response
+        const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          result = JSON.parse(jsonMatch[0]);
+        } else {
+          // If no JSON found, wrap the response as a message
+          result = {
+            message: response.content,
+            extractedInfo: { questionCount: currentTurn },
+            readyToGenerate: false,
+          };
+        }
+      } catch (parseError) {
+        console.log('[GEMINI_PROVIDER] Response not JSON, using as message');
+        result = {
+          message: response.content,
+          extractedInfo: { questionCount: currentTurn },
+          readyToGenerate: false,
+        };
+      }
+
+      // Append grounding sources if available
+      if (response.groundingMetadata) {
+        const sources = formatGroundingSources(response.groundingMetadata);
+        if (sources && result.message) {
+          // Don't duplicate sources if already in message
+          if (!result.message.includes('**Sources:**') && !result.message.includes('**Venues from Google Maps:**')) {
+            result.message += sources;
+          }
+        }
+        console.log(`[GEMINI_PROVIDER] Grounding: ${response.groundingMetadata.sources?.length || 0} web sources, ${response.groundingMetadata.mapsResults?.length || 0} maps results`);
+
+        // Inject grounding URLs into task descriptions for actionable calendar events
+        if (result.plan?.tasks && result.plan.tasks.length > 0) {
+          result.plan.tasks = injectGroundingUrlsIntoTasks(result.plan.tasks, response.groundingMetadata);
+          console.log(`[GEMINI_PROVIDER] Injected grounding URLs into ${result.plan.tasks.length} tasks`);
+        }
+      }
+
+      // Post-process: Extract destinationUrl from message if Gemini put it there instead of in plan
+      if (result.plan && !result.plan.destinationUrl && result.message) {
+        // Look for Google Maps URLs in the message
+        const mapsUrlMatch = result.message.match(/https:\/\/www\.google\.com\/maps\/search\/[^\s\)]+/);
+        if (mapsUrlMatch) {
+          result.plan.destinationUrl = mapsUrlMatch[0];
+          console.log(`[GEMINI_PROVIDER] Extracted destinationUrl from message: ${result.plan.destinationUrl}`);
+        }
+      }
+
+      // Clean up message: Remove "Activity Link" section since we have destinationUrl in plan
+      if (result.message && result.plan?.destinationUrl) {
+        // Remove various formats of Activity Link section
+        result.message = result.message
+          .replace(/##\s*🔗?\s*Activity Link[\s\S]*?(?=\n##|\n\*\*Sources|\n\*\*Venues|$)/gi, '')
+          .replace(/\*\*🔗?\s*Activity Link[:\*]*[\s\S]*?(?=\n\*\*|\n##|$)/gi, '')
+          .replace(/Explore.*on Google Maps:.*\n?/gi, '')
+          .trim();
+      }
+
+      // Normalize plan fields for consistency with OpenAI provider format
+      if (result.plan) {
+        // Ensure emoji field exists
+        if (!result.plan.emoji) {
+          // Try to infer emoji from category or domain
+          const domain = result.extractedInfo?.domain || result.plan.category || '';
+          result.plan.emoji =
+            domain.includes('dining') || domain.includes('restaurant') || domain.includes('food') ? '🍽️' :
+            domain.includes('travel') || domain.includes('trip') ? '✈️' :
+            domain.includes('fitness') || domain.includes('workout') || domain.includes('gym') ? '💪' :
+            domain.includes('movie') || domain.includes('film') || domain.includes('cinema') ? '🎬' :
+            domain.includes('shop') ? '🛍️' :
+            domain.includes('party') || domain.includes('celebration') ? '🎉' :
+            domain.includes('wellness') || domain.includes('spa') ? '💆' :
+            '📝';
+        }
+
+        // Normalize task fields (Gemini might use title/description vs taskName/notes)
+        if (result.plan.tasks && Array.isArray(result.plan.tasks)) {
+          result.plan.tasks = result.plan.tasks.map((task: any) => ({
+            ...task,
+            taskName: task.taskName || task.title || 'Untitled Task',
+            notes: task.notes || task.description || '',
+            duration: typeof task.duration === 'number' ? task.duration : 60,
+            priority: task.priority || 'medium'
+          }));
+        }
+
+        // Normalize budget fields (Gemini might use estimated vs total)
+        if (result.plan.budget) {
+          if (result.plan.budget.estimated !== undefined && result.plan.budget.total === undefined) {
+            result.plan.budget.total = result.plan.budget.estimated;
+          }
+          if (!result.plan.budget.breakdown) {
+            result.plan.budget.breakdown = [];
+          }
+          if (result.plan.budget.buffer === undefined) {
+            result.plan.budget.buffer = Math.round((result.plan.budget.total || 0) * 0.1);
+          }
+          // Normalize breakdown items
+          result.plan.budget.breakdown = result.plan.budget.breakdown.map((item: any) => ({
+            category: item.category || item.item || 'Other',
+            amount: item.amount || item.cost || 0,
+            notes: item.notes || ''
+          }));
+        }
+
+        validateBudgetBreakdown(result.plan);
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error('[GEMINI_PROVIDER] Error:', error.message);
+      throw error;
+    }
+  }
+}
+
+// ============================================================================
 // SYSTEM PROMPT BUILDER
 // ============================================================================
 
 function buildSystemPrompt(context: PlanningContext, mode: 'quick' | 'smart', isPreviewTurn: boolean = false): string {
-  const { user, profile, preferences, recentJournal, journalInsights, detectedDomain, extractedUrlContent, dateReference, todaysTheme } = context;
+  const { user, profile, preferences, recentJournal, journalInsights, detectedDomain, extractedUrlContent, dateReference, todaysTheme, weather } = context;
 
   const modeDescription = mode === 'smart'
     ? 'comprehensive planning with detailed research, real-time data, and enrichment'
@@ -1278,11 +1547,42 @@ When generating plans and suggestions for TODAY:
 `
     : '';
 
+  // Build weather & safety section (CRITICAL - shown from Turn 1)
+  let weatherSection = '';
+  if (weather) {
+    const hasAlerts = weather.hasAlerts && weather.alerts.length > 0;
+
+    weatherSection = `
+
+## ⚠️ REAL-TIME WEATHER & SAFETY CONDITIONS
+**THIS DATA WAS JUST FETCHED - YOU MUST USE IT!**
+
+${hasAlerts ? `### 🚨 ACTIVE WEATHER ALERTS:
+${weather.alerts.map(a => `- ${a}`).join('\n')}
+
+**⚠️ CRITICAL INSTRUCTIONS FOR ALERTS:**
+1. **MENTION THIS IMMEDIATELY** in your FIRST response - BEFORE asking planning questions
+2. **Factor into ALL questions** (e.g., "Given the extreme cold, would you prefer indoor-only options?")
+3. **Include prominently at TOP** of any plan preview
+4. **Adjust recommendations** based on conditions (indoor vs outdoor, transportation safety)
+` : ''}
+### Current & Forecast Conditions:
+${weather.summary || 'Weather data available but summary not generated'}
+
+**Weather Integration Instructions:**
+- ${hasAlerts ? '**LEAD WITH WEATHER WARNING** before asking any planning questions' : 'Mention weather naturally when relevant to the plan'}
+- Factor weather into all outdoor/transportation recommendations
+- Include packing/preparation tips based on conditions
+- If severe weather, strongly recommend indoor alternatives and safe transportation
+
+`;
+  }
+
   // COMPRESSED BUDGET-FIRST SYSTEM PROMPT
   return `You are JournalMate Planning Agent - an expert planner specializing in budget-conscious, personalized plans.
 
 ${userContext}
-${themeBiasSection}
+${themeBiasSection}${weatherSection}
 ## Mission
 Help ${user.firstName || 'the user'} plan ANY activity via smart questions and actionable plans. **${mode.toUpperCase()} MODE** - ${modeDescription}.
 
@@ -1303,7 +1603,7 @@ Thanks for the details! Let's proceed with a few more questions to refine your t
 
 **6. 🎯 Any specific activities or attractions you want to include?** (e.g., sightseeing, shopping, dining)
 
-(Say 'create plan' anytime!)
+(💡 Say "preview", "yes/generate", or "continue")
 \`\`\`
 
 **❌ Bad (Plain numbered list):**
@@ -1393,7 +1693,7 @@ ${mode === 'quick' ? `
 **Quick Mode - STRICT 2-Batch System (5 total questions):**
 
 **🚨 CRITICAL BATCHING RULES:**
-- **Batch 1 (Turn 1):** Ask EXACTLY 3 questions together in a numbered list. End: "(Say 'create plan' anytime!)"
+- **Batch 1 (Turn 1):** Ask EXACTLY 3 questions together in a numbered list. End: "(💡 Say "preview", "yes/generate", or "continue")"
 - **Batch 2 (Turn 2):** Ask EXACTLY 2 MORE questions together in a numbered list. NO preview yet!
 - **Turn 3+:** Show COMPLETE PLAN PREVIEW with real-time data from web_search. Wait for confirmation.
 
@@ -1414,8 +1714,8 @@ User: "Help plan romantic anniversary trip to Paris"
 - Keep batches conversational but structured
 ` : `
 **Smart Mode - 3 Batches (10 total):**
-- **Batch 1:** Ask 3 questions. Skip already-answered. End: "(Say 'create plan' anytime!)"
-- **Batch 2:** Ask 3 MORE. End: "(Remember, 'create plan' anytime!)"
+- **Batch 1:** Ask 3 questions. Skip already-answered. End: "(💡 Say "preview", "yes/generate", or "continue")"
+- **Batch 2:** Ask 3 MORE. End: "(💡 Say "preview", "yes/generate", or "continue")"
 - **Batch 3:** Ask 4 MORE, then show PLAN PREVIEW. Wait for confirmation.
 
 **Organic Inference:** Extract from user's message, skip those questions, ask next priority
@@ -2089,6 +2389,7 @@ Use respond_with_structure tool:
   "plan": {  // ONLY if readyToGenerate = true
     "title": "...",
     "description": "...",
+    "destinationUrl": "https://www.google.com/maps/search/?api=1&query=Main+Destination",  // REQUIRED: Google Maps URL
     "startDate": "2025-01-20",  // ISO date - extract from conversation (e.g., "next Friday", "January 20th")
     "endDate": "2025-01-22",    // ISO date - for multi-day activities
     "tasks": [
@@ -2136,7 +2437,8 @@ Use respond_with_structure tool:
       "buffer": 1440
     },
     "weather": {"forecast": "...", "recommendations": ["..."]},
-    "tips": ["..."]
+    "tips": ["..."],
+    "destinationUrl": "https://www.google.com/maps/search/?api=1&query=Paris+France"  // REQUIRED: Google Maps URL for main destination
   }
 }
 \`\`\`
@@ -2200,6 +2502,10 @@ function getPlanningTool(mode: 'quick' | 'smart') {
           description: 'The generated plan (ONLY include if readyToGenerate is true)',
           properties: {
             title: { type: 'string' },
+            emoji: {
+              type: 'string',
+              description: 'A single emoji that best represents this activity (e.g., 🍽️ for dining, ✈️ for travel, 💪 for fitness, 🎬 for movies, 🎉 for parties, 🏖️ for beach, 🎿 for skiing, 💆 for spa, 🎭 for theater, etc.). Choose the most fitting emoji based on the actual activity content.'
+            },
             description: { type: 'string' },
             startDate: {
               type: 'string',
@@ -2292,9 +2598,13 @@ function getPlanningTool(mode: 'quick' | 'smart') {
             tips: {
               type: 'array',
               items: { type: 'string' }
+            },
+            destinationUrl: {
+              type: 'string',
+              description: 'Google Maps URL for the main destination. Format: https://www.google.com/maps/search/?api=1&query=URL_ENCODED_DESTINATION. Example: For San Diego trip use https://www.google.com/maps/search/?api=1&query=San+Diego+CA'
             }
           },
-          required: ['title', 'description', 'tasks', 'budget']
+          required: ['title', 'description', 'tasks', 'budget', 'destinationUrl']
         },
         redirectToPlanning: {
           type: 'boolean',
@@ -2313,11 +2623,23 @@ function getPlanningTool(mode: 'quick' | 'smart') {
 
 export class SimpleConversationalPlanner {
   private llmProvider: LLMProvider;
+  private providerName: 'openai' | 'claude' | 'gemini';
 
-  constructor(provider: 'openai' | 'claude' = 'openai') {
-    this.llmProvider = provider === 'claude'
-      ? new AnthropicProvider()
-      : new OpenAIProvider();
+  constructor(provider: 'openai' | 'claude' | 'gemini' = 'gemini') {
+    this.providerName = provider;
+
+    // Default to Gemini for real-time grounding capabilities
+    // Falls back to OpenAI if Gemini is not configured
+    if (provider === 'gemini' && isGeminiConfigured()) {
+      this.llmProvider = new GeminiProvider();
+      console.log('[SIMPLE_PLANNER] Using Gemini provider with Google Search + Maps grounding');
+    } else if (provider === 'claude') {
+      this.llmProvider = new AnthropicProvider();
+      console.log('[SIMPLE_PLANNER] Using Claude/Anthropic provider');
+    } else {
+      this.llmProvider = new OpenAIProvider();
+      console.log('[SIMPLE_PLANNER] Using OpenAI provider');
+    }
   }
 
   /**
@@ -2331,6 +2653,7 @@ export class SimpleConversationalPlanner {
     mode: 'quick' | 'smart' = 'quick',
     options?: {
       todaysTheme?: { themeId: string; themeName: string; } | null;
+      userLocation?: { latitude: number; longitude: number; city?: string; };
     }
   ): Promise<PlanningResponse> {
     console.log(`[SIMPLE_PLANNER] Processing message for user ${userId} in ${mode} mode`);
@@ -2377,6 +2700,37 @@ export class SimpleConversationalPlanner {
         console.log(`[SIMPLE_PLANNER] 🎯 Today's theme: ${options.todaysTheme.themeName} (will apply: ${context.dateReference?.isTodayPlan !== false})`);
       }
 
+      // Add GPS location to context (if provided) - used for weather fetch
+      if (options?.userLocation) {
+        context.userLocation = options.userLocation;
+        console.log(`[SIMPLE_PLANNER] 📍 GPS location: ${options.userLocation.city || `${options.userLocation.latitude}, ${options.userLocation.longitude}`}`);
+
+        // If we have GPS location but no weather yet (no detectedLocation in message), fetch weather now
+        if (!context.weather && options.userLocation.city) {
+          try {
+            console.log(`[SIMPLE_PLANNER] 🌤️ Fetching weather for GPS city: ${options.userLocation.city}`);
+            const [summary, alerts] = await Promise.all([
+              getWeatherSummary(options.userLocation.city, new Date()),
+              checkWeatherAlerts(options.userLocation.city, new Date(), new Date())
+            ]);
+            context.weather = {
+              summary,
+              alerts: alerts || [],
+              hasAlerts: (alerts && alerts.length > 0) || false
+            };
+            console.log(`[SIMPLE_PLANNER] 🌤️ Weather from GPS: ${context.weather.hasAlerts ? `⚠️ ${alerts?.length} alerts` : 'No alerts'}`);
+          } catch (weatherError) {
+            console.warn('[SIMPLE_PLANNER] GPS weather fetch failed (non-blocking):', weatherError);
+          }
+        }
+      }
+
+      // Add user GPS location for Gemini Maps grounding
+      if (options?.userLocation) {
+        context.userLocation = options.userLocation;
+        console.log(`[SIMPLE_PLANNER] 📍 User GPS location: ${options.userLocation.city || `${options.userLocation.latitude}, ${options.userLocation.longitude}`}`);
+      }
+
       // 2. Build conversation history
       const messages = [
         ...conversationHistory,
@@ -2399,6 +2753,21 @@ export class SimpleConversationalPlanner {
         context,
         mode
       );
+
+      // Add title with AI-determined emoji to response message if a plan was generated
+      // Note: No link here because activity doesn't exist yet - link is added after confirmation in routes.ts
+      if (response.readyToGenerate && response.plan && response.plan.title) {
+        // Use AI-provided emoji, fallback to [TARGET_ICON] marker if not provided
+        // The client will replace [TARGET_ICON] with styled <Target /> icon
+        const activityEmoji = response.plan.emoji || '[TARGET_ICON]';
+
+        // Just show the title with emoji and bold, no link (activity doesn't exist yet)
+        const activityHeader = `${activityEmoji} **${response.plan.title}**`;
+
+        if (!response.message.includes(response.plan.title)) {
+          response.message = `${activityHeader}\n\n${response.message}`;
+        }
+      }
 
       // Debug logging for preview troubleshooting
       console.log('[SIMPLE_PLANNER] LLM Response Debug:', {
@@ -2441,10 +2810,27 @@ export class SimpleConversationalPlanner {
       console.log(`[SIMPLE_PLANNER] Question count: AI reported ${aiReportedCount}, enforced ${questionCount} (based on ${userResponseCount} user responses)`);
 
       // Check if user requested early generation, preview, or continue
+      // Standard commands: "yes/generate" = create plan, "preview" = show preview, "continue" = next question
       const latestUserMessage = messages[messages.length - 1]?.content || '';
-      const createPlanTrigger = /\b(create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready)\b/i.test(latestUserMessage.toLowerCase());
-      const previewTrigger = /\b(preview|show preview|preview plan|show me the plan|what does the plan look like)\b/i.test(latestUserMessage.toLowerCase());
-      const continueTrigger = /\b(continue|go on|next|keep going|next question|more questions)\b/i.test(latestUserMessage.toLowerCase());
+      const createPlanTrigger = /\b(yes|yeah|yep|generate|create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready|do it|confirm)\b/i.test(latestUserMessage.toLowerCase());
+      const previewTrigger = /\b(preview|show preview|preview plan|show me the plan|what does the plan look like|show plan)\b/i.test(latestUserMessage.toLowerCase());
+      const continueTrigger = /\b(continue|go on|next|keep going|next question|more questions|skip)\b/i.test(latestUserMessage.toLowerCase());
+
+      // Date parsing fix: Ensure dates are valid Date objects
+      if (response.plan) {
+        if (response.plan.startDate && typeof response.plan.startDate === 'string') {
+          const parsedStart = new Date(response.plan.startDate);
+          if (!isNaN(parsedStart.getTime())) {
+            response.plan.startDate = parsedStart;
+          }
+        }
+        if (response.plan.endDate && typeof response.plan.endDate === 'string') {
+          const parsedEnd = new Date(response.plan.endDate);
+          if (!isNaN(parsedEnd.getTime())) {
+            response.plan.endDate = parsedEnd;
+          }
+        }
+      }
 
       // Handle preview request - show plan preview WITHOUT creating activity
       // This triggers early plan generation with web search enrichment
@@ -2555,11 +2941,11 @@ export class SimpleConversationalPlanner {
                 ? (questionCount < 6 ? '4-6' : '7-10')
                 : '4-5';
               
-              cleanMessage = `Let me ask you a few more questions to create the best plan:\n\n(You can say 'create plan' anytime if you'd like me to work with what we have!)`;
+              cleanMessage = `Let me ask you a few more questions to create the best plan:\n\n💡 **Pro tip:** Type **preview** to see your plan, **yes** or **generate** to create it, or **continue** for more questions.`;
               console.log(`[SIMPLE_PLANNER] ✅ Entire message was plan content - replaced with question prompt`);
             } else {
               // There was some question content before the plan - keep it and add continuation
-              cleanMessage += `\n\nThese details will help us build a comprehensive plan for your goal.\n\n(You can say 'create plan' anytime if you'd like me to work with what we have!)`;
+              cleanMessage += `\n\nThese details will help us build a comprehensive plan for your goal.\n\n💡 **Pro tip:** Type **preview** to see your plan, **yes** or **generate** to create it, or **continue** for more questions.`;
               console.log(`[SIMPLE_PLANNER] ✅ Stripped plan content, kept questions`);
             }
             
@@ -2629,6 +3015,7 @@ export class SimpleConversationalPlanner {
     onProgress?: (phase: string, message: string) => void,
     options?: {
       todaysTheme?: { themeId: string; themeName: string; } | null;
+      userLocation?: { latitude: number; longitude: number; city?: string; };
     }
   ): Promise<PlanningResponse> {
     console.log(`[SIMPLE_PLANNER] Processing message with streaming for user ${userId} in ${mode} mode`);
@@ -2641,6 +3028,31 @@ export class SimpleConversationalPlanner {
       if (options?.todaysTheme) {
         context.todaysTheme = options.todaysTheme;
         console.log(`[SIMPLE_PLANNER] 🎯 Today's theme (stream): ${options.todaysTheme.themeName}`);
+      }
+
+      // Add GPS location to context (if provided) - used for weather fetch
+      if (options?.userLocation) {
+        context.userLocation = options.userLocation;
+        console.log(`[SIMPLE_PLANNER] 📍 GPS location (stream): ${options.userLocation.city || `${options.userLocation.latitude}, ${options.userLocation.longitude}`}`);
+
+        // If we have GPS location but no weather yet, fetch weather now
+        if (!context.weather && options.userLocation.city) {
+          try {
+            console.log(`[SIMPLE_PLANNER] 🌤️ Fetching weather for GPS city (stream): ${options.userLocation.city}`);
+            const [summary, alerts] = await Promise.all([
+              getWeatherSummary(options.userLocation.city, new Date()),
+              checkWeatherAlerts(options.userLocation.city, new Date(), new Date())
+            ]);
+            context.weather = {
+              summary,
+              alerts: alerts || [],
+              hasAlerts: (alerts && alerts.length > 0) || false
+            };
+            console.log(`[SIMPLE_PLANNER] 🌤️ Weather from GPS (stream): ${context.weather.hasAlerts ? `⚠️ ${alerts?.length} alerts` : 'No alerts'}`);
+          } catch (weatherError) {
+            console.warn('[SIMPLE_PLANNER] GPS weather fetch failed (non-blocking):', weatherError);
+          }
+        }
       }
 
       // 2. Build conversation history
@@ -2680,16 +3092,48 @@ export class SimpleConversationalPlanner {
         );
       }
 
+      // Add title with AI-determined emoji to response message if a plan was generated
+      // Note: No link here because activity doesn't exist yet - link is added after confirmation in routes.ts
+      if (response.readyToGenerate && response.plan && response.plan.title) {
+        // Use AI-provided emoji, fallback to [TARGET_ICON] marker if not provided
+        // The client will replace [TARGET_ICON] with styled <Target /> icon
+        const activityEmoji = response.plan.emoji || '[TARGET_ICON]';
+
+        // Just show the title with emoji and bold, no link (activity doesn't exist yet)
+        const activityHeader = `${activityEmoji} **${response.plan.title}**`;
+
+        if (!response.message.includes(response.plan.title)) {
+          response.message = `${activityHeader}\n\n${response.message}`;
+        }
+      }
+
       // Use AI's reported questionCount directly (same as non-streaming version)
       // AI is instructed to track cumulative questions across all batches in extractedInfo
       const minimum = mode === 'quick' ? 5 : 10;
       const questionCount = response.extractedInfo.questionCount || 0;
 
       // Check if user requested early generation, preview, or continue
+      // Standard commands: "yes/generate" = create plan, "preview" = show preview, "continue" = next question
       const latestUserMessage = messages[messages.length - 1]?.content || '';
-      const createPlanTrigger = /\b(create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready)\b/i.test(latestUserMessage.toLowerCase());
-      const previewTrigger = /\b(preview|show preview|preview plan|show me the plan|what does the plan look like)\b/i.test(latestUserMessage.toLowerCase());
-      const continueTrigger = /\b(continue|go on|next|keep going|next question|more questions)\b/i.test(latestUserMessage.toLowerCase());
+      const createPlanTrigger = /\b(yes|yeah|yep|generate|create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready|do it|confirm)\b/i.test(latestUserMessage.toLowerCase());
+      const previewTrigger = /\b(preview|show preview|preview plan|show me the plan|what does the plan look like|show plan)\b/i.test(latestUserMessage.toLowerCase());
+      const continueTrigger = /\b(continue|go on|next|keep going|next question|more questions|skip)\b/i.test(latestUserMessage.toLowerCase());
+
+      // Date parsing fix: Ensure dates are valid Date objects
+      if (response.plan) {
+        if (response.plan.startDate && typeof response.plan.startDate === 'string') {
+          const parsedStart = new Date(response.plan.startDate);
+          if (!isNaN(parsedStart.getTime())) {
+            response.plan.startDate = parsedStart;
+          }
+        }
+        if (response.plan.endDate && typeof response.plan.endDate === 'string') {
+          const parsedEnd = new Date(response.plan.endDate);
+          if (!isNaN(parsedEnd.getTime())) {
+            response.plan.endDate = parsedEnd;
+          }
+        }
+      }
 
       // Handle preview request - show plan preview WITHOUT creating activity
       if (previewTrigger && !response.readyToGenerate) {
@@ -2787,11 +3231,11 @@ export class SimpleConversationalPlanner {
                 ? (questionCount < 6 ? '4-6' : '7-10')
                 : '4-5';
               
-              cleanMessage = `Let me ask you a few more questions to create the best plan:\n\n(You can say 'create plan' anytime if you'd like me to work with what we have!)`;
+              cleanMessage = `Let me ask you a few more questions to create the best plan:\n\n💡 **Pro tip:** Type **preview** to see your plan, **yes** or **generate** to create it, or **continue** for more questions.`;
               console.log(`[SIMPLE_PLANNER] ✅ Entire message was plan content - replaced with question prompt`);
             } else {
               // There was some question content before the plan - keep it and add continuation
-              cleanMessage += `\n\nThese details will help us build a comprehensive plan for your goal.\n\n(You can say 'create plan' anytime if you'd like me to work with what we have!)`;
+              cleanMessage += `\n\nThese details will help us build a comprehensive plan for your goal.\n\n💡 **Pro tip:** Type **preview** to see your plan, **yes** or **generate** to create it, or **continue** for more questions.`;
               console.log(`[SIMPLE_PLANNER] ✅ Stripped plan content, kept questions`);
             }
             
@@ -2930,6 +3374,7 @@ export class SimpleConversationalPlanner {
 
   /**
    * Generate contextual conversation hints to guide user
+   * Standard commands: "preview", "yes/generate", "continue"
    */
   private generateConversationHints(
     extractedInfo: Record<string, any>,
@@ -2939,11 +3384,14 @@ export class SimpleConversationalPlanner {
   ): string[] {
     const hints: string[] = [];
 
-    // If plan is ready to generate
+    // STANDARD PRO TIPS - Always show these command hints
+    // Format: 💡 Pro tip: Say "command" to action
+
+    // If plan is ready to generate (confirmation phase)
     if (readyToGenerate) {
-      hints.push("Yes, create it!");
-      hints.push("Make some changes");
-      hints.push("Start over");
+      hints.push("✅ Yes"); // or "generate" to create plan
+      hints.push("📝 Make changes");
+      hints.push("🔄 Start over");
       return hints;
     }
 
@@ -2951,32 +3399,34 @@ export class SimpleConversationalPlanner {
     const hasLocation = extractedInfo.location || extractedInfo.destination;
     const hasBudget = extractedInfo.budget;
     const hasDate = extractedInfo.date || extractedInfo.startDate || extractedInfo.when;
+    const hasEnoughInfo = questionCount >= 2 && (hasLocation || hasBudget || hasDate);
 
-    // Early stage hints
-    if (questionCount < 3) {
-      hints.push("Continue");
-      hints.push("I don't know");
-      hints.push("Skip this question");
-    } else {
-      // Mid-stage hints
-      hints.push("Continue");
-      hints.push("That's all I know");
-      if (mode === 'quick') {
-        hints.push("Create plan now");
+    // Standard command hints for every stage
+    if (hasEnoughInfo) {
+      // User has provided some info - offer preview option
+      hints.push("👁️ Preview"); // See plan preview
+      hints.push("➡️ Continue"); // Continue answering questions
+      if (mode === 'quick' || questionCount >= 3) {
+        hints.push("✅ Generate"); // Create plan now
       }
+    } else {
+      // Early stage - basic navigation
+      hints.push("➡️ Continue");
+      hints.push("⏭️ Skip");
+      hints.push("❓ Help");
     }
 
-    // Context-specific suggestions
+    // Context-specific suggestions (secondary hints)
     if (!hasLocation && questionCount > 1) {
-      hints.push("Use my current location");
+      hints.push("📍 Use my location");
     }
 
     if (!hasBudget && questionCount > 2) {
-      hints.push("Flexible budget");
+      hints.push("💰 Flexible budget");
     }
 
     if (!hasDate && questionCount > 2) {
-      hints.push("This weekend");
+      hints.push("📅 This weekend");
     }
 
     return hints.slice(0, 5); // Limit to 5 hints for clean UI
@@ -3155,6 +3605,31 @@ export class SimpleConversationalPlanner {
       // Determine fallback location from profile
       const fallbackLocation = user.location || (profile as any)?.location;
 
+      // AUTO-FETCH WEATHER: Get weather data for detected location or user's location
+      let weather: PlanningContext['weather'] = undefined;
+      const weatherLocation = detectedLocation || fallbackLocation;
+
+      if (weatherLocation) {
+        try {
+          console.log(`[SIMPLE_PLANNER] 🌤️ Fetching weather for: ${weatherLocation}`);
+          const [summary, alerts] = await Promise.all([
+            getWeatherSummary(weatherLocation, new Date()),
+            checkWeatherAlerts(weatherLocation, new Date(), new Date())
+          ]);
+
+          weather = {
+            summary,
+            alerts: alerts || [],
+            hasAlerts: (alerts && alerts.length > 0) || false
+          };
+
+          console.log(`[SIMPLE_PLANNER] 🌤️ Weather fetched: ${weather.hasAlerts ? `⚠️ ${alerts?.length} alerts` : 'No alerts'}`);
+        } catch (weatherError) {
+          console.warn('[SIMPLE_PLANNER] Weather fetch failed (non-blocking):', weatherError);
+          // Don't fail the whole context - weather is optional enhancement
+        }
+      }
+
       return {
         user,
         profile: profile || undefined,
@@ -3166,6 +3641,7 @@ export class SimpleConversationalPlanner {
         detectedDomain,
         fallbackLocation,
         dateReference,
+        weather,
       };
     } catch (error) {
       console.error('[SIMPLE_PLANNER] Error gathering user context:', error);
@@ -3216,10 +3692,12 @@ export class SimpleConversationalPlanner {
   /**
    * Switch LLM provider
    */
-  setProvider(provider: 'openai' | 'claude') {
+  setProvider(provider: 'openai' | 'claude' | 'gemini') {
     this.llmProvider = provider === 'claude'
       ? new AnthropicProvider()
-      : new OpenAIProvider();
+      : provider === 'gemini'
+        ? new GeminiProvider()
+        : new OpenAIProvider();
     console.log(`[SIMPLE_PLANNER] Switched to ${provider} provider`);
   }
 }
@@ -3228,7 +3706,7 @@ export class SimpleConversationalPlanner {
 // SINGLETON EXPORT
 // ============================================================================
 
-const provider = (process.env.LLM_PROVIDER || 'openai') as 'openai' | 'claude';
+const provider = (process.env.LLM_PROVIDER || (isGeminiConfigured() ? 'gemini' : 'openai')) as 'openai' | 'claude' | 'gemini';
 export const simpleConversationalPlanner = new SimpleConversationalPlanner(provider);
 export { globalSearchCache };
 

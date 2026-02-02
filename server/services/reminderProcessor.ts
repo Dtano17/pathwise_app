@@ -11,6 +11,9 @@
 import type { IStorage } from '../storage';
 import { sendUserNotification, type NotificationPayload } from './notificationService';
 import { getWeatherSummary, checkWeatherAlerts } from './weatherService';
+import { processScheduledNotifications } from './smartNotificationScheduler';
+import { processStreakReminders } from './streakService';
+import { processAccountabilityCheckins } from './accountabilityService';
 
 // Reminder timing configuration (in milliseconds before event)
 const REMINDER_INTERVALS = {
@@ -255,6 +258,15 @@ async function processReminders(storage: IStorage): Promise<void> {
 
     // Step 4: Process auto-scheduling for users with daily planning enabled
     await processAutoScheduling(storage);
+
+    // Step 5: Process smart notifications (event-driven notifications)
+    await processSmartNotifications(storage);
+
+    // Step 6: Process streak reminders (at-risk alerts)
+    await processUserStreakReminders(storage);
+
+    // Step 7: Process accountability check-ins (weekly, monthly, quarterly)
+    await processUserAccountabilityCheckins(storage);
 
     const duration = Date.now() - startTime;
     console.log(`[REMINDER] Processing cycle complete (${duration}ms)`);
@@ -731,5 +743,44 @@ export async function cancelRemindersForActivity(
     console.log(`[REMINDER] Cancelled all reminders for activity ${activityId}`);
   } catch (error) {
     console.error(`[REMINDER] Error cancelling reminders:`, error);
+  }
+}
+
+/**
+ * Process smart notifications (event-driven)
+ * This handles all the new smart notification system notifications
+ */
+async function processSmartNotifications(storage: IStorage): Promise<void> {
+  try {
+    console.log('[REMINDER] Processing smart notifications...');
+    await processScheduledNotifications(storage);
+  } catch (error) {
+    console.error('[REMINDER] Error processing smart notifications:', error);
+  }
+}
+
+/**
+ * Process streak reminders for all users
+ * Checks for users with at-risk streaks and schedules reminders
+ */
+async function processUserStreakReminders(storage: IStorage): Promise<void> {
+  try {
+    console.log('[REMINDER] Processing streak reminders...');
+    await processStreakReminders(storage);
+  } catch (error) {
+    console.error('[REMINDER] Error processing streak reminders:', error);
+  }
+}
+
+/**
+ * Process accountability check-ins (weekly, monthly, quarterly)
+ * Schedules check-in reminders for users based on current date
+ */
+async function processUserAccountabilityCheckins(storage: IStorage): Promise<void> {
+  try {
+    console.log('[REMINDER] Processing accountability check-ins...');
+    await processAccountabilityCheckins(storage);
+  } catch (error) {
+    console.error('[REMINDER] Error processing accountability check-ins:', error);
   }
 }

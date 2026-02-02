@@ -118,6 +118,26 @@ export class DirectPlanGenerator {
   }
 
   /**
+   * Strip markdown syntax from text (UI displays as plain text)
+   * Removes: ** (bold), ## (headers), ### (subheaders), __ (underline)
+   */
+  private stripMarkdown(text: string): string {
+    return text
+      // Remove headers (##, ###, ####)
+      .replace(/^#{1,6}\s+/gm, '')
+      // Remove bold/italic markers (**text**, *text*, __text__, _text_)
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/__([^_]+)__/g, '$1')
+      .replace(/_([^_]+)_/g, '$1')
+      // Remove inline code backticks
+      .replace(/`([^`]+)`/g, '$1')
+      // Clean up any double spaces
+      .replace(/  +/g, ' ')
+      .trim();
+  }
+
+  /**
    * Extract location/destination info from content using comprehensive patterns
    * Supports major cities worldwide plus user input location detection
    */
@@ -998,7 +1018,14 @@ export class DirectPlanGenerator {
         system: [
           {
             type: "text",
-            text: `You are a plan generation expert. Your job is to convert user requests into actionable activity plans with specific tasks. Be direct, clear, and actionable. Format everything as proper activities and tasks that can be tracked.`,
+            text: `You are a plan generation expert. Your job is to convert user requests into actionable activity plans with specific tasks. Be direct, clear, and actionable. Format everything as proper activities and tasks that can be tracked.
+
+⛔ CRITICAL FORMATTING RULE - NO MARKDOWN ⛔
+The UI displays descriptions as PLAIN TEXT. Markdown syntax will show as raw characters.
+NEVER use: ** (bold), ## (headers), ### (subheaders), * (bullets), __ (underline)
+INSTEAD use: Line breaks (\\n), emojis (📺📚🍽️), plain numbered lists (1. 2. 3.), dashes (-)
+
+For the "category" field in tasks[0], use the EXACT display name like "Movies & TV Shows", "Books & Reading", "Restaurants & Food" - NOT "reference" or "movies".`,
             cache_control: { type: "ephemeral" as any }
           }
         ],
@@ -1017,6 +1044,39 @@ export class DirectPlanGenerator {
       }
 
       const result: DirectPlanResult = JSON.parse(jsonMatch[0]);
+
+      // Post-process: Strip markdown syntax from descriptions (UI displays as plain text)
+      for (const task of result.tasks) {
+        if (task.description) {
+          task.description = this.stripMarkdown(task.description);
+        }
+      }
+      if (result.activity.description) {
+        result.activity.description = this.stripMarkdown(result.activity.description);
+      }
+
+      // Post-process: Fix category for tasks[0] if it's "reference" - map to proper category
+      if (result.tasks[0] && result.tasks[0].category === 'reference') {
+        // Try to detect category from description
+        const desc = result.tasks[0].description?.toLowerCase() || '';
+        if (desc.includes('movies') || desc.includes('tv shows') || desc.includes('📺')) {
+          result.tasks[0].category = 'Movies & TV Shows';
+        } else if (desc.includes('books') || desc.includes('reading') || desc.includes('📚')) {
+          result.tasks[0].category = 'Books & Reading';
+        } else if (desc.includes('restaurant') || desc.includes('food') || desc.includes('🍽️')) {
+          result.tasks[0].category = 'Restaurants & Food';
+        } else if (desc.includes('music') || desc.includes('artist') || desc.includes('🎵')) {
+          result.tasks[0].category = 'Music & Artists';
+        } else if (desc.includes('travel') || desc.includes('places') || desc.includes('✈️')) {
+          result.tasks[0].category = 'Travel & Places';
+        } else if (desc.includes('fitness') || desc.includes('health') || desc.includes('💪')) {
+          result.tasks[0].category = 'Health & Fitness';
+        } else if (desc.includes('podcast') || desc.includes('🎙️')) {
+          result.tasks[0].category = 'Podcasts';
+        } else if (desc.includes('gaming') || desc.includes('game') || desc.includes('🎮')) {
+          result.tasks[0].category = 'Gaming';
+        }
+      }
 
       // Add import info to result
       result.importId = contentImportId;
@@ -1222,48 +1282,75 @@ OUTPUT FORMAT (JSON only, no markdown):
 
 THIS IS NON-NEGOTIABLE. When content contains a LIST of items (books, movies, restaurants, exercises, etc.):
 
-tasks[0] MUST be a "Complete List" task with rich metadata for journal categorization:
+tasks[0] MUST be a "Complete List" task with CLEAN PLAIN-TEXT formatting (NO markdown syntax).
+Use CATEGORY-SPECIFIC EMOJI HEADERS instead of generic headers.
 
 {
   "title": "Complete list of [N] [item type] from this post",
-  "description": "CATEGORY: [books|movies|restaurants|fitness|travel|etc]\\nLOCATION: [city/area if applicable]\\nTHEME: [context from source]\\n\\n1. [Item] | [Metadata]\\n2. [Item] | [Metadata]\\n... (ALL items)",
+  "description": "[EMOJI] [CATEGORY NAME]\\n\\nTheme: [context from source]\\nLocation: [city/area if applicable]\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. [ITEM NAME]\\n   [Metadata line]\\n\\n2. [ITEM NAME]\\n   [Metadata line]\\n\\n... (ALL items with blank line between each)",
   "priority": "high",
-  "category": "reference"
+  "category": "[category-id]"
 }
 
-METADATA FORMAT BY CATEGORY (use pipe | separator):
-- Books: "Title | Author: [name] | Genre: [genre]"
-- Movies: "Title | Director: [name] | Year: [year] | Genre: [genre]"
-- Restaurants: "Name | Type: [cuisine] | Location: [area] | Price: [$-$$$$]"
-- Exercises: "Name | Type: [cardio/strength] | Duration: [time] | Equipment: [none/gym]"
-- Travel: "Destination | Type: [city/beach/mountain] | Best for: [context]"
+CATEGORY EMOJI HEADERS (use these EXACTLY):
+- 📺 MOVIES & TV SHOWS (category: "Movies & TV Shows")
+- 📚 BOOKS & READING (category: "Books & Reading")
+- 🎵 MUSIC & ARTISTS (category: "Music & Artists")
+- 🍽️ RESTAURANTS & FOOD (category: "Restaurants & Food")
+- ✈️ TRAVEL & PLACES (category: "Travel & Places")
+- 💪 HEALTH & FITNESS (category: "Health & Fitness")
+- 🎮 GAMING (category: "Gaming")
+- 🎙️ PODCASTS (category: "Podcasts")
+- 🛍️ SHOPPING (category: "Shopping & Purchases")
+- 🎨 HOBBIES & INTERESTS (category: "Hobbies & Interests")
+- 👗 PERSONAL STYLE (category: "Personal Style")
+- ⭐ FAVORITES (category: "Favorite Things")
+
+PLAIN-TEXT FORMAT BY CATEGORY (item name on first line, metadata indented on second line):
+- Books: "1. [Title]\\n   Author: [name] | Genre: [genre]"
+- Movies/TV Shows: "1. [Title]\\n   Platform: [service] | Genre: [genre]"
+- Restaurants: "1. [Name]\\n   Type: [cuisine] | Location: [area] | Price: [$-$$$$]"
+- Exercises: "1. [Name]\\n   Type: [cardio/strength] | Duration: [time] | Equipment: [none/gym]"
+- Travel: "1. [Destination]\\n   Type: [city/beach/mountain] | Best for: [context]"
 
 EXAMPLE for 20 books:
 {
   "title": "Complete list of 20 business books from this post",
-  "description": "CATEGORY: books\\nTHEME: business education / MBA curriculum\\n\\n1. $100M Offers | Author: Alex Hormozi | Genre: business/sales\\n2. Atomic Habits | Author: James Clear | Genre: self-help/habits\\n3. Never Split the Difference | Author: Chris Voss | Genre: negotiation\\n4. Start with Why | Author: Simon Sinek | Genre: leadership\\n5. The E-Myth Revisited | Author: Michael Gerber | Genre: entrepreneurship\\n... (ALL 20 books with author and genre)",
+  "description": "📚 BOOKS & READING\\n\\nTheme: Business education / MBA curriculum\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. $100M Offers\\n   Author: Alex Hormozi | Genre: business/sales\\n\\n2. Atomic Habits\\n   Author: James Clear | Genre: self-help/habits\\n\\n3. Never Split the Difference\\n   Author: Chris Voss | Genre: negotiation\\n\\n4. Start with Why\\n   Author: Simon Sinek | Genre: leadership\\n\\n5. The E-Myth Revisited\\n   Author: Michael Gerber | Genre: entrepreneurship\\n\\n... (ALL 20 books)",
   "priority": "high",
-  "category": "reference"
+  "category": "Books & Reading"
+}
+
+EXAMPLE for 10 TV shows:
+{
+  "title": "Complete list of 10 TV shows from this post",
+  "description": "📺 MOVIES & TV SHOWS\\n\\nTheme: Trending streaming recommendations 2025\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. STEAL\\n   Platform: Prime Video | Genre: thriller\\n\\n2. The RIP\\n   Platform: Netflix | Genre: drama\\n\\n3. RUN AWAY\\n   Platform: Netflix | Genre: thriller\\n\\n4. The Running Man\\n   Platform: Paramount+ | Genre: action\\n\\n5. THE BEAST IN ME\\n   Platform: Netflix | Genre: drama\\n\\n... (ALL 10 shows)",
+  "priority": "high",
+  "category": "Movies & TV Shows"
 }
 
 EXAMPLE for 15 restaurants:
 {
   "title": "Complete list of 15 restaurants from this post",
-  "description": "CATEGORY: restaurants\\nLOCATION: Los Angeles, CA\\nTHEME: top brunch spots 2025\\n\\n1. Blue Bottle Coffee | Type: cafe | Location: Arts District | Price: $$\\n2. Verve Coffee | Type: cafe | Location: Santa Monica | Price: $$\\n3. Gjusta | Type: bakery | Location: Venice | Price: $$$\\n... (ALL 15 with type, location, price)",
+  "description": "🍽️ RESTAURANTS & FOOD\\n\\nLocation: Los Angeles, CA\\nTheme: Top brunch spots 2025\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. Blue Bottle Coffee\\n   Type: cafe | Location: Arts District | Price: $$\\n\\n2. Verve Coffee\\n   Type: cafe | Location: Santa Monica | Price: $$\\n\\n3. Gjusta\\n   Type: bakery | Location: Venice | Price: $$$\\n\\n... (ALL 15 restaurants)",
   "priority": "high",
-  "category": "reference"
+  "category": "Restaurants & Food"
 }
 
 WHY THIS MATTERS:
-- This task feeds directly into journal categorization
-- Rich metadata enables smart image search and correct category matching
-- The journal parser uses this to create individual entries with proper enrichment
+- The category field determines which journal section the entry is saved to
+- The description emoji header (📺, 📚, etc.) provides visual clarity in the UI
+- Backend categorization uses the category field with synonym matching
+- If category doesn't match a standard journal category, a NEW dynamic category is created
 
 ENFORCEMENT (STRICT):
 - If content has 20 books → Step 1 MUST list all 20 with authors/genres
 - If content has 50 restaurants → Step 1 MUST list all 50 with locations/types
 - NEVER summarize or skip items
 - NEVER say "and more" or "etc." - list EVERY SINGLE item
+- NEVER use markdown syntax like ** or ## - use plain text only
+- ALWAYS use the category-specific emoji header format
+- Use the EXACT category name from the list above (e.g., "Movies & TV Shows" not "movies")
 
 ## TASK GENERATION RULES
 
@@ -1323,12 +1410,24 @@ Today's date is: ${new Date().toISOString().split('T')[0]}
 - "09:00", "0900" → "09:00"
 
 **Natural language times:**
-- "morning", "in the morning" → "09:00"
-- "afternoon" → "14:00"
-- "evening" → "18:00"
+- "morning", "in the morning", "early morning" → "09:00"
+- "late morning" → "11:00"
+- "afternoon", "in the afternoon" → "14:00"
+- "late afternoon" → "16:00"
+- "evening", "in the evening" → "18:00"
+- "late evening" → "20:00"
 - "night", "at night" → "20:00"
 - "noon", "midday" → "12:00"
 - "midnight" → "00:00"
+
+**Time constraints (IMPORTANT - extract from task descriptions):**
+- "before 12 PM", "before noon" → startTime: "10:00" (reasonable time before deadline)
+- "before 3 PM" → startTime: "13:00"
+- "by 5 PM" → startTime: "15:00" (2 hours before deadline)
+- "no later than 8 AM" → startTime: "07:00"
+- "complete workout before 12 PM" → startTime: "10:00"
+- "afternoon study session" → startTime: "14:00"
+- "evening drinks" → startTime: "18:00"
 
 **Time ranges:**
 - "9 AM - 5 PM", "9am-5pm" → startTime: "09:00", endTime: "17:00"
@@ -1352,7 +1451,12 @@ Today's date is: ${new Date().toISOString().split('T')[0]}
 - Activity startDate/endDate: "YYYY-MM-DD" for multi-day plans
 
 ### 6. IMPORTANT RULES:
-- If NO time is mentioned → leave startTime as null (date only)
+- **ALWAYS** extract times from task descriptions if they contain time hints (morning, afternoon, evening, before X, by X)
+- If task description says "before 12 PM" or "by noon" → set appropriate startTime (don't leave null)
+- If task mentions "morning workout" → startTime: "09:00"
+- If task mentions "afternoon study" → startTime: "14:00"
+- If task mentions "evening drinks" → startTime: "18:00"
+- If absolutely NO time hint is present → distribute tasks reasonably across the day (9 AM to 8 PM)
 - If date is ambiguous (e.g., "next week") → calculate best estimate from today
 - If year is not specified → use current year (or next year if date has passed)
 - Always output dates in ISO format regardless of input format

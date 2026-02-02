@@ -333,10 +333,23 @@ Generate the complete plan now with the Action Tasks section at the end:`;
     // Extract tasks from the response
     const tasks = this.extractTasksFromResponse(aiResponse, slots, activityType);
 
+    // Ensure response is properly formatted markdown (not raw JSON)
+    let formattedContent = aiResponse;
+
+    // If response looks like raw JSON, extract relevant content
+    if (aiResponse.trim().startsWith('{') || aiResponse.trim().startsWith('[')) {
+      try {
+        const parsed = JSON.parse(aiResponse);
+        formattedContent = parsed.richContent || parsed.description || parsed.content || parsed.plan || aiResponse;
+      } catch {
+        // Not valid JSON, use as-is
+      }
+    }
+
     return {
       title: `Your ${activityType.replace('_', ' ')} Plan`,
       summary: `Comprehensive plan for your ${activityType.replace('_', ' ')}`,
-      richContent: aiResponse, // The full formatted markdown response
+      richContent: formattedContent,
       tasks
     };
   }

@@ -48,6 +48,9 @@ public class MainActivity extends BridgeActivity {
 
         super.onCreate(savedInstanceState);
 
+        // Create all notification channels for smart notifications
+        NotificationChannels.createAllChannels(this);
+
         // Initialize file chooser launcher for handling file input in WebView
         fileChooserLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),

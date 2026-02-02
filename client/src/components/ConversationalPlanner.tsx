@@ -8,10 +8,11 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar, ExternalLink, Check, Loader2, Link, Crosshair } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar, ExternalLink, Check, Loader2, Link, Crosshair, MessageSquarePlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useKeywordDetection, getCategoryColor } from '@/hooks/useKeywordDetection';
 import { useLocation } from 'wouter';
+import { useDeviceLocation } from '@/hooks/useDeviceLocation';
 import TemplateSelector from './TemplateSelector';
 import JournalTimeline from './JournalTimeline';
 import JournalOnboarding from './JournalOnboarding';
@@ -69,6 +70,7 @@ interface ConversationalPlannerProps {
 export default function ConversationalPlanner({ onClose, initialMode, activityId, activityTitle, user, onSignInRequired }: ConversationalPlannerProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { location: deviceLocation, requestLocation, isGranted: hasLocationPermission } = useDeviceLocation();
   const [currentSession, setCurrentSession] = useState<PlannerSession | null>(null);
   const [message, setMessage] = useState('');
   const [contextChips, setContextChips] = useState<ContextChip[]>([]);
@@ -182,6 +184,17 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     localStorage.removeItem('planner_mode');
     localStorage.removeItem('planner_chips');
   }, []);
+
+  // Request location permission for quick/smart planning modes (enables Gemini Maps grounding)
+  useEffect(() => {
+    if ((planningMode === 'quick' || planningMode === 'smart') && !hasLocationPermission) {
+      // Silently request location - the hook handles errors gracefully
+      requestLocation().catch(() => {
+        // Location not available is fine - planner will work without it
+        console.log('[Planner] Location not available, proceeding without GPS grounding');
+      });
+    }
+  }, [planningMode, hasLocationPermission, requestLocation]);
 
   // Pre-fill journal when activity context is provided
   useEffect(() => {
@@ -401,7 +414,13 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           message: messageData.message,
           conversationHistory: messageData.conversationHistory,
           mode: messageData.mode,
-          sessionId: currentSession?.id // Send session ID for plan retrieval
+          sessionId: currentSession?.id, // Send session ID for plan retrieval
+          // Pass GPS location for Gemini Maps grounding (real-time venue recommendations)
+          location: deviceLocation ? {
+            latitude: deviceLocation.latitude,
+            longitude: deviceLocation.longitude,
+            city: deviceLocation.city
+          } : undefined
         })
       });
 
@@ -647,15 +666,31 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const handleSendMessage = () => {
     if (!message.trim()) return;
     if (!planningMode || (planningMode !== 'quick' && planningMode !== 'smart')) return;
-    
-    // ✅ CRITICAL FIX: Compute conversation history BEFORE clearing session
-    // If session is complete, send empty history to trigger fresh session creation on backend
-    const conversationHistory = currentSession?.isComplete ? [] : (currentSession?.conversationHistory || []);
-    
-    if (currentSession?.isComplete) {
-      console.log('[PLANNER] Detected completed session, sending empty history for fresh start');
+
+    // ✅ CRITICAL FIX: Determine if this is a fresh conversation
+    // A fresh conversation is when:
+    // 1. Session is marked as complete (plan was created)
+    // 2. Session has no history yet (just created via handleModeSelect)
+    // 3. Session ID starts with 'temp-' (not yet confirmed by backend)
+    const isSessionComplete = currentSession?.isComplete === true;
+    const isNewTempSession = currentSession?.id?.startsWith('temp-');
+    const hasNoHistory = !currentSession?.conversationHistory || currentSession.conversationHistory.length === 0;
+    const isFreshConversation = isSessionComplete || isNewTempSession || hasNoHistory;
+
+    // For fresh conversations, ALWAYS send empty history to trigger backend session creation
+    const conversationHistory = isFreshConversation ? [] : (currentSession?.conversationHistory || []);
+
+    if (isFreshConversation) {
+      console.log('[PLANNER] Starting fresh conversation - sending empty history', {
+        isSessionComplete,
+        isNewTempSession,
+        hasNoHistory,
+        existingHistoryLength: currentSession?.conversationHistory?.length || 0
+      });
+    } else {
+      console.log('[PLANNER] Continuing conversation with', conversationHistory.length, 'messages');
     }
-    
+
     sendMessageMutation.mutate({
       message: message.trim(),
       mode: planningMode,
@@ -1335,6 +1370,29 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     toast({
       title: "Session Cleared",
       description: "Starting fresh!",
+    });
+  };
+
+  // Start a new chat session - clears conversation but keeps mode
+  const handleNewChat = () => {
+    // Clear conversation-related localStorage
+    localStorage.removeItem('planner_session');
+    localStorage.removeItem('planner_chips');
+    // Clear conversation state but keep the mode
+    setCurrentSession(null);
+    setContextChips([]);
+    setPendingPlan(null);
+    setGeneratedPlan(null);
+    setShowPlanConfirmation(false);
+    setShowPlanDetails(false);
+    setShowAgreementPrompt(false);
+    setJournalContextInfo(null);
+    setCreatedActivityInfo(null);
+    setMessage('');
+    setMessageActivities(new Map());
+    toast({
+      title: "New Chat Started",
+      description: "Ready for a fresh conversation!",
     });
   };
 
@@ -2238,13 +2296,15 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
             </div>
             <div className="flex gap-2">
               <Button
-                onClick={handleHardRefresh}
-                variant="outline"
+                onClick={handleNewChat}
+                variant="default"
                 size="sm"
-                data-testid="button-hard-refresh"
-                title="Hard refresh - clears all state and cache"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                data-testid="button-new-chat"
+                title="Start a new chat session"
               >
-                <RefreshCcw className="h-4 w-4" />
+                <MessageSquarePlus className="h-4 w-4 mr-2" />
+                New Chat
               </Button>
               <Button
                 onClick={() => {
@@ -2403,6 +2463,28 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                                 components={{
                                   a: ({ href, children, ...props }) => {
                                     const isInternal = href?.startsWith('/');
+                                    // Process children to replace [TARGET_ICON] with Target icon
+                                    const processedChildren = Array.isArray(children)
+                                      ? children.map((child, idx) => {
+                                          if (typeof child === 'string' && child.includes('[TARGET_ICON]')) {
+                                            const parts = child.split('[TARGET_ICON]');
+                                            return parts.map((part, partIdx) => (
+                                              <span key={`${idx}-${partIdx}`}>
+                                                {partIdx > 0 && <Target className="inline-block w-4 h-4 text-purple-500 mr-1" />}
+                                                {part}
+                                              </span>
+                                            ));
+                                          }
+                                          return child;
+                                        })
+                                      : (typeof children === 'string' && children.includes('[TARGET_ICON]'))
+                                        ? children.split('[TARGET_ICON]').map((part, idx) => (
+                                            <span key={idx}>
+                                              {idx > 0 && <Target className="inline-block w-4 h-4 text-purple-500 mr-1" />}
+                                              {part}
+                                            </span>
+                                          ))
+                                        : children;
                                     return (
                                       <a
                                         href={href}
@@ -2412,14 +2494,33 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                                             setLocation(href || '/');
                                           }
                                         }}
-                                        className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline cursor-pointer font-medium"
+                                        className="!text-blue-500 hover:!text-blue-700 dark:!text-blue-400 dark:hover:!text-blue-300 !underline cursor-pointer font-medium !no-underline-offset"
+                                        style={{ color: '#3b82f6', textDecoration: 'underline' }}
                                         target={!isInternal ? '_blank' : undefined}
                                         rel={!isInternal ? 'noopener noreferrer' : undefined}
                                         {...props}
                                       >
-                                        {children}
+                                        {processedChildren}
                                       </a>
                                     );
+                                  },
+                                  // Also handle [TARGET_ICON] in plain text nodes
+                                  p: ({ children, ...props }) => {
+                                    const processNode = (node: React.ReactNode): React.ReactNode => {
+                                      if (typeof node === 'string' && node.includes('[TARGET_ICON]')) {
+                                        return node.split('[TARGET_ICON]').map((part, idx) => (
+                                          <span key={idx}>
+                                            {idx > 0 && <Target className="inline-block w-4 h-4 text-purple-500 mr-1" />}
+                                            {part}
+                                          </span>
+                                        ));
+                                      }
+                                      return node;
+                                    };
+                                    const processed = Array.isArray(children)
+                                      ? children.map(processNode)
+                                      : processNode(children);
+                                    return <p {...props}>{processed}</p>;
                                   }
                                 }}
                               >
@@ -2849,10 +2950,22 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 {/* Activity info overlay */}
                 <div className="absolute bottom-4 left-4 right-4 text-white">
                   <div className="flex items-center gap-2 mb-2">
-                    <Target className="h-5 w-5 drop-shadow-lg" />
-                    <h2 className="text-xl font-bold drop-shadow-lg">
-                      {pendingPlan.activity?.title || "Your Activity"}
-                    </h2>
+                    <Crosshair className="h-5 w-5 drop-shadow-lg animate-pulse" />
+                    {pendingPlan.destinationUrl ? (
+                      <a
+                        href={pendingPlan.destinationUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xl font-bold drop-shadow-lg hover:underline flex items-center gap-2"
+                      >
+                        {pendingPlan.activity?.title || "Your Activity"}
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    ) : (
+                      <h2 className="text-xl font-bold drop-shadow-lg">
+                        {pendingPlan.activity?.title || "Your Activity"}
+                      </h2>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
@@ -2897,7 +3010,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                               </Badge>
                             </div>
                             {task.description && (
-                              <p className="text-xs text-slate-600 dark:text-slate-400">
+                              <p className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
                                 {task.description}
                               </p>
                             )}
@@ -3237,8 +3350,20 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-lg flex items-center gap-2">
-                        <Target className="h-5 w-5 text-emerald-500" />
-                        {parsedLLMContent.activity?.title || "New Activity"}
+                        <Crosshair className="h-5 w-5 text-emerald-500 animate-pulse" />
+                        {parsedLLMContent.destinationUrl ? (
+                          <a
+                            href={parsedLLMContent.destinationUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline hover:text-emerald-600 flex items-center gap-2"
+                          >
+                            {parsedLLMContent.activity?.title || "New Activity"}
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        ) : (
+                          parsedLLMContent.activity?.title || "New Activity"
+                        )}
                       </CardTitle>
                       <Badge variant="outline" className="mt-2">
                         {parsedLLMContent.activity?.category || "General"}
@@ -3277,7 +3402,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                               </Badge>
                             </div>
                             {task.description && (
-                              <p className="text-xs text-slate-600 dark:text-slate-400">
+                              <p className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
                                 {task.description}
                               </p>
                             )}

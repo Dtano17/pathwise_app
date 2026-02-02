@@ -8,21 +8,68 @@ import { Progress } from '@/components/ui/progress';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen, FileText } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen, FileText, RotateCcw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { invalidateActivitiesCache } from '@/lib/cacheInvalidation';
 
 // Simple markdown formatter for Claude-style responses
 const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
+  // Parse inline formatting (bold and links) in a text segment
+  const parseInlineFormatting = (text: string, keyPrefix: string): (string | JSX.Element)[] => {
+    const result: (string | JSX.Element)[] = [];
+    // Combined regex for bold (**text**) and links [text](url)
+    const inlineRegex = /\*\*(.*?)\*\*|\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = inlineRegex.exec(text)) !== null) {
+      // Add text before this match
+      if (match.index > lastIndex) {
+        result.push(text.substring(lastIndex, match.index));
+      }
+
+      if (match[1] !== undefined) {
+        // Bold text match
+        result.push(
+          <strong key={`${keyPrefix}-bold-${match.index}`} className="font-semibold">
+            {match[1]}
+          </strong>
+        );
+      } else if (match[2] !== undefined && match[3] !== undefined) {
+        // Link match [text](url)
+        result.push(
+          <a
+            key={`${keyPrefix}-link-${match.index}`}
+            href={match[3]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline font-medium"
+          >
+            {match[2]}
+          </a>
+        );
+      }
+
+      lastIndex = inlineRegex.lastIndex;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      result.push(text.substring(lastIndex));
+    }
+
+    return result.length > 0 ? result : [text];
+  };
+
   const formatText = (text: string) => {
     const parts: JSX.Element[] = [];
     const lines = text.split('\n');
-    
+
     lines.forEach((line, lineIndex) => {
       // Check for bullet points and numbered lists first, then strip markers
       const bulletMatch = line.trim().match(/^[•\-\*]\s(.+)/);
       const numberMatch = line.trim().match(/^(\d+)\.\s(.+)/);
-      
+
       // Get the text content without the marker
       let textContent = line;
       if (bulletMatch) {
@@ -30,24 +77,10 @@ const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
       } else if (numberMatch) {
         textContent = numberMatch[2];
       }
-      
-      // Handle bold text (**text**) on the cleaned content
-      const boldRegex = /\*\*(.*?)\*\*/g;
-      const segments: (string | JSX.Element)[] = [];
-      let lastIndex = 0;
-      let match;
-      
-      while ((match = boldRegex.exec(textContent)) !== null) {
-        if (match.index > lastIndex) {
-          segments.push(textContent.substring(lastIndex, match.index));
-        }
-        segments.push(<strong key={`bold-${lineIndex}-${match.index}`} className="font-semibold">{match[1]}</strong>);
-        lastIndex = boldRegex.lastIndex;
-      }
-      if (lastIndex < textContent.length) {
-        segments.push(textContent.substring(lastIndex));
-      }
-      
+
+      // Parse inline formatting (bold and links)
+      const segments = parseInlineFormatting(textContent, `line-${lineIndex}`);
+
       // Render with appropriate formatting
       if (bulletMatch) {
         parts.push(
@@ -69,10 +102,10 @@ const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
         parts.push(<div key={lineIndex} className="h-2" />);
       }
     });
-    
+
     return parts;
   };
-  
+
   return <div className="text-sm leading-relaxed">{formatText(content)}</div>;
 };
 
@@ -884,12 +917,41 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <Badge variant="secondary" className={`text-xs font-medium ${currentMode === 'quick' 
-            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' 
+          <Badge variant="secondary" className={`text-xs font-medium ${currentMode === 'quick'
+            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
             : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'}`}>
             {currentMode === 'quick' ? 'Quick Plan' : 'Smart Plan'}
           </Badge>
-          <div className="w-9" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              // Clear any localStorage cache for planner
+              localStorage.removeItem('planner_session');
+              localStorage.removeItem('planner_chips');
+              localStorage.removeItem('voice_input_draft');
+              // Clear input
+              setText('');
+              // Reset to welcome message (keeps chat view open)
+              const welcomeMessage = currentMode === 'quick'
+                ? "**Quick Plan activated!** Let's create your action plan quickly. What would you like to accomplish? You can also paste a URL to get personalized questions!"
+                : "**Smart Plan activated!** I'll help you create a comprehensive action plan. What's your goal? You can also paste a URL for a personalized experience!";
+              setChatMessages([{
+                role: 'assistant',
+                content: welcomeMessage,
+                timestamp: new Date()
+              }]);
+              toast({
+                title: "New Chat",
+                description: "Starting fresh conversation!",
+              });
+            }}
+            className="h-9 w-9"
+            data-testid="button-new-chat"
+            title="Start new chat"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </Button>
         </div>
 
         {/* Chat Messages - Claude Style */}

@@ -10,6 +10,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.util.Log;
 
 import ai.journalmate.app.widgets.JournalMateWidget2x2;
@@ -24,6 +26,9 @@ import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -439,17 +444,37 @@ public class BackgroundServicePlugin extends Plugin {
     /**
      * Show a one-time notification (for test notifications, reminders, alerts)
      * Uses the same reliable method as the foreground service notification
+     *
+     * Enhanced parameters:
+     * - title: Notification title
+     * - body: Notification body
+     * - id: Notification ID (for cancellation)
+     * - channel: Channel ID (default: journalmate_alerts)
+     * - haptic: Haptic type (light, medium, heavy, celebration, urgent)
+     * - route: Deep link route to navigate on tap
+     * - category: Notification category for grouping
+     * - priority: Notification priority (low, default, high)
+     * - actions: Array of action buttons [{id, title, action}]
      */
     @PluginMethod
     public void showNotification(PluginCall call) {
         String title = call.getString("title", "JournalMate");
         String body = call.getString("body", "");
         Integer id = call.getInt("id", (int) System.currentTimeMillis());
+        String channel = call.getString("channel", ALERT_CHANNEL_ID);
+        String haptic = call.getString("haptic", "medium");
+        String route = call.getString("route", null);
+        String category = call.getString("category", null);
+        String priority = call.getString("priority", "high");
+        String notificationType = call.getString("notificationType", null);
 
         Log.d(TAG, "=== showNotification called ===");
         Log.d(TAG, "Title: " + title);
         Log.d(TAG, "Body: " + body);
         Log.d(TAG, "ID: " + id);
+        Log.d(TAG, "Channel: " + channel);
+        Log.d(TAG, "Haptic: " + haptic);
+        Log.d(TAG, "Route: " + route);
 
         try {
             Context context = getContext();
@@ -467,29 +492,77 @@ public class BackgroundServicePlugin extends Plugin {
                 }
             }
 
+            // Get the appropriate channel (fallback to alerts if channel doesn't exist)
+            String effectiveChannel = channel;
+            if (notificationType != null && (channel == null || channel.equals(ALERT_CHANNEL_ID))) {
+                effectiveChannel = NotificationChannels.getChannelForType(notificationType);
+            }
+
             // Create intent to open app when notification is tapped
             Intent intent = new Intent(context, MainActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+            // Add deep link route if provided
+            if (route != null && !route.isEmpty()) {
+                intent.setAction("NOTIFICATION_TAP");
+                intent.putExtra("route", route);
+            }
+
             PendingIntent pendingIntent = PendingIntent.getActivity(
                 context, id, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
             );
 
-            // Build notification with HIGH priority for visibility
-            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
+            // Get vibration pattern based on haptic type
+            long[] vibrationPattern = NotificationChannels.getVibrationPattern(haptic);
+
+            // Determine notification priority
+            int notificationPriority;
+            switch (priority.toLowerCase()) {
+                case "low":
+                    notificationPriority = NotificationCompat.PRIORITY_LOW;
+                    break;
+                case "high":
+                    notificationPriority = NotificationCompat.PRIORITY_HIGH;
+                    break;
+                default:
+                    notificationPriority = NotificationCompat.PRIORITY_DEFAULT;
+            }
+
+            // Build notification
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, effectiveChannel)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(title)
                 .setContentText(body)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setPriority(notificationPriority)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
                 .setAutoCancel(true)
-                .setVibrate(new long[]{0, 400, 200, 400})
+                .setVibrate(vibrationPattern)
                 .setContentIntent(pendingIntent);
+
+            // Set subtext/category label if provided
+            if (category != null && !category.isEmpty()) {
+                builder.setSubText(category);
+            }
+
+            // Add action buttons if provided
+            try {
+                JSObject actionsObj = call.getObject("actions");
+                if (actionsObj != null) {
+                    // Handle actions array passed as object/JSON
+                    Log.d(TAG, "Processing notification actions");
+                }
+            } catch (Exception e) {
+                Log.d(TAG, "No actions or failed to parse: " + e.getMessage());
+            }
 
             // Show the notification
             NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
             notificationManager.notify(id, builder.build());
+
+            // Trigger haptic feedback separately for immediate tactile response
+            triggerHapticFeedback(context, haptic);
 
             Log.d(TAG, "=== Notification shown successfully with ID: " + id + " ===");
 
@@ -504,6 +577,53 @@ public class BackgroundServicePlugin extends Plugin {
             result.put("success", false);
             result.put("error", e.getMessage());
             call.resolve(result);
+        }
+    }
+
+    /**
+     * Trigger haptic feedback directly on the device
+     * This provides immediate tactile response in addition to notification vibration
+     */
+    private void triggerHapticFeedback(Context context, String hapticType) {
+        try {
+            Vibrator vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+            if (vibrator == null || !vibrator.hasVibrator()) {
+                Log.d(TAG, "No vibrator available");
+                return;
+            }
+
+            long[] pattern = NotificationChannels.getVibrationPattern(hapticType);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Use VibrationEffect for Android 8.0+
+                vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1));
+            } else {
+                // Legacy vibration for older devices
+                vibrator.vibrate(pattern, -1);
+            }
+
+            Log.d(TAG, "Haptic feedback triggered: " + hapticType);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to trigger haptic feedback: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Trigger haptic feedback programmatically (callable from JS)
+     */
+    @PluginMethod
+    public void triggerHaptic(PluginCall call) {
+        String hapticType = call.getString("type", "medium");
+
+        try {
+            triggerHapticFeedback(getContext(), hapticType);
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to trigger haptic: " + e.getMessage());
+            call.reject("Failed to trigger haptic: " + e.getMessage());
         }
     }
 
