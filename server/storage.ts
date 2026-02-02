@@ -90,12 +90,8 @@ import {
   type InsertMobilePreferences,
   type JournalEnrichmentCache,
   type InsertJournalEnrichmentCache,
-  type SmartNotification,
-  type InsertSmartNotification,
-  type UserStreak,
-  type InsertUserStreak,
-  type AccountabilityCheckin,
-  type InsertAccountabilityCheckin,
+  type Verification,
+  type InsertVerification,
   users,
   goals,
   tasks,
@@ -139,9 +135,7 @@ import {
   contentImports,
   mobilePreferences,
   journalEnrichmentCache,
-  smartNotifications,
-  userStreaks,
-  accountabilityCheckins
+  verifications
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -151,33 +145,6 @@ const pool = new Pool({
     : undefined
 });
 export const db = drizzle(pool);
-
-/**
- * Normalize a title for deduplication comparison.
- * Removes leading articles (the, a, an), punctuation, and normalizes whitespace.
- * This allows "The Dark Knight" and "Dark Knight, The" to be detected as duplicates.
- */
-function normalizeJournalTitle(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/^(the|a|an)\s+/i, '')        // Remove leading articles
-    .replace(/,\s*(the|a|an)$/i, '')       // Remove trailing ", The" etc.
-    .replace(/[^\w\s]/g, '')               // Remove punctuation
-    .replace(/\s+/g, ' ')                  // Normalize whitespace
-    .trim();
-}
-
-/**
- * Check if two titles are effectively the same (for deduplication).
- * Uses normalized comparison to catch variations like:
- * - "The Dark Knight" vs "Dark Knight, The"
- * - "Spider-Man: No Way Home" vs "Spider Man No Way Home"
- */
-function titlesMatch(title1: string, title2: string): boolean {
-  const norm1 = normalizeJournalTitle(title1);
-  const norm2 = normalizeJournalTitle(title2);
-  return norm1 === norm2 && norm1.length > 0;
-}
 
 // In-memory storage for mobile auth tokens (one-time use, expire in 5 min)
 // Used for OAuth deep link flow when session cookies can't be shared between browser and WebView
@@ -565,31 +532,6 @@ export interface IStorage {
   createMobilePreferences(prefs: InsertMobilePreferences & { userId: string }): Promise<MobilePreferences>;
   updateMobilePreferences(userId: string, updates: Partial<InsertMobilePreferences>): Promise<MobilePreferences | undefined>;
   getOrCreateMobilePreferences(userId: string): Promise<MobilePreferences>;
-
-  // Smart Notifications (event-driven notification system)
-  createSmartNotification(notification: InsertSmartNotification): Promise<SmartNotification>;
-  getSmartNotification(notificationId: string): Promise<SmartNotification | undefined>;
-  getPendingSmartNotifications(beforeTime: Date): Promise<SmartNotification[]>;
-  getSmartNotificationByTypeAndSource(userId: string, notificationType: string, sourceType: string, sourceId: string): Promise<SmartNotification | undefined>;
-  markSmartNotificationSent(notificationId: string): Promise<void>;
-  cancelSmartNotification(notificationId: string): Promise<void>;
-  cancelSmartNotificationsForSource(sourceType: string, sourceId: string): Promise<number>;
-  cancelAllPendingNotificationsForUser(userId: string): Promise<void>;
-  getTasksWithDueDates(userId: string): Promise<Task[]>;
-  getActivitiesWithDates(userId: string): Promise<Activity[]>;
-  getGoalsWithDeadlines(userId: string): Promise<Goal[]>;
-
-  // User Streaks
-  getUserStreak(userId: string): Promise<UserStreak | undefined>;
-  createUserStreak(streak: InsertUserStreak): Promise<UserStreak>;
-  updateUserStreak(userId: string, updates: Partial<InsertUserStreak>): Promise<UserStreak | undefined>;
-  getUsersWithActiveStreaks(minStreak: number): Promise<UserStreak[]>;
-
-  // Accountability Checkins
-  createAccountabilityCheckin(checkin: InsertAccountabilityCheckin): Promise<AccountabilityCheckin>;
-  getUserAccountabilityCheckins(userId: string, checkinType?: string): Promise<AccountabilityCheckin[]>;
-  updateAccountabilityCheckin(checkinId: string, updates: Partial<InsertAccountabilityCheckin>): Promise<AccountabilityCheckin | undefined>;
-  getUsersWithAccountabilityEnabled(): Promise<{ userId: string }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1798,12 +1740,6 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(taskReminders.scheduledAt));
   }
 
-  async getTaskReminders(taskId: string): Promise<TaskReminder[]> {
-    return await db.select().from(taskReminders)
-      .where(eq(taskReminders.taskId, taskId))
-      .orderBy(taskReminders.scheduledAt);
-  }
-
   async getPendingReminders(): Promise<TaskReminder[]> {
     return await db.select().from(taskReminders)
       .where(eq(taskReminders.isSent, false))
@@ -2436,42 +2372,8 @@ export class DatabaseStorage implements IStorage {
     const currentPrefs = prefs?.preferences || {};
     const currentJournal = currentPrefs.journalData || {};
     const categoryEntries = currentJournal[category] || [];
-
-    // CROSS-DAY DEDUPLICATION: Check if this item already exists in ANY day (not just today)
-    // Uses normalized title comparison to catch variations like "The Dark Knight" vs "Dark Knight, The"
-    const newEntryTitle = entry.text.trim();
-    const existingDuplicateIndex = categoryEntries.findIndex((e: any) => {
-      const existingTitle = e.text || e.venueName || '';
-      return titlesMatch(newEntryTitle, existingTitle);
-    });
-
-    if (existingDuplicateIndex !== -1) {
-      // Found an existing entry with the same title (on any day)
-      const existingEntry = categoryEntries[existingDuplicateIndex];
-      console.log(`[JOURNAL DEDUP] Skipping duplicate: "${newEntryTitle}" matches existing "${existingEntry.text || existingEntry.venueName}" (normalized match)`);
-
-      // Return the existing preferences without adding a duplicate
-      // But update the existing entry's timestamp if it's being re-added
-      categoryEntries[existingDuplicateIndex] = {
-        ...existingEntry,
-        // Optionally update with new media/keywords if provided
-        media: entry.media || existingEntry.media,
-        keywords: entry.keywords?.length
-          ? Array.from(new Set([...(existingEntry.keywords || []), ...entry.keywords]))
-          : existingEntry.keywords,
-        // Keep the original timestamp, but log the re-add attempt
-      };
-      currentJournal[category] = categoryEntries;
-
-      return this.upsertUserPreferences(userId, {
-        preferences: {
-          ...currentPrefs,
-          journalData: currentJournal,
-        },
-      });
-    }
-
-    // Check if there's already an entry from today in this category (for same-day text merging)
+    
+    // Check if there's already an entry from today in this category
     const today = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD
     const todayEntryIndex = categoryEntries.findIndex((e: any) => {
       // Safely handle invalid/missing timestamps
@@ -2484,31 +2386,31 @@ export class DatabaseStorage implements IStorage {
         return false;
       }
     });
-
+    
     if (todayEntryIndex !== -1) {
       // Merge with existing entry from today
       const existingEntry = categoryEntries[todayEntryIndex];
-
-      // Check if the new text is already in the existing entry (exact substring check)
+      
+      // Check if the new text is already in the existing entry (duplicate detection)
       const trimmedNewText = entry.text.trim();
       const existingText = existingEntry.text || '';
       const isDuplicate = existingText.includes(trimmedNewText) || trimmedNewText === existingText.trim();
-
+      
       // Combine text with newline (skip if duplicate)
-      const combinedText = isDuplicate
-        ? existingEntry.text
+      const combinedText = isDuplicate 
+        ? existingEntry.text 
         : existingEntry.text ? `${existingEntry.text}\n${entry.text}` : entry.text;
-
+      
       // Merge media arrays
       const existingMedia = existingEntry.media || [];
       const newMedia = entry.media || [];
       const combinedMedia = [...existingMedia, ...newMedia];
-
+      
       // Merge keywords (unique)
       const existingKeywords = existingEntry.keywords || [];
       const newKeywords = entry.keywords || [];
       const combinedKeywords = Array.from(new Set([...existingKeywords, ...newKeywords]));
-
+      
       // Update the existing entry
       categoryEntries[todayEntryIndex] = {
         ...existingEntry,
@@ -2534,7 +2436,7 @@ export class DatabaseStorage implements IStorage {
         linkedActivityTitle: entry.linkedActivityTitle,
         mood: entry.mood,
       };
-
+      
       categoryEntries.push(newEntry);
     }
     currentJournal[category] = categoryEntries;
@@ -4517,8 +4419,6 @@ export class DatabaseStorage implements IStorage {
           verified: data.verified,
           enrichmentSource: data.enrichmentSource,
           isComingSoon: data.isComingSoon,
-          tmdbId: data.tmdbId,
-          mediaType: data.mediaType,
           updatedAt: new Date(),
         },
       })
@@ -4540,297 +4440,75 @@ export class DatabaseStorage implements IStorage {
       .where(inArray(journalEnrichmentCache.cacheKey, cacheKeys));
   }
 
-  // Get cache stats - useful for understanding what needs refresh
-  async getJournalEnrichmentCacheStats(): Promise<{
-    total: number;
-    verified: number;
-    unverified: number;
-    comingSoon: number;
-    bySource: Record<string, number>;
-  }> {
-    const allEntries = await db.select().from(journalEnrichmentCache);
-    const bySource: Record<string, number> = {};
-
-    for (const entry of allEntries) {
-      const source = entry.enrichmentSource || 'unknown';
-      bySource[source] = (bySource[source] || 0) + 1;
-    }
-
-    return {
-      total: allEntries.length,
-      verified: allEntries.filter(e => e.verified).length,
-      unverified: allEntries.filter(e => !e.verified).length,
-      comingSoon: allEntries.filter(e => e.isComingSoon).length,
-      bySource,
-    };
+  // VerifyMate: Content Verification Methods
+  async createVerification(data: InsertVerification & { userId: string }): Promise<Verification> {
+    const [result] = await db
+      .insert(verifications)
+      .values(data)
+      .returning();
+    return result;
   }
 
-  // Clear only unverified/Coming Soon entries - leaves verified TMDB entries intact
-  async clearUnverifiedEnrichmentCache(): Promise<number> {
+  async getVerification(id: string): Promise<Verification | undefined> {
+    const [result] = await db
+      .select()
+      .from(verifications)
+      .where(eq(verifications.id, id));
+    return result;
+  }
+
+  async getVerificationByShareToken(shareToken: string): Promise<Verification | undefined> {
+    const [result] = await db
+      .select()
+      .from(verifications)
+      .where(eq(verifications.shareToken, shareToken));
+    return result;
+  }
+
+  async getUserVerifications(userId: string): Promise<Verification[]> {
+    return db
+      .select()
+      .from(verifications)
+      .where(eq(verifications.userId, userId))
+      .orderBy(desc(verifications.createdAt));
+  }
+
+  async getUserVerificationsThisMonth(userId: string): Promise<number> {
+    // Get the start of the current month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
     const result = await db
-      .delete(journalEnrichmentCache)
+      .select()
+      .from(verifications)
       .where(
-        or(
-          eq(journalEnrichmentCache.verified, false),
-          eq(journalEnrichmentCache.isComingSoon, true)
+        and(
+          eq(verifications.userId, userId),
+          sql`${verifications.createdAt} >= ${startOfMonth}`
         )
-      )
-      .returning();
+      );
+
     return result.length;
   }
 
-  // Get entries that need refresh (Coming Soon or placeholder source)
-  async getEnrichmentEntriesNeedingRefresh(): Promise<JournalEnrichmentCache[]> {
-    return db
-      .select()
-      .from(journalEnrichmentCache)
-      .where(
-        or(
-          eq(journalEnrichmentCache.isComingSoon, true),
-          eq(journalEnrichmentCache.enrichmentSource, 'placeholder'),
-          eq(journalEnrichmentCache.verified, false)
-        )
-      );
-  }
-
-  // ============================================
-  // Smart Notifications (event-driven)
-  // ============================================
-
-  async createSmartNotification(notification: InsertSmartNotification): Promise<SmartNotification> {
+  async updateVerificationVisibility(id: string, isPublic: boolean): Promise<Verification | undefined> {
     const [result] = await db
-      .insert(smartNotifications)
-      .values(notification)
+      .update(verifications)
+      .set({ isPublic })
+      .where(eq(verifications.id, id))
       .returning();
     return result;
   }
 
-  async getSmartNotification(notificationId: string): Promise<SmartNotification | undefined> {
-    const [result] = await db
-      .select()
-      .from(smartNotifications)
-      .where(eq(smartNotifications.id, notificationId));
-    return result;
-  }
-
-  async getPendingSmartNotifications(beforeTime: Date): Promise<SmartNotification[]> {
-    return db
-      .select()
-      .from(smartNotifications)
-      .where(
-        and(
-          eq(smartNotifications.status, 'pending'),
-          lte(smartNotifications.scheduledAt, beforeTime)
-        )
-      )
-      .orderBy(smartNotifications.scheduledAt);
-  }
-
-  async getSmartNotificationByTypeAndSource(
-    userId: string,
-    notificationType: string,
-    sourceType: string,
-    sourceId: string
-  ): Promise<SmartNotification | undefined> {
-    const [result] = await db
-      .select()
-      .from(smartNotifications)
-      .where(
-        and(
-          eq(smartNotifications.userId, userId),
-          eq(smartNotifications.notificationType, notificationType),
-          eq(smartNotifications.sourceType, sourceType),
-          eq(smartNotifications.sourceId, sourceId),
-          eq(smartNotifications.status, 'pending')
-        )
-      );
-    return result;
-  }
-
-  async markSmartNotificationSent(notificationId: string): Promise<void> {
+  async deleteVerification(id: string, userId: string): Promise<void> {
     await db
-      .update(smartNotifications)
-      .set({
-        status: 'sent',
-        sentAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(smartNotifications.id, notificationId));
-  }
-
-  async cancelSmartNotification(notificationId: string): Promise<void> {
-    await db
-      .update(smartNotifications)
-      .set({
-        status: 'cancelled',
-        updatedAt: new Date(),
-      })
-      .where(eq(smartNotifications.id, notificationId));
-  }
-
-  async cancelSmartNotificationsForSource(sourceType: string, sourceId: string): Promise<number> {
-    const result = await db
-      .update(smartNotifications)
-      .set({
-        status: 'cancelled',
-        updatedAt: new Date(),
-      })
+      .delete(verifications)
       .where(
         and(
-          eq(smartNotifications.sourceType, sourceType),
-          eq(smartNotifications.sourceId, sourceId),
-          eq(smartNotifications.status, 'pending')
-        )
-      )
-      .returning();
-    return result.length;
-  }
-
-  async cancelAllPendingNotificationsForUser(userId: string): Promise<void> {
-    await db
-      .update(smartNotifications)
-      .set({
-        status: 'cancelled',
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(smartNotifications.userId, userId),
-          eq(smartNotifications.status, 'pending')
+          eq(verifications.id, id),
+          eq(verifications.userId, userId)
         )
       );
-  }
-
-  async getTasksWithDueDates(userId: string): Promise<Task[]> {
-    return db
-      .select()
-      .from(tasks)
-      .where(
-        and(
-          eq(tasks.userId, userId),
-          isNotNull(tasks.dueDate),
-          eq(tasks.completed, false)
-        )
-      );
-  }
-
-  async getActivitiesWithDates(userId: string): Promise<Activity[]> {
-    return db
-      .select()
-      .from(activities)
-      .where(
-        and(
-          eq(activities.userId, userId),
-          isNotNull(activities.startDate)
-        )
-      );
-  }
-
-  async getGoalsWithDeadlines(userId: string): Promise<Goal[]> {
-    return db
-      .select()
-      .from(goals)
-      .where(
-        and(
-          eq(goals.userId, userId),
-          isNotNull(goals.deadline),
-          eq(goals.completed, false)
-        )
-      );
-  }
-
-  // ============================================
-  // User Streaks
-  // ============================================
-
-  async getUserStreak(userId: string): Promise<UserStreak | undefined> {
-    const [result] = await db
-      .select()
-      .from(userStreaks)
-      .where(eq(userStreaks.userId, userId));
-    return result;
-  }
-
-  async createUserStreak(streak: InsertUserStreak): Promise<UserStreak> {
-    const [result] = await db
-      .insert(userStreaks)
-      .values(streak)
-      .returning();
-    return result;
-  }
-
-  async updateUserStreak(userId: string, updates: Partial<InsertUserStreak>): Promise<UserStreak | undefined> {
-    const [result] = await db
-      .update(userStreaks)
-      .set({
-        ...updates,
-        updatedAt: new Date(),
-      })
-      .where(eq(userStreaks.userId, userId))
-      .returning();
-    return result;
-  }
-
-  async getUsersWithActiveStreaks(minStreak: number): Promise<UserStreak[]> {
-    return db
-      .select()
-      .from(userStreaks)
-      .where(sql`${userStreaks.currentStreak} >= ${minStreak}`);
-  }
-
-  // ============================================
-  // Accountability Checkins
-  // ============================================
-
-  async createAccountabilityCheckin(checkin: InsertAccountabilityCheckin): Promise<AccountabilityCheckin> {
-    const [result] = await db
-      .insert(accountabilityCheckins)
-      .values(checkin)
-      .returning();
-    return result;
-  }
-
-  async getUserAccountabilityCheckins(userId: string, checkinType?: string): Promise<AccountabilityCheckin[]> {
-    if (checkinType) {
-      return db
-        .select()
-        .from(accountabilityCheckins)
-        .where(
-          and(
-            eq(accountabilityCheckins.userId, userId),
-            eq(accountabilityCheckins.checkinType, checkinType)
-          )
-        )
-        .orderBy(desc(accountabilityCheckins.createdAt));
-    }
-    return db
-      .select()
-      .from(accountabilityCheckins)
-      .where(eq(accountabilityCheckins.userId, userId))
-      .orderBy(desc(accountabilityCheckins.createdAt));
-  }
-
-  async updateAccountabilityCheckin(checkinId: string, updates: Partial<InsertAccountabilityCheckin>): Promise<AccountabilityCheckin | undefined> {
-    const [result] = await db
-      .update(accountabilityCheckins)
-      .set(updates)
-      .where(eq(accountabilityCheckins.id, checkinId))
-      .returning();
-    return result;
-  }
-
-  async getUsersWithAccountabilityEnabled(): Promise<{ userId: string }[]> {
-    // Get all users who have accountability reminders enabled (or haven't set preferences, meaning default = enabled)
-    const results = await db
-      .select({ userId: notificationPreferences.userId })
-      .from(notificationPreferences)
-      .where(
-        or(
-          eq(notificationPreferences.enableAccountabilityReminders, true),
-          isNull(notificationPreferences.enableAccountabilityReminders)
-        )
-      );
-    return results;
   }
 }
 

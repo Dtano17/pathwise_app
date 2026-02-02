@@ -37,6 +37,9 @@ const PerplexityPlans = lazy(() => import("@/pages/PerplexityPlans"));
 const WeekendPlans = lazy(() => import("@/pages/WeekendPlans"));
 const ImportPlan = lazy(() => import("@/pages/ImportPlan"));
 const MobileAuthCallback = lazy(() => import("@/pages/MobileAuthCallback"));
+const VerifyPage = lazy(() => import("@/pages/VerifyPage"));
+const VerifyLandingPage = lazy(() => import("@/pages/VerifyLandingPage"));
+const VerifyLogin = lazy(() => import("@/pages/VerifyLogin"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -132,6 +135,23 @@ function AppContent() {
 
           {/* Import Plan Page (publicly accessible with sign-in wall) */}
           <Route path="/import-plan" component={ImportPlan} />
+
+          {/* VerifyMate - Content Verification Pages */}
+          {/* Landing page for VerifyMate (can also be accessed at verifymate.ai root) */}
+          <Route path="/verifymate" component={VerifyLandingPage} />
+
+          {/* VerifyMate Login Page */}
+          <Route path="/verify/login" component={VerifyLogin} />
+
+          {/* Main Verify Page (protected) */}
+          <Route path="/verify">
+            <ProtectedRoute>
+              <VerifyPage />
+            </ProtectedRoute>
+          </Route>
+
+          {/* Shared verification result (public) */}
+          <Route path="/verify/result/:shareToken" component={VerifyPage} />
 
           {/* Main App Route - Protected with Sidebar */}
           <Route path="/app">

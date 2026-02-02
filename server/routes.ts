@@ -22017,6 +22017,295 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
+  // ========== VERIFYMATE: CONTENT VERIFICATION ROUTES ==========
+  // AI-powered fact-checking and content verification endpoints
+
+  // Verify content (URL or direct text)
+  app.post("/api/verify", async (req, res) => {
+    try {
+      const user = req.user || (req as any).user || null;
+
+      // Require authentication
+      if (!user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { url, content, platform, mediaUrls, author } = req.body;
+
+      if (!url && !content) {
+        return res.status(400).json({ error: "Either URL or content is required" });
+      }
+
+      // Check monthly verification limit (5 free per month)
+      const userVerifications = await storage.getUserVerificationsThisMonth(user.id);
+      const userRecord = await storage.getUser(user.id);
+      const isPro = userRecord?.subscriptionTier === 'pro' || userRecord?.subscriptionTier === 'family';
+
+      if (!isPro && userVerifications >= 5) {
+        return res.status(403).json({
+          error: "Monthly verification limit reached",
+          limit: 5,
+          used: userVerifications,
+          upgradeUrl: "/pricing"
+        });
+      }
+
+      // Import the verification service dynamically
+      const { geminiVerificationService } = await import('./services/geminiVerificationService');
+
+      if (!geminiVerificationService.isConfigured()) {
+        return res.status(503).json({ error: "Verification service not configured" });
+      }
+
+      let extractedContent = content;
+      let detectedPlatform = platform;
+
+      // If URL provided, extract content first
+      if (url) {
+        // Detect platform from URL
+        detectedPlatform = detectPlatform(url) || platform;
+
+        // Try to extract content from URL
+        if (isSocialMediaUrl(url)) {
+          // Use Apify for social media extraction
+          if (detectedPlatform === 'instagram' && apifyService.isAvailable()) {
+            const igResult = await apifyService.extractInstagramReel(url);
+            if (igResult.success) {
+              extractedContent = igResult.caption || content;
+            }
+          } else if (detectedPlatform === 'tiktok' && apifyService.isAvailable()) {
+            const ttResult = await apifyService.extractTikTokVideo(url);
+            if (ttResult.success) {
+              extractedContent = ttResult.caption || content;
+            }
+          }
+        }
+
+        // Fallback to Tavily for other URLs
+        if (!extractedContent && isTavilyConfigured()) {
+          try {
+            const tavilyResult = await tavilyExtract(url);
+            if (tavilyResult && tavilyResult.rawContent) {
+              extractedContent = tavilyResult.rawContent;
+            }
+          } catch (e) {
+            console.error('[VERIFY] Tavily extraction failed:', e);
+          }
+        }
+
+        if (!extractedContent) {
+          extractedContent = content || `Content from: ${url}`;
+        }
+      }
+
+      // Perform verification
+      const verificationResult = await geminiVerificationService.verifyContent({
+        url,
+        platform: detectedPlatform,
+        content: extractedContent,
+        mediaUrls,
+        author,
+      });
+
+      // Generate share token
+      const shareToken = crypto.randomBytes(16).toString('hex');
+
+      // Save verification to database
+      const { verifications } = await import('@shared/schema');
+      const verification = await db.insert(verifications).values({
+        userId: user.id,
+        sourceUrl: url,
+        sourcePlatform: detectedPlatform,
+        sourceContent: extractedContent?.substring(0, 10000), // Limit content size
+        sourceMediaUrls: mediaUrls || [],
+        sourceAuthor: author,
+        trustScore: verificationResult.trustScore,
+        verdict: verificationResult.verdict,
+        verdictSummary: verificationResult.verdictSummary,
+        claims: verificationResult.claims,
+        aiDetection: verificationResult.aiDetection,
+        accountAnalysis: verificationResult.accountAnalysis,
+        businessVerification: verificationResult.businessVerification,
+        biasAnalysis: verificationResult.biasAnalysis,
+        processingTimeMs: verificationResult.processingTimeMs,
+        geminiModel: verificationResult.geminiModel,
+        webGroundingUsed: verificationResult.webGroundingUsed,
+        shareToken,
+      }).returning();
+
+      console.log(`[VERIFY] Verification completed for user ${user.id}: trust score ${verificationResult.trustScore}`);
+
+      res.json({
+        success: true,
+        verification: {
+          id: verification[0].id,
+          ...verificationResult,
+          shareToken,
+          shareUrl: `/verify/result/${shareToken}`,
+        },
+      });
+    } catch (error) {
+      console.error('[VERIFY] Error during verification:', error);
+      res.status(500).json({
+        error: "Verification failed",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get user's verification history
+  app.get("/api/verify/history", async (req, res) => {
+    try {
+      const user = req.user || (req as any).user || null;
+
+      if (!user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const verifications = await storage.getUserVerifications(user.id);
+
+      res.json({
+        success: true,
+        verifications,
+        count: verifications.length,
+      });
+    } catch (error) {
+      console.error('[VERIFY] Error fetching history:', error);
+      res.status(500).json({ error: "Failed to fetch verification history" });
+    }
+  });
+
+  // Get a specific verification by ID
+  app.get("/api/verify/:id", async (req, res) => {
+    try {
+      const user = req.user || (req as any).user || null;
+      const { id } = req.params;
+
+      const verification = await storage.getVerification(id);
+
+      if (!verification) {
+        return res.status(404).json({ error: "Verification not found" });
+      }
+
+      // Check if user owns this verification or it's public
+      if (verification.userId !== user?.id && !verification.isPublic) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      res.json({
+        success: true,
+        verification,
+      });
+    } catch (error) {
+      console.error('[VERIFY] Error fetching verification:', error);
+      res.status(500).json({ error: "Failed to fetch verification" });
+    }
+  });
+
+  // Get verification by share token (public access)
+  app.get("/api/verify/shared/:shareToken", async (req, res) => {
+    try {
+      const { shareToken } = req.params;
+
+      const verification = await storage.getVerificationByShareToken(shareToken);
+
+      if (!verification) {
+        return res.status(404).json({ error: "Verification not found" });
+      }
+
+      res.json({
+        success: true,
+        verification,
+      });
+    } catch (error) {
+      console.error('[VERIFY] Error fetching shared verification:', error);
+      res.status(500).json({ error: "Failed to fetch verification" });
+    }
+  });
+
+  // Get user's monthly verification count
+  app.get("/api/verify/quota", async (req, res) => {
+    try {
+      const user = req.user || (req as any).user || null;
+
+      if (!user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const userRecord = await storage.getUser(user.id);
+      const usedThisMonth = await storage.getUserVerificationsThisMonth(user.id);
+      const isPro = userRecord?.subscriptionTier === 'pro' || userRecord?.subscriptionTier === 'family';
+
+      res.json({
+        success: true,
+        quota: {
+          used: usedThisMonth,
+          limit: isPro ? 'unlimited' : 5,
+          remaining: isPro ? 'unlimited' : Math.max(0, 5 - usedThisMonth),
+          isPro,
+        },
+      });
+    } catch (error) {
+      console.error('[VERIFY] Error fetching quota:', error);
+      res.status(500).json({ error: "Failed to fetch quota" });
+    }
+  });
+
+  // Make a verification public/private
+  app.patch("/api/verify/:id/visibility", async (req, res) => {
+    try {
+      const user = req.user || (req as any).user || null;
+
+      if (!user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { id } = req.params;
+      const { isPublic } = req.body;
+
+      const verification = await storage.getVerification(id);
+
+      if (!verification) {
+        return res.status(404).json({ error: "Verification not found" });
+      }
+
+      if (verification.userId !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await storage.updateVerificationVisibility(id, isPublic);
+
+      res.json({
+        success: true,
+        isPublic,
+      });
+    } catch (error) {
+      console.error('[VERIFY] Error updating visibility:', error);
+      res.status(500).json({ error: "Failed to update visibility" });
+    }
+  });
+
+  // Get verification service status
+  app.get("/api/verify/status", async (_req, res) => {
+    try {
+      const { geminiVerificationService } = await import('./services/geminiVerificationService');
+      const tavilyStatus = getTavilyStatus();
+      const apifyStatus = apifyService.getStatus();
+
+      res.json({
+        success: true,
+        services: {
+          gemini: geminiVerificationService.getStatus(),
+          tavily: tavilyStatus,
+          apify: apifyStatus,
+        },
+      });
+    } catch (error) {
+      console.error('[VERIFY] Error checking status:', error);
+      res.status(500).json({ error: "Failed to check service status" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
