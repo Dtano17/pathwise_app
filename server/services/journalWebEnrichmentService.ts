@@ -1344,20 +1344,20 @@ Respond with ONLY a JSON object in this format:
         /'([^']+)'/,
         // PRIORITY 2: Double-quoted titles - e.g., 'Watch "Sinners"' -> "Sinners"
         /"([^"]+)"/,
-        // "Watch Mission Impossible: The Final Reckoning (#1 ranked movie)" - extract before hashtag/parenthesis
-        /(?:watch|streaming|stream|see|cinema|theater)\s+([^#('"\n]+?)(?:\s*[#(\n]|$)/i,
-        // "Stream Sinners (#2 ranked movie)" - extract title between keyword and parenthesis  
-        /(?:watch|streaming|stream|see)\s+([^('"\n]+?)\s*\(/i,
-        // "Watch [Title]" - common movie entry format (no quotes in title)
-        /^(?:Watch|Watching|Watched|See|Saw|Stream|Streaming)\s+([^"'\-–—#(]+?)(?:\s*[-–—#(]|$)/i,
-        // "[Title] movie" or "[Title] film"
-        /^([^"'\-–—#(]+?)\s+(?:movie|film)(?:\s|$)/i,
-        // Title - description (extract before first dash)
-        /^([^-–—#("']+?)\s*[-–—]\s*.+(?:movie|film|watch|stream|theater|cinema)/i,
-        // Title followed by year in parentheses: "Title (2024)"
+        // PRIORITY 3: "Watch [Title]" - common movie entry format (no quotes in title)
+        // Allow hyphens within words (Spider-Man, X-Men), break on " - " (space-dash-space) or # or (
+        /^(?:Watch|Watching|Watched|See|Saw|Stream|Streaming)\s+(.+?)(?:\s+[-–—]\s+|[#(]|$)/i,
+        // PRIORITY 4: "Stream Sinners (#2 ranked movie)" - extract title between keyword and parenthesis
+        /(?:watch|streaming|stream|see)\s+(.+?)\s*\(/i,
+        // PRIORITY 5: Title followed by year in parentheses: "Title (2024)"
         /^([^"'(]+?)\s*\(\d{4}\)/,
-        // Fallback: first part before dash or parenthesis (no quotes)
-        /^([^-–—#("']+)/,
+        // PRIORITY 6: "Title - description" - extract before space-dash-space (allows hyphenated titles)
+        // This catches "Blade Runner 2049 - a classic film", "Re-Animator - horror classic"
+        /^(.+?)\s+[-–—]\s+/,
+        // PRIORITY 7: "[Title] movie" or "[Title] film" - allow hyphens within title
+        /^(.+?)\s+(?:movie|film)(?:\s|$)/i,
+        // PRIORITY 8: Fallback - entire text if no delimiters found (for simple titles like "F1")
+        /^(.+?)$/,
       ];
 
       for (const pattern of moviePatterns) {
@@ -1382,8 +1382,8 @@ Respond with ONLY a JSON object in this format:
       const bookPatterns = [
         // "Title" by Author Name
         /^["']([^"']+)["']\s+by\s+([A-Z][a-zA-Z\s.'-]+?)(?:\s*[-–—]|$)/i,
-        // Read "Title" by Author
-        /^(?:Read|Reading|Finished|Started)\s+["']?([^"'-]+?)["']?\s+by\s+([A-Z][a-zA-Z\s.'-]+?)(?:\s*[-–—]|$)/i,
+        // Read "Title" by Author - allow hyphens in titles
+        /^(?:Read|Reading|Finished|Started)\s+["']?(.+?)["']?\s+by\s+([A-Z][a-zA-Z\s.'-]+?)(?:\s+[-–—]\s+|$)/i,
         // Title by First Last (proper name)
         /^(.+?)\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/,
         // Title - biography/novel/memoir/book
@@ -1407,8 +1407,8 @@ Respond with ONLY a JSON object in this format:
         }
       }
 
-      // Fallback for books: use first part before dash as title
-      const dashSplit = text.split(/\s*[-–—]\s*/);
+      // Fallback for books: use first part before space-dash-space as title (allows hyphenated titles)
+      const dashSplit = text.split(/\s+[-–—]\s+/);
       if (dashSplit.length > 0 && dashSplit[0].length > 2) {
         const title = dashSplit[0].trim().replace(/^["']|["']$/g, '').replace(/^(?:Read|Reading|Finished|Started)\s+/i, '');
         console.log(`[JOURNAL_WEB_ENRICH] Book fallback extraction: title="${title}"`);
@@ -1419,10 +1419,10 @@ Respond with ONLY a JSON object in this format:
     // MUSIC-specific extraction
     if (contentType === 'music') {
       const musicPatterns = [
-        // "Listen to [Artist/Song]" 
-        /^(?:Listen(?:ing)? to|Play(?:ing)?)\s+["']?([^"'\-–—]+?)["']?(?:\s*[-–—]|$)/i,
-        // "[Artist] - [Album/Song]"
-        /^["']?([^"'\-–—]+?)["']?\s*[-–—]\s*["']?([^"'\-–—]+?)["']?$/,
+        // "Listen to [Artist/Song]" - allow hyphens in names, break on space-dash-space
+        /^(?:Listen(?:ing)? to|Play(?:ing)?)\s+["']?(.+?)["']?(?:\s+[-–—]\s+|$)/i,
+        // "[Artist] - [Album/Song]" - split on space-dash-space (allows hyphenated names)
+        /^["']?(.+?)["']?\s+[-–—]\s+["']?(.+?)["']?$/,
         // Quoted: "Artist Name"
         /^["']([^"']+)["']/,
       ];
@@ -1445,10 +1445,10 @@ Respond with ONLY a JSON object in this format:
     // FITNESS-specific extraction
     if (contentType === 'exercise') {
       const fitnessPatterns = [
-        // "[Exercise name] workout/exercise"
-        /^["']?([^"'\-–—]+?)["']?\s+(?:workout|exercise|routine|training|pose)/i,
-        // "Do [Exercise]"
-        /^(?:Do|Try|Practice)\s+["']?([^"'\-–—]+?)["']?(?:\s*[-–—]|$)/i,
+        // "[Exercise name] workout/exercise" - allow hyphens (e.g., "high-intensity")
+        /^["']?(.+?)["']?\s+(?:workout|exercise|routine|training|pose)/i,
+        // "Do [Exercise]" - allow hyphens, break on space-dash-space
+        /^(?:Do|Try|Practice)\s+["']?(.+?)["']?(?:\s+[-–—]\s+|$)/i,
       ];
 
       for (const pattern of fitnessPatterns) {
@@ -1468,7 +1468,7 @@ Respond with ONLY a JSON object in this format:
 
     // Standard venue patterns for restaurants, travel, etc.
     const patterns = [
-      /^["']?([A-Z][^-–—]+?)["']?\s*[-–—]\s*/i, // "Name - description"
+      /^["']?([A-Z].+?)["']?\s+[-–—]\s+/i, // "Name - description" (space-dash-space, allows hyphens in names)
       /^["']?([A-Z][^(]+?)["']?\s*\(([^)]+)\)/i, // "Name (City)"
       /(?:at|visit(?:ed)?|tried|went to)\s+["']?([A-Z][A-Za-z0-9\s'&-]{2,40})["']?/i, // "visited Name"
       /^([A-Z][A-Za-z0-9\s'&-]{2,30})\s+(?:restaurant|cafe|bar|hotel|resort|museum)/i, // "Name restaurant"
