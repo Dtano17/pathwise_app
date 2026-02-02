@@ -6,6 +6,9 @@ This folder contains all the VerifyMate-specific code changes that can be easily
 
 ```
 verifymate_changes/
+├── assets/
+│   ├── verifymate-logo.svg              # Main logo with background
+│   └── verifymate-logo-transparent.svg  # Transparent logo for overlays
 ├── schema/
 │   └── schema.ts           # Complete database schema for VerifyMate
 ├── services/
@@ -24,6 +27,16 @@ verifymate_changes/
 ```
 
 ## File Descriptions
+
+### Assets (`assets/`)
+Brand logos for VerifyMate:
+- **verifymate-logo.svg** - Main logo with gradient background circle
+  - Shield + magnifying glass + checkmark design
+  - Colors: Sky blue (#0EA5E9) to Emerald (#10B981) gradient
+  - Size: 200x200px viewBox
+- **verifymate-logo-transparent.svg** - Transparent background version
+  - For use on dark/colored backgrounds
+  - Shield shape with gradient fill
 
 ### Schema (`schema/schema.ts`)
 Complete database schema with:
@@ -116,6 +129,7 @@ HTML template with:
 ## How to Use These Files
 
 1. **Copy to new project structure:**
+   - `assets/*.svg` → `client/public/` (logos)
    - `schema/schema.ts` → `shared/schema.ts`
    - `services/geminiVerificationService.ts` → `server/services/`
    - `components/VerdictCard.tsx` → `client/src/components/`
