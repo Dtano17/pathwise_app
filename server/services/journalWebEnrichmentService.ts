@@ -748,9 +748,18 @@ Respond with ONLY a JSON object in this format:
   // MAIN ENRICHMENT METHOD
   // ==========================================================================
 
-  async enrichJournalEntry(entry: JournalEntryForEnrichment, forceRefresh: boolean = false): Promise<EnrichmentResult> {
+  /**
+   * Enrich a journal entry with web data (images, metadata, etc.)
+   *
+   * @param entry - The journal entry to enrich
+   * @param forceRefresh - If true, re-enrich Coming Soon placeholders and unverified entries
+   * @param forceRevalidate - If true, re-enrich ALL entries including verified TMDB matches
+   *                          Use this when user explicitly wants to re-check a potentially wrong match
+   */
+  async enrichJournalEntry(entry: JournalEntryForEnrichment, forceRefresh: boolean = false, forceRevalidate: boolean = false): Promise<EnrichmentResult> {
     const startTime = Date.now();
-    console.log(`[JOURNAL_WEB_ENRICH] Enriching entry ${entry.id}: "${entry.text.substring(0, 50)}..."${forceRefresh ? ' (FORCE REFRESH)' : ''}`);
+    const refreshMode = forceRevalidate ? 'FORCE REVALIDATE' : (forceRefresh ? 'FORCE REFRESH' : '');
+    console.log(`[JOURNAL_WEB_ENRICH] Enriching entry ${entry.id}: "${entry.text.substring(0, 50)}..."${refreshMode ? ` (${refreshMode})` : ''}`);
 
     try {
       // FIRST: Extract venue name and location from text
@@ -767,26 +776,31 @@ Respond with ONLY a JSON object in this format:
       const isMovieContent = contentType === 'movie' || contentType === 'movies' ||
                              entry.category === 'custom-entertainment' || entry.category === 'Entertainment' ||
                              entry.category === 'Movies & TV Shows' || entry.category === 'movies';
-      
-      const venueName = isMovieContent && extractedInfo.venueName 
+
+      const venueName = isMovieContent && extractedInfo.venueName
         ? extractedInfo.venueName  // Use extracted clean title for movies
         : (entry.venueName || extractedInfo.venueName);
       const city = entry.location?.city || extractedInfo.city;
-      
+
       // CRITICAL: Generate cache key using the EXTRACTED venue name (not entry.venueName)
       // This prevents cache collisions when entries share the same ID but have different content
       const cacheKey = this.generateCacheKeyFromVenue(venueName || '', city || '');
-      
+
       // Check cache - but handle force refresh differently for verified vs unverified entries
       try {
         const dbCached = await storage.getJournalEnrichmentCache(cacheKey);
 
         if (dbCached) {
-          // IMPORTANT: On force refresh, SKIP verified TMDB entries (don't waste time re-fetching)
-          // Only refresh "Coming Soon" placeholders and unverified entries
-          if (forceRefresh) {
+          // forceRevalidate = re-check EVERYTHING including verified entries (user thinks match is wrong)
+          // forceRefresh = only re-check Coming Soon and unverified entries
+          if (forceRevalidate) {
+            // User explicitly wants to re-verify - clear cache for ALL entries
+            this.cache.delete(cacheKey);
+            await storage.deleteJournalEnrichmentCache(cacheKey);
+            console.log(`[JOURNAL_WEB_ENRICH] REVALIDATE: Clearing verified entry for re-check: "${venueName}" (was tmdbId: ${dbCached.tmdbId})`);
+          } else if (forceRefresh) {
             if (dbCached.verified && dbCached.enrichmentSource === 'tmdb' && !dbCached.isComingSoon) {
-              // This is a verified TMDB entry - keep it, don't re-fetch
+              // This is a verified TMDB entry - keep it, don't re-fetch (unless forceRevalidate)
               const enrichedData = dbCached.enrichedData as WebEnrichedData;
               this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
               console.log(`[JOURNAL_WEB_ENRICH] SKIP refresh for verified TMDB entry: "${venueName}" (tmdbId: ${dbCached.tmdbId})`);
@@ -1260,11 +1274,19 @@ Respond with ONLY a JSON object in this format:
   // BATCH ENRICHMENT
   // ==========================================================================
 
-  async enrichBatch(entries: JournalEntryForEnrichment[], forceRefresh: boolean = false): Promise<EnrichmentResult[]> {
-    console.log(`[JOURNAL_WEB_ENRICH] Starting batch enrichment for ${entries.length} entries${forceRefresh ? ' (FORCE REFRESH)' : ''}`);
+  /**
+   * Enrich multiple journal entries in batch
+   *
+   * @param entries - The entries to enrich
+   * @param forceRefresh - If true, re-enrich Coming Soon placeholders and unverified entries
+   * @param forceRevalidate - If true, re-enrich ALL entries including verified TMDB matches
+   */
+  async enrichBatch(entries: JournalEntryForEnrichment[], forceRefresh: boolean = false, forceRevalidate: boolean = false): Promise<EnrichmentResult[]> {
+    const refreshMode = forceRevalidate ? 'FORCE REVALIDATE ALL' : (forceRefresh ? 'FORCE REFRESH' : '');
+    console.log(`[JOURNAL_WEB_ENRICH] Starting batch enrichment for ${entries.length} entries${refreshMode ? ` (${refreshMode})` : ''}`);
 
-    // Filter entries that need enrichment (skip filter if forceRefresh)
-    const needsEnrichment = forceRefresh ? entries : entries.filter(entry => {
+    // Filter entries that need enrichment (skip filter if forceRefresh or forceRevalidate)
+    const needsEnrichment = (forceRefresh || forceRevalidate) ? entries : entries.filter(entry => {
       // Skip if already enriched recently
       if (entry.existingEnrichment?.enrichedAt) {
         const enrichedTime = new Date(entry.existingEnrichment.enrichedAt).getTime();
@@ -1321,7 +1343,7 @@ Respond with ONLY a JSON object in this format:
     for (let i = 0; i < needsEnrichment.length; i += batchSize) {
       const batch = needsEnrichment.slice(i, i + batchSize);
       const batchResults = await Promise.all(
-        batch.map(entry => this.enrichJournalEntry(entry, forceRefresh))
+        batch.map(entry => this.enrichJournalEntry(entry, forceRefresh, forceRevalidate))
       );
       results.push(...batchResults);
 

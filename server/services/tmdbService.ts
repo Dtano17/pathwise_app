@@ -69,6 +69,9 @@ export interface TMDBSearchResult {
   runtime?: string;
   tmdbId: number;
   mediaType: 'movie' | 'tv';
+  // Match quality indicators - helps frontend show confidence to user
+  matchConfidence?: number; // 0-100 percentage of title match quality
+  matchMethod?: 'exact' | 'fuzzy' | 'batch_context'; // How the match was found
 }
 
 /**
@@ -922,11 +925,13 @@ Respond ONLY with valid JSON (no explanation):
       const backdropUrl = this.getImageUrl(backdropPath, 'w780') || this.getImageUrl(backdropPath, 'original');
       const posterUrl = this.getImageUrl(posterPath, 'w500');
 
+      // CRITICAL: Reject match if no images exist - prevents broken/placeholder images
       if (!backdropUrl && !posterUrl) {
-        console.log(`[TMDB] WARNING: No backdrop or poster found for "${passedCandidate.title}"`);
-      } else {
-        console.log(`[TMDB] Got images for "${passedCandidate.title}": backdrop=${backdropUrl ? 'yes' : 'no'}, poster=${posterUrl ? 'yes' : 'no'}`);
+        console.log(`[TMDB] REJECTED: No backdrop or poster found for "${passedCandidate.title}" - match would show broken image`);
+        return null; // Return null to trigger Coming Soon placeholder instead of broken image
       }
+
+      console.log(`[TMDB] Got images for "${passedCandidate.title}": backdrop=${backdropUrl ? 'yes' : 'no'}, poster=${posterUrl ? 'yes' : 'no'}`);
 
       return {
         // Return backdrop as primary for landscape display
@@ -942,7 +947,10 @@ Respond ONLY with valid JSON (no explanation):
         cast: details?.credits?.cast?.slice(0, 5).map((c: any) => c.name),
         runtime: details?.runtime ? `${details.runtime} min` : undefined,
         tmdbId: passedCandidate.id,
-        mediaType: 'movie'
+        mediaType: 'movie',
+        // Match quality indicators for frontend confidence display
+        matchConfidence: Math.round(passedScore * 100),
+        matchMethod: targetYear ? 'exact' : (this.batchContext ? 'batch_context' : 'fuzzy'),
       };
     } catch (error) {
       console.error('[TMDB] Search error:', error);
@@ -1103,6 +1111,12 @@ Respond ONLY with valid JSON (no explanation):
       const backdropUrl = this.getImageUrl(backdropPath, 'w780');
       const posterUrl = this.getImageUrl(posterPath, 'w500');
 
+      // CRITICAL: Reject match if no images exist - prevents broken/placeholder images
+      if (!backdropUrl && !posterUrl) {
+        console.log(`[TMDB] REJECTED TV: No backdrop or poster found for "${passedCandidate.name}" - match would show broken image`);
+        return null;
+      }
+
       return {
         // Return backdrop as primary for landscape display
         posterUrl: backdropUrl || posterUrl,
@@ -1114,7 +1128,10 @@ Respond ONLY with valid JSON (no explanation):
         ratingCount: passedCandidate.vote_count,
         genres: [],
         tmdbId: passedCandidate.id,
-        mediaType: 'tv'
+        mediaType: 'tv',
+        // Match quality indicators for frontend confidence display
+        matchConfidence: Math.round(passedScore * 100),
+        matchMethod: targetYear ? 'exact' : (this.batchContext ? 'batch_context' : 'fuzzy'),
       };
     } catch (error) {
       console.error('[TMDB] TV search error:', error);
