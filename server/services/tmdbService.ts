@@ -116,6 +116,19 @@ class TMDBService {
     'dc', 'dceu', 'mcu'
   ];
 
+  // Minimum popularity for protected franchises (prevents knockoffs)
+  private readonly FRANCHISE_MIN_POPULARITY = 10;
+  private readonly FRANCHISE_MIN_VOTES = 100;
+  private readonly FRANCHISE_TITLE_SIMILARITY = 0.90; // 90% similarity for franchises
+
+  /**
+   * Check if a search query matches a protected franchise
+   */
+  private isProtectedFranchise(query: string): boolean {
+    const lowerQuery = query.toLowerCase();
+    return this.PROTECTED_FRANCHISES.some(franchise => lowerQuery.includes(franchise));
+  }
+
   // Current batch context for collective inference
   private batchContext: BatchContext | null = null;
 
@@ -863,6 +876,34 @@ Respond ONLY with valid JSON (no explanation):
         }
         tierResults.push(`T3:pop=${movie.popularity.toFixed(0)}`);
 
+        // ========== TIER 3.5: Protected Franchise Gate ==========
+        // For major franchises (Spider-Man, Batman, Star Wars, etc.), require:
+        // - Higher title similarity (90%) to prevent knockoff matches
+        // - Higher popularity/votes to ensure it's the real movie
+        if (this.isProtectedFranchise(effectiveQuery)) {
+          // Check if result also contains the franchise name
+          const resultLower = movie.title.toLowerCase();
+          const queryFranchise = this.PROTECTED_FRANCHISES.find(f => effectiveQuery.toLowerCase().includes(f));
+
+          if (queryFranchise && !resultLower.includes(queryFranchise.replace(/-/g, ' ')) && !resultLower.includes(queryFranchise)) {
+            console.log(`[TMDB] TIER 3.5 FAIL: Protected franchise "${queryFranchise}" not found in result "${movie.title}"`);
+            continue;
+          }
+
+          // Require higher similarity for protected franchises
+          if (titleScore < this.FRANCHISE_TITLE_SIMILARITY) {
+            console.log(`[TMDB] TIER 3.5 FAIL: "${movie.title}" franchise match too weak (${(titleScore * 100).toFixed(0)}% < ${this.FRANCHISE_TITLE_SIMILARITY * 100}%)`);
+            continue;
+          }
+
+          // Require higher popularity for protected franchises (prevents knockoffs)
+          if (movie.popularity < this.FRANCHISE_MIN_POPULARITY && movie.vote_count < this.FRANCHISE_MIN_VOTES) {
+            console.log(`[TMDB] TIER 3.5 FAIL: "${movie.title}" franchise knockoff suspected (pop=${movie.popularity}, votes=${movie.vote_count})`);
+            continue;
+          }
+          tierResults.push(`T3.5:franchise-verified`);
+        }
+
         // ========== TIER 4: Director/Cast Match (if provided) ==========
         if (queryDirector || queryActor) {
           const details = await this.getMovieDetails(movie.id);
@@ -1067,6 +1108,34 @@ Respond ONLY with valid JSON (no explanation):
           continue; // FAIL - skip to next candidate
         }
         tierResults.push(`T3:pop=${show.popularity.toFixed(0)}`);
+
+        // ========== TIER 3.5: Protected Franchise Gate ==========
+        // For major franchises (Spider-Man, Batman, Star Wars, etc.), require:
+        // - Higher title similarity (90%) to prevent knockoff matches
+        // - Higher popularity/votes to ensure it's the real show
+        if (this.isProtectedFranchise(searchTitle)) {
+          // Check if result also contains the franchise name
+          const resultLower = show.name.toLowerCase();
+          const queryFranchise = this.PROTECTED_FRANCHISES.find(f => searchTitle.toLowerCase().includes(f));
+
+          if (queryFranchise && !resultLower.includes(queryFranchise.replace(/-/g, ' ')) && !resultLower.includes(queryFranchise)) {
+            console.log(`[TMDB] TIER 3.5 FAIL: Protected franchise "${queryFranchise}" not found in TV result "${show.name}"`);
+            continue;
+          }
+
+          // Require higher similarity for protected franchises
+          if (titleScore < this.FRANCHISE_TITLE_SIMILARITY) {
+            console.log(`[TMDB] TIER 3.5 FAIL: "${show.name}" franchise match too weak (${(titleScore * 100).toFixed(0)}% < ${this.FRANCHISE_TITLE_SIMILARITY * 100}%)`);
+            continue;
+          }
+
+          // Require higher popularity for protected franchises (prevents knockoffs)
+          if (show.popularity < this.FRANCHISE_MIN_POPULARITY && show.vote_count < this.FRANCHISE_MIN_VOTES) {
+            console.log(`[TMDB] TIER 3.5 FAIL: "${show.name}" franchise knockoff suspected (pop=${show.popularity}, votes=${show.vote_count})`);
+            continue;
+          }
+          tierResults.push(`T3.5:franchise-verified`);
+        }
 
         // ========== TIER 4: Language/Region Gate (if batch context indicates) ==========
         // RELAXED: Allow non-English films with good title match (85% instead of 95%)
