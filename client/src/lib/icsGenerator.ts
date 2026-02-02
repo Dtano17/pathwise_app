@@ -120,18 +120,18 @@ export function generateICS(events: ICSEvent[]): string {
 /**
  * Download or share an ICS file
  *
- * On mobile: Uses the native Share API to open the calendar import flow
+ * On mobile: Uses FileOpener to directly open with native calendar app
  * On web: Downloads the file
  */
 export async function downloadOrShareICS(events: ICSEvent[], filename: string): Promise<boolean> {
   const icsContent = generateICS(events);
   const safeFilename = filename.replace(/[^a-zA-Z0-9-_]/g, '_');
 
-  // On mobile, use Share API - opens native calendar import
+  // On mobile, use FileOpener to directly open in calendar app
   if (Capacitor.isNativePlatform()) {
     try {
-      const { Share } = await import('@capacitor/share');
       const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const { FileOpener } = await import('@capacitor-community/file-opener');
 
       // Write the ICS file to cache directory
       const filePath = `${safeFilename}.ics`;
@@ -148,11 +148,13 @@ export async function downloadOrShareICS(events: ICSEvent[], filename: string): 
         directory: Directory.Cache,
       });
 
-      // Share the file - this will open the system share sheet
-      // On iOS/Android, sharing an .ics file will prompt to add to calendar
-      await Share.share({
-        title: 'Add to Calendar',
-        files: [fileUri.uri],
+      // Open the file with the default handler for .ics (calendar app)
+      // This triggers ACTION_VIEW intent on Android, UTI handler on iOS
+      // which directly opens the native calendar picker instead of share sheet
+      await FileOpener.open({
+        filePath: fileUri.uri,
+        contentType: 'text/calendar',
+        openWithDefault: true,
       });
 
       // Clean up the temporary file after a delay
@@ -169,7 +171,7 @@ export async function downloadOrShareICS(events: ICSEvent[], filename: string): 
 
       return true;
     } catch (error) {
-      console.error('[ICS] Share failed:', error);
+      console.error('[ICS] FileOpener failed:', error);
       // Fall back to web download method
       return downloadICSWeb(icsContent, safeFilename);
     }

@@ -15,6 +15,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.37.0",
     "@capacitor-community/contacts": "^7.0.0",
+    "@capacitor-community/file-opener": "^7.0.1",
     "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/android": "^7.4.4",
     "@capacitor/app": "^7.0.0",
