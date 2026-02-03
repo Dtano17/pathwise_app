@@ -17,6 +17,7 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.Plugin;
+import com.ryltsov.alex.plugins.file.opener.FileOpenerPlugin;
 
 public class MainActivity extends BridgeActivity {
 
@@ -45,6 +46,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(BiometricPlugin.class);
         registerPlugin(AppShortcutsPlugin.class);
         registerPlugin(SpeechPlugin.class);
+        registerPlugin(FileOpenerPlugin.class);
 
         super.onCreate(savedInstanceState);
 

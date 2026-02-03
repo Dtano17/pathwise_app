@@ -121,6 +121,7 @@ export function generateICS(events: ICSEvent[]): string {
  * Download or share an ICS file
  *
  * On mobile: Uses FileOpener to directly open with native calendar app
+ * Fallback chain: FileOpener → Browser intent → Download file (NO share sheet)
  * On web: Downloads the file
  */
 export async function downloadOrShareICS(events: ICSEvent[], filename: string): Promise<boolean> {
@@ -147,60 +148,68 @@ export async function downloadOrShareICS(events: ICSEvent[], filename: string): 
         directory: Directory.Cache,
       });
 
-      // Try to use FileOpener to directly open in calendar app
-      // This avoids the share sheet and goes straight to calendar picker
+      console.log('[ICS] File written to:', fileUri.uri);
+
+      // Helper function to clean up temp file
+      const scheduleCleanup = () => {
+        setTimeout(async () => {
+          try {
+            await Filesystem.deleteFile({
+              path: filePath,
+              directory: Directory.Cache,
+            });
+            console.log('[ICS] Temp file cleaned up');
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        }, 60000);
+      };
+
+      // FALLBACK 1: Try FileOpener to show "Open with" dialog
       try {
-        // Use Function constructor to bypass Vite's static import analysis
-        // This prevents build errors when the plugin isn't installed in all environments
-        const modulePath = ['@capacitor-community', 'file-opener'].join('/');
-        const importFn = new Function('path', 'return import(path)');
-        const fileOpenerModule = await importFn(modulePath).catch(() => null);
+        console.log('[ICS] Fallback 1: Attempting FileOpener...');
+        const { FileOpener } = await import('@capacitor-community/file-opener');
+        console.log('[ICS] FileOpener imported successfully');
 
-        if (fileOpenerModule?.FileOpener) {
-          await fileOpenerModule.FileOpener.open({
-            filePath: fileUri.uri,
-            contentType: 'text/calendar',
-            openWithDefault: true,
-          });
+        await FileOpener.open({
+          filePath: fileUri.uri,
+          contentType: 'text/calendar',
+          openWithDefault: false, // false = show app chooser
+        });
 
-          // Clean up the temporary file after a delay
-          setTimeout(async () => {
-            try {
-              await Filesystem.deleteFile({
-                path: filePath,
-                directory: Directory.Cache,
-              });
-            } catch (e) {
-              // Ignore cleanup errors
-            }
-          }, 60000);
-
-          return true;
-        }
+        console.log('[ICS] FileOpener.open succeeded!');
+        scheduleCleanup();
+        return true;
       } catch (fileOpenerError) {
-        console.log('[ICS] FileOpener not available, falling back to Share');
+        console.log('[ICS] FileOpener failed:', fileOpenerError);
       }
 
-      // Fallback: Use Share API if FileOpener isn't available
-      const { Share } = await import('@capacitor/share');
-      await Share.share({
-        title: 'Add to Calendar',
-        files: [fileUri.uri],
-      });
+      // FALLBACK 2: Try Browser plugin to open the ICS file
+      try {
+        console.log('[ICS] Fallback 2: Attempting Browser plugin...');
+        const { Browser } = await import('@capacitor/browser');
 
-      // Clean up the temporary file after a delay
-      setTimeout(async () => {
-        try {
-          await Filesystem.deleteFile({
-            path: filePath,
-            directory: Directory.Cache,
-          });
-        } catch (e) {
-          // Ignore cleanup errors
-        }
-      }, 60000);
+        // Create a data URL for the ICS content
+        const base64Content = btoa(unescape(encodeURIComponent(icsContent)));
+        const dataUrl = `data:text/calendar;base64,${base64Content}`;
 
-      return true;
+        await Browser.open({
+          url: dataUrl,
+          presentationStyle: 'popover',
+        });
+
+        console.log('[ICS] Browser.open succeeded!');
+        scheduleCleanup();
+        return true;
+      } catch (browserError) {
+        console.log('[ICS] Browser plugin failed:', browserError);
+      }
+
+      // FALLBACK 3: Download file (NO share sheet)
+      console.log('[ICS] Fallback 3: Using web download method...');
+      scheduleCleanup();
+      return downloadICSWeb(icsContent, safeFilename);
+
     } catch (error) {
       console.error('[ICS] Mobile calendar failed:', error);
       // Fall back to web download method
