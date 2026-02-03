@@ -699,6 +699,8 @@ Respond ONLY with valid JSON (no explanation):
       /\bseries\b/i,             // "series"
       /\bTV\s*show\b/i,          // "TV show"
       /\bpremier(e|ing)\b/i,     // "premiering"
+      /\bminiseries\b/i,         // "miniseries"
+      // Streaming services
       /\bHBO\b/i,                // HBO (usually TV)
       /\bNetflix\b/i,            // Netflix (usually TV)
       /\bDisney\+?\b/i,          // Disney+
@@ -707,6 +709,22 @@ Respond ONLY with valid JSON (no explanation):
       /\bAmazon\s*Prime\b/i,     // Amazon Prime
       /\bHulu\b/i,               // Hulu
       /\bMax\b/i,                // Max (HBO Max)
+      /\bPeacock\b/i,            // Peacock
+      // Broadcast/Cable networks
+      /\bFX\b/,                  // FX (case sensitive to avoid false positives)
+      /\bAMC\b/,                 // AMC
+      /\bABC\b/,                 // ABC
+      /\bNBC\b/,                 // NBC
+      /\bCBS\b/,                 // CBS
+      /\bPBS\b/,                 // PBS
+      /\bUSA\s*Network\b/i,      // USA Network
+      /\bTNT\b/,                 // TNT
+      /\bTBS\b/,                 // TBS
+      /\bShowtime\b/i,           // Showtime
+      /\bStarz\b/i,              // Starz
+      /\bSyfy\b/i,               // Syfy
+      /\bCW\b/,                  // CW
+      /\bFreeform\b/i,           // Freeform
     ];
     return tvPatterns.some(p => p.test(query));
   }
@@ -716,7 +734,7 @@ Respond ONLY with valid JSON (no explanation):
    */
   private extractCoreName(query: string): string {
     return query
-      .replace(/\s*[-–—]\s*.*$/i, '')              // Remove everything after dash
+      .replace(/\s+[-–—]\s+.*$/i, '')              // Remove " - suffix" (requires space-dash-space), preserves "Spider-Man"
       .replace(/\s*season\s*\d+.*$/i, '')          // Remove "Season X" and after
       .replace(/\s*S\d{1,2}E?\d*.*$/i, '')         // Remove "S04E01" and after
       .replace(/\s*episode\s*\d+.*$/i, '')         // Remove "Episode X" and after
@@ -1296,12 +1314,8 @@ Respond ONLY with valid JSON (no explanation):
         console.log(`[TMDB] Using neutral backdrop for ${mediaType} ${id}`);
         return neutralBackdrop.file_path;
       }
-      // Last resort: use highest-voted (may be non-English)
-      if (sortedBackdrops[0]?.file_path) {
-        console.log(`[TMDB] No English/neutral backdrop, using highest-voted for ${mediaType} ${id} (lang: ${sortedBackdrops[0].iso_639_1})`);
-        return sortedBackdrops[0].file_path;
-      }
-
+      // DO NOT fall back to non-English - return null and let caller use primary poster
+      console.log(`[TMDB] No English/neutral backdrop for ${mediaType} ${id}, will use primary poster instead`);
       return null;
     } catch (error) {
       console.error(`[TMDB] Get ${mediaType} backdrops error:`, error);
@@ -1348,12 +1362,8 @@ Respond ONLY with valid JSON (no explanation):
         console.log(`[TMDB] Using neutral poster for ${mediaType} ${id}`);
         return neutralPoster.file_path;
       }
-      // Last resort: use highest-voted (may be non-English)
-      if (sortedPosters[0]?.file_path) {
-        console.log(`[TMDB] No English/neutral poster, using highest-voted for ${mediaType} ${id} (lang: ${sortedPosters[0].iso_639_1})`);
-        return sortedPosters[0].file_path;
-      }
-
+      // DO NOT fall back to non-English - return null and let caller use primary poster
+      console.log(`[TMDB] No English/neutral poster for ${mediaType} ${id}, will use primary poster instead`);
       return null;
     } catch (error) {
       console.error(`[TMDB] Get ${mediaType} posters error:`, error);
@@ -1427,7 +1437,7 @@ Respond ONLY with valid JSON (no explanation):
     }
 
     title = title
-      .replace(/\s*[-–—]\s*.*$/, '')
+      .replace(/\s+[-–—]\s+.*$/, '')  // Only remove " - suffix" (requires space-dash-space), preserves "Spider-Man"
       .replace(/\s*\([^)]*\)\s*$/, '')
       .replace(/^(the|a|an)\s+/i, '')
       .replace(/\s*\(estimated\s*\$[\d\-]+\s*rental?\)/i, '') // Remove price estimates
