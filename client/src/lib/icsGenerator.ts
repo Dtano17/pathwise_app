@@ -166,9 +166,12 @@ export async function downloadOrShareICS(events: ICSEvent[], filename: string): 
       };
 
       // FALLBACK 1: Try FileOpener to show "Open with" dialog
+      // Use variable import path to prevent Vite from trying to resolve at build time
+      // This plugin only exists on mobile native platforms
       try {
         console.log('[ICS] Fallback 1: Attempting FileOpener...');
-        const { FileOpener } = await import('@capacitor-community/file-opener');
+        const fileOpenerModule = '@capacitor-community/file-opener';
+        const { FileOpener } = await import(/* @vite-ignore */ fileOpenerModule);
         console.log('[ICS] FileOpener imported successfully');
 
         await FileOpener.open({
