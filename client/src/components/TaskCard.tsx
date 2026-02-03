@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { CheckCircle, Clock, Calendar, CalendarPlus, X, Pause, Undo, Archive, ThumbsUp, ThumbsDown, Loader2, Edit3, MapPin, Link2 } from 'lucide-react';
+import { CheckCircle, Clock, Calendar, CalendarPlus, X, Pause, Undo, Archive, ThumbsUp, ThumbsDown, Loader2, Edit3, MapPin, Link2, Smartphone, Download } from 'lucide-react';
 import Confetti from 'react-confetti';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -14,6 +14,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { isNative } from '@/lib/platform';
 import { addTaskToCalendar, getCalendars, requestCalendarPermission } from '@/lib/calendar';
+import { downloadOrShareICS, type ICSEvent } from '@/lib/icsGenerator';
 import { hapticsSuccess, hapticsLight, hapticsCelebrate } from '@/lib/haptics';
 
 interface DeviceCalendar {
@@ -24,6 +25,9 @@ interface DeviceCalendar {
   isReadOnly?: boolean;
   source?: 'google' | 'native';
 }
+
+// Calendar method types
+type CalendarMethod = 'google' | 'device' | 'ics';
 
 interface Task {
   id: string;
@@ -61,10 +65,12 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
   const [pendingAction, setPendingAction] = useState<'complete' | 'skip' | 'snooze' | 'archive' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false);
+  const [showMethodPicker, setShowMethodPicker] = useState(false);
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const [showEventEditor, setShowEventEditor] = useState(false);
   const [availableCalendars, setAvailableCalendars] = useState<DeviceCalendar[]>([]);
   const [pendingCalendarId, setPendingCalendarId] = useState<string | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<CalendarMethod | null>(null);
   const [eventEdit, setEventEdit] = useState<CalendarEventEdit>({
     title: '',
     description: '',
@@ -297,102 +303,36 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
     setIsProcessing(false);
   };
 
-  // Show calendar picker - same pattern as Settings.tsx "Add Test Event"
+  // Show method picker dialog first (like AddToCalendarButton)
   const handleAddToCalendar = async () => {
     if (isAddingToCalendar) return;
+    triggerHapticFeedback('light');
+    setShowMethodPicker(true);
+  };
 
+  // Handle method selection from picker
+  const handleMethodSelect = async (method: CalendarMethod) => {
+    setShowMethodPicker(false);
+    setSelectedMethod(method);
     setIsAddingToCalendar(true);
     triggerHapticFeedback('light');
 
     try {
-      // Try Google Calendar API first (same pattern as Settings.tsx)
-      console.log('[TASK CARD] Fetching calendars for picker...');
-
-      try {
-        const statusResponse = await apiRequest('GET', '/api/calendar/status');
-        const statusData = await statusResponse.json();
-        console.log('[TASK CARD] Google Calendar status:', statusData);
-
-        if (statusData.hasAccess) {
-          const listResponse = await apiRequest('GET', '/api/calendar/list');
-          const listData = await listResponse.json();
-
-          if (listData.calendars && listData.calendars.length > 0) {
-            console.log('[TASK CARD] Found Google calendars:', listData.calendars.length);
-
-            // Convert Google calendars to picker format (same as Settings.tsx)
-            const googleCalendars: DeviceCalendar[] = listData.calendars.map((cal: any) => ({
-              id: cal.id,
-              title: cal.name || cal.id,
-              color: cal.backgroundColor || '#4285F4',
-              isPrimary: cal.isPrimary || false,
-              isReadOnly: cal.accessRole === 'reader',
-              source: 'google' as const
-            }));
-
-            setAvailableCalendars(googleCalendars);
-            setShowCalendarPicker(true);
-            setIsAddingToCalendar(false);
-            return;
-          }
-        } else if (statusData.configured) {
-          // Google Calendar configured but no access - need to re-login
-          console.log('[TASK CARD] Google Calendar configured but no access');
-          toast({
-            title: 'Calendar Access Required',
-            description: 'Please log out and sign in again with Google to grant calendar access.',
-            variant: 'destructive',
-            duration: 8000,
-          });
-          setIsAddingToCalendar(false);
-          return;
-        }
-      } catch (apiError: any) {
-        console.log('[TASK CARD] Google Calendar API not available:', apiError.message);
+      if (method === 'ics') {
+        // ICS Download/Share - universal fallback
+        await handleICSExport();
+        return;
       }
 
-      // Fall back to native Capacitor calendar if on mobile
-      if (isNative()) {
-        console.log('[TASK CARD] Trying native calendar...');
-        const permission = await requestCalendarPermission();
-
-        if (!permission.granted) {
-          toast({
-            title: 'Permission Required',
-            description: 'Please grant calendar access in your device settings',
-            variant: 'destructive'
-          });
-          setIsAddingToCalendar(false);
-          return;
-        }
-
-        const calendars = await getCalendars();
-        console.log('[TASK CARD] Found native calendars:', calendars.length);
-
-        if (calendars.length > 0) {
-          const nativeCalendars: DeviceCalendar[] = calendars.map((cal: any) => ({
-            id: cal.id,
-            title: cal.title || cal.id,
-            color: cal.color || '#6366f1',
-            isPrimary: cal.isPrimary || false,
-            isReadOnly: cal.isReadOnly || false,
-            source: 'native' as const
-          }));
-
-          setAvailableCalendars(nativeCalendars);
-          setShowCalendarPicker(true);
-          setIsAddingToCalendar(false);
-          return;
-        }
+      if (method === 'google') {
+        await handleGoogleCalendarMethod();
+        return;
       }
 
-      // No calendars available
-      toast({
-        title: 'No Calendars Found',
-        description: 'Please sign in with Google or add a calendar account to your device.',
-        variant: 'destructive',
-        duration: 8000,
-      });
+      if (method === 'device') {
+        await handleDeviceCalendarMethod();
+        return;
+      }
     } catch (error: any) {
       console.error('[TASK CARD] Calendar error:', error);
       toast({
@@ -402,6 +342,169 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
       });
     } finally {
       setIsAddingToCalendar(false);
+    }
+  };
+
+  // Handle Google Calendar API method
+  const handleGoogleCalendarMethod = async () => {
+    try {
+      console.log('[TASK CARD] Checking Google Calendar access...');
+      const statusResponse = await apiRequest('GET', '/api/calendar/status');
+      const statusData = await statusResponse.json();
+      console.log('[TASK CARD] Google Calendar status:', statusData);
+
+      if (statusData.hasAccess) {
+        const listResponse = await apiRequest('GET', '/api/calendar/list');
+        const listData = await listResponse.json();
+
+        if (listData.calendars && listData.calendars.length > 0) {
+          console.log('[TASK CARD] Found Google calendars:', listData.calendars.length);
+
+          const googleCalendars: DeviceCalendar[] = listData.calendars.map((cal: any) => ({
+            id: cal.id,
+            title: cal.name || cal.id,
+            color: cal.backgroundColor || '#4285F4',
+            isPrimary: cal.isPrimary || false,
+            isReadOnly: cal.accessRole === 'reader',
+            source: 'google' as const
+          }));
+
+          setAvailableCalendars(googleCalendars);
+          setShowCalendarPicker(true);
+          setIsAddingToCalendar(false);
+          return;
+        }
+      }
+
+      toast({
+        title: 'Google Calendar Not Connected',
+        description: 'Please sign in with Google in Settings, or try Device Calendar or Download option',
+        variant: 'destructive',
+      });
+    } catch (apiError: any) {
+      console.log('[TASK CARD] Google Calendar API not available:', apiError.message);
+      toast({
+        title: 'Google Calendar Not Available',
+        description: 'Try Device Calendar or Download option instead',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle native device calendar method
+  const handleDeviceCalendarMethod = async () => {
+    if (!isNative()) {
+      toast({
+        title: 'Device Calendar Not Available',
+        description: 'This feature is only available on mobile devices. Try Download option instead.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      console.log('[TASK CARD] Trying native calendar...');
+      const permission = await requestCalendarPermission();
+
+      if (!permission.granted) {
+        toast({
+          title: 'Permission Required',
+          description: 'Please grant calendar access in your device settings',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      const calendars = await getCalendars();
+      console.log('[TASK CARD] Found native calendars:', calendars.length);
+
+      if (calendars.length > 0) {
+        const nativeCalendars: DeviceCalendar[] = calendars.map((cal: any) => ({
+          id: cal.id,
+          title: cal.title || cal.id,
+          color: cal.color || '#6366f1',
+          isPrimary: cal.isPrimary || false,
+          isReadOnly: cal.isReadOnly || false,
+          source: 'native' as const
+        }));
+
+        setAvailableCalendars(nativeCalendars);
+        setShowCalendarPicker(true);
+        setIsAddingToCalendar(false);
+        return;
+      }
+
+      toast({
+        title: 'No Device Calendars Found',
+        description: 'Please add a calendar account to your device, or try Download option',
+        variant: 'destructive',
+      });
+    } catch (error: any) {
+      console.log('[TASK CARD] Native calendar error:', error.message);
+      toast({
+        title: 'Device Calendar Error',
+        description: 'Could not access device calendar. Try Download option instead.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle ICS file download/share - universal fallback that always works
+  const handleICSExport = async () => {
+    try {
+      const dueDate = task.dueDate
+        ? new Date(task.dueDate)
+        : (() => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(9, 0, 0, 0);
+            return tomorrow;
+          })();
+
+      const startDate = new Date(dueDate.getTime() - 30 * 60 * 1000); // 30 min before
+      const endDate = dueDate;
+
+      // Build description with deep link
+      const descParts: string[] = [];
+      if (task.description) descParts.push(task.description);
+      descParts.push(`Category: ${task.category}`);
+      descParts.push(`Priority: ${task.priority}`);
+      descParts.push(`📱 Open in JournalMate: https://journalmate.ai/app?task=${task.id}`);
+
+      const icsEvent: ICSEvent = {
+        id: task.id,
+        title: `📝 ${task.title}`,
+        description: descParts.join('\n'),
+        startDate,
+        endDate,
+        category: task.category,
+      };
+
+      const filename = `journalmate-${task.title.substring(0, 30).replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const success = await downloadOrShareICS([icsEvent], filename);
+
+      if (success) {
+        triggerHapticFeedback('success');
+        toast({
+          title: isNative() ? 'Calendar File Ready' : 'Downloaded Calendar File',
+          description: isNative()
+            ? 'Select your calendar app to import the event'
+            : 'Open the .ics file to add to your calendar',
+        });
+      } else {
+        toast({
+          title: 'Export Failed',
+          description: 'Could not create calendar file. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('[TASK CARD] ICS export error:', error);
+      toast({
+        title: 'Export Error',
+        description: 'Could not export calendar file',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -863,6 +966,62 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
           </div>
         )}
       </Card>
+
+      {/* Method Picker Dialog - Choose Google, Device, or ICS */}
+      <Dialog open={showMethodPicker} onOpenChange={setShowMethodPicker}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Add to Calendar
+            </DialogTitle>
+            <DialogDescription>
+              Choose how to add "{task.title}" to your calendar
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <button
+              onClick={() => handleMethodSelect('google')}
+              className="w-full p-3 rounded-lg border text-left flex items-center gap-3 hover:bg-accent hover:border-primary transition-colors"
+            >
+              <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium">Google Calendar</div>
+                <div className="text-xs text-muted-foreground">Sync directly with your Google account</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleMethodSelect('device')}
+              className="w-full p-3 rounded-lg border text-left flex items-center gap-3 hover:bg-accent hover:border-primary transition-colors"
+            >
+              <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                <Smartphone className="w-4 h-4 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium">Device Calendar</div>
+                <div className="text-xs text-muted-foreground">Samsung Calendar, iOS Calendar, etc.</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleMethodSelect('ics')}
+              className="w-full p-3 rounded-lg border text-left flex items-center gap-3 hover:bg-accent hover:border-primary transition-colors"
+            >
+              <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                <Download className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium">Download Calendar File</div>
+                <div className="text-xs text-muted-foreground">Universal .ics format - works with any app</div>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Calendar Picker Dialog - same pattern as Settings.tsx */}
       <Dialog open={showCalendarPicker} onOpenChange={setShowCalendarPicker}>
