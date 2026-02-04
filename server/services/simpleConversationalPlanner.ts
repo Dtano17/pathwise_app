@@ -2371,6 +2371,73 @@ If user continues asking technical questions: "I'm designed to help you plan ama
 
 ---
 
+### 10. 📋 COMPREHENSIVE TASK REQUIREMENTS (CRITICAL FOR PLAN QUALITY)
+
+**Every task must be SELF-CONTAINED and ACTIONABLE - users should be able to click and go!**
+
+## 🔗 CLICKABLE LINKS IN TASKS
+
+Every task involving a VENUE, RESTAURANT, HOTEL, or BOOKABLE EXPERIENCE must include:
+
+**In taskName field - Format as markdown link:**
+- "Book dinner at [Nobu Malibu](https://www.google.com/maps/search/?api=1&query=Nobu+Malibu+CA)"
+- "Check in at [Hotel Arts Barcelona](https://www.google.com/maps/search/?api=1&query=Hotel+Arts+Barcelona)"
+- "Visit [The Getty Center](https://www.google.com/maps/search/?api=1&query=Getty+Center+Los+Angeles)"
+
+**In notes field - Include ALL actionable links:**
+- 📍 [Open in Maps](https://www.google.com/maps/search/?api=1&query=VENUE+NAME+CITY)
+- 🎫 [Book on OpenTable](https://www.opentable.com/r/VENUE-NAME) or [Resy](https://resy.com)
+- 🏨 [Reserve on Booking.com](https://www.booking.com)
+- ✈️ [Search Google Flights](https://www.google.com/travel/flights)
+
+## ⏰ DEPARTURE & ARRIVAL TIMING (MANDATORY FOR EVERY TIMED TASK)
+
+For EVERY task with a location and time, calculate and include:
+- "⏰ **Timing:** Leave [origin] by [departure_time] → [duration] drive/walk → Arrive by [arrival_time]"
+
+**Rules:**
+1. Calculate travel time (estimate 2 min/mile in city, 1 min/mile highway)
+2. Add buffers: +10-15 min parking, +15-30 min airports, +5-10 min restaurant check-in
+3. Rush hour (7-9 AM, 4-7 PM): +50% travel time
+4. Include optimal departure window when relevant
+
+**Examples:**
+✅ "⏰ Leave hotel at 8:15 AM → 35 min drive + 10 min parking → Arrive 9:00 AM"
+✅ "⏰ Departure window: 6:00-6:30 PM for 7 PM reservation (Friday traffic)"
+❌ "Get there early" (TOO VAGUE)
+❌ "Leave with enough time" (NOT ACTIONABLE)
+
+## 🌤️ WEATHER & DRESS CODE (MANDATORY FOR OUTDOOR/TRAVEL/EVENT TASKS)
+
+Include in notes field:
+- "👔 **Dress:** [specific recommendations based on weather + venue dress code]"
+- "🎒 **Pack:** [weather-specific items]"
+
+**Examples by activity:**
+| Activity | Dress Recommendation |
+|----------|---------------------|
+| Fine dining | "👔 Business casual to semi-formal. Men: collared shirt, dress shoes. Women: cocktail dress." |
+| Beach day | "👔 Swimwear + coverup. Pack: Sunscreen SPF 50, hat, sunglasses" |
+| Hiking | "👔 Moisture-wicking layers, hiking boots. Pack: 2L water, snacks, first aid" |
+| City sightseeing | "👔 Comfortable walking shoes (5+ miles expected). Temps: 72°F day, 58°F evening - bring light jacket" |
+
+**DO NOT say:** "Dress appropriately" / "Wear comfortable clothes" / "Check the weather"
+**DO say:** "👔 Dress: Layers recommended - 58°F morning, 75°F afternoon. Restaurant requires smart casual."
+
+## 🗓️ RESERVATION & BOOKING DETAILS (MANDATORY FOR BOOKABLE VENUES)
+
+For EVERY restaurant, tour, experience, hotel, or ticketed activity include:
+1. **When to book:** "Book 2 weeks ahead for weekend" or "Same-day usually available"
+2. **How to book:** "[Book on OpenTable](url)" or "Call: (555) 123-4567"
+3. **Best times:** "6:30 PM avoids kitchen rush, 8:30 PM quieter"
+4. **Special requests:** "Request patio/window table when booking"
+5. **Confirmation:** "Confirm 24h before"
+
+**Format:**
+"🗓️ **Booking:** Book [timeframe] via [platform](link). Best times: [times]. Confirm [when]."
+
+---
+
 ## Output Format
 
 Use respond_with_structure tool:
@@ -2393,37 +2460,45 @@ Use respond_with_structure tool:
     "startDate": "2025-01-20",  // ISO date - extract from conversation (e.g., "next Friday", "January 20th")
     "endDate": "2025-01-22",    // ISO date - for multi-day activities
     "tasks": [
-      // CREATE 8-12 DETAILED tasks like professional assistant
-      // Each MUST include: budget, transportation, dress code, logistics
-      // IMPORTANT: Include scheduledDate and startTime for time-specific tasks!
+      // CREATE AS MANY TASKS AS NEEDED for a comprehensive plan - DO NOT artificially limit!
+      // - Travel: 12-20 tasks (flights, hotels, daily activities, dining, prep)
+      // - Day trips: 8-15 tasks
+      // - Simple events: 6-10 tasks
+      // - Multi-day trips: 15-25+ tasks (one task per major activity/meal/transport)
+      // THOROUGHNESS > BREVITY - Generate EVERY booking, transport, activity, meal as separate clickable task
 
-      // TRAVEL EXAMPLE:
-      {"taskName": "Book flights Austin→Paris (Nov 10-24)", "duration": 45, "scheduledDate": "2025-11-10", "startTime": "06:00",
-       "notes": "$540×2=$1,080 (11% budget, $8,920 left). Delta/United/Air France. Book via Google Flights. Seats together, 1 bag each ($70). Total $1,150.",
-       "category": "Travel", "priority": "high"},
-      
-      {"taskName": "Reserve Hôtel (14 nights)", "duration": 30, "scheduledDate": "2025-11-10",
-       "notes": "$320×14=$4,480 (45% budget, $4,440 left). Booking.com. Request honeymoon package, high floor, quiet. Free cancel until Nov 1.",
+      // Each task MUST include:
+      // 1. Clickable venue link in taskName: "[Action] at [Venue Name](https://www.google.com/maps/search/?api=1&query=VENUE+CITY)"
+      // 2. scheduledDate (YYYY-MM-DD) and startTime (HH:MM) for time-specific tasks
+      // 3. In notes field: cost, departure timing, dress code, booking info, tips
+
+      // TRAVEL EXAMPLE with CLICKABLE LINKS:
+      {"taskName": "Book flights Austin→Paris via [Google Flights](https://www.google.com/travel/flights)", "duration": 45, "scheduledDate": "2025-11-10", "startTime": "06:00",
+       "notes": "✈️ [Search Google Flights](https://www.google.com/travel/flights?q=flights+Austin+to+Paris)\n\n💰 **Cost:** $540×2=$1,080 (11% budget). Delta/United/Air France.\n🗓️ **Booking:** Book 6-8 weeks ahead for best prices. Seats together, 1 bag each (+$70).\n📝 **Tips:** Set price alerts, flexible dates save $100+",
        "category": "Travel", "priority": "high"},
 
-      {"taskName": "Airport shuttle CDG→hotel", "duration": 15, "scheduledDate": "2025-11-10", "startTime": "14:00",
-       "notes": "$35/person Welcome Pickups. Book 48hrs ahead. Alt: RER train $12/person 45min or taxi $60.",
+      {"taskName": "Reserve [Hôtel Le Marais](https://www.google.com/maps/search/?api=1&query=Hotel+Le+Marais+Paris) (14 nights)", "duration": 30, "scheduledDate": "2025-11-10",
+       "notes": "🏨 [Book on Booking.com](https://www.booking.com) | 📍 [Open in Maps](https://www.google.com/maps/search/?api=1&query=Hotel+Le+Marais+Paris)\n\n💰 **Cost:** $320×14=$4,480 (45% budget).\n🗓️ **Booking:** Free cancel until Nov 1. Request honeymoon package, high floor, quiet room.\n📝 **Tips:** Mention special occasion for potential upgrade",
        "category": "Travel", "priority": "high"},
 
-      {"taskName": "Pack for 50°F + umbrella", "duration": 60, "scheduledDate": "2025-11-09", "startTime": "19:00",
-       "notes": "Layers, rain jacket, umbrella, walking shoes (5+ miles/day), 1-2 dressy outfits. Metro has stairs - pack light!",
+      {"taskName": "Airport transfer CDG→hotel", "duration": 15, "scheduledDate": "2025-11-10", "startTime": "14:00",
+       "notes": "🚐 [Book Welcome Pickups](https://www.welcomepickups.com)\n\n💰 **Cost:** $35/person. Book 48hrs ahead.\n⏰ **Timing:** Flight lands 1:30 PM → customs 45 min → pickup 2:15 PM → hotel 3:00 PM\n📝 **Alternatives:** RER train $12/person (45min) or taxi $60",
+       "category": "Travel", "priority": "high"},
+
+      {"taskName": "Pack for Paris weather", "duration": 60, "scheduledDate": "2025-11-09", "startTime": "19:00",
+       "notes": "🌤️ **Weather:** November Paris: 45-55°F, 60% rain chance\n👔 **Pack:** Layers, waterproof jacket, compact umbrella, comfortable walking shoes (5+ miles/day), 1-2 dressy outfits for dinners.\n📝 **Tips:** Metro has lots of stairs - pack light! Max 1 checked + 1 carry-on each",
        "category": "Travel", "priority": "medium"},
 
-      {"taskName": "Buy Navigo Metro pass", "duration": 10, "scheduledDate": "2025-11-10", "startTime": "15:00",
-       "notes": "€30/person at airport/station. Unlimited 7 days. Saves vs €2.10 singles. Use 10+/day. Line 1→Eiffel, Line 4→Notre-Dame.",
+      {"taskName": "Buy [Navigo Metro Pass](https://www.google.com/maps/search/?api=1&query=Paris+Metro+CDG+Airport)", "duration": 10, "scheduledDate": "2025-11-10", "startTime": "15:00",
+       "notes": "🚇 Buy at airport/any station\n\n💰 **Cost:** €30/person for unlimited 7 days (saves vs €2.10 singles if using 10+/day)\n📝 **Tips:** Line 1→Eiffel Tower, Line 4→Notre-Dame. Download Citymapper app for real-time directions",
        "category": "Travel", "priority": "medium"},
 
-      {"taskName": "Reserve Le George (romantic dinner)", "duration": 120, "scheduledDate": "2025-11-12", "startTime": "20:00",
-       "notes": "€150/person=$320 total. Book 2-3 weeks ahead, OpenTable/direct. Window table, mention honeymoon. Dress: business casual. 10min walk.",
+      {"taskName": "Dinner at [Le George](https://www.google.com/maps/search/?api=1&query=Le+George+Paris+Restaurant)", "duration": 120, "scheduledDate": "2025-11-12", "startTime": "20:00",
+       "notes": "📍 [Open in Maps](https://www.google.com/maps/search/?api=1&query=Le+George+Paris) | 🗓️ [Book on OpenTable](https://www.opentable.com)\n\n💰 **Cost:** €150/person = $320 total with wine\n⏰ **Timing:** Leave hotel 7:45 PM → 10 min walk → Arrive 7:55 PM\n👔 **Dress:** Business casual - collared shirt, dress shoes. No jeans/sneakers.\n🗓️ **Booking:** Book 2-3 weeks ahead. Request window table, mention honeymoon.\n📝 **Tips:** Tasting menu highly recommended. Confirm 24h before.",
        "category": "Dining", "priority": "high"}
 
-      // Continue for 8-12 tasks with THIS detail level
-      // ALWAYS include scheduledDate (YYYY-MM-DD) and startTime (HH:MM) when user mentions specific times
+      // CONTINUE with as many tasks as needed - flights, hotels, EACH daily activity, EACH restaurant, transport between locations, packing, prep tasks
+      // ALWAYS include: clickable [Venue](url) links, departure timing ("Leave by X → Y min → Arrive Z"), dress code, booking platform links
     ],
     "budget": {  // If user provided budget
       "total": amount,

@@ -1096,6 +1096,9 @@ GENERAL ACTIVITY QUESTIONS:
     let activitySuggestions = [];
     let tips = [];
 
+    const destination = slots.location?.destination || '';
+    const date = slots.timing?.date || '';
+
     if (activityType.includes('date')) {
       if (isLowBudget) {
         activitySuggestions = [
@@ -1105,7 +1108,11 @@ GENERAL ACTIVITY QUESTIONS:
           "Picnic in a local park",
           "Sunset walk and coffee"
         ];
-        tips = ["Create ambiance with candles and music", "Plan a fun cooking activity together", "Set up a cozy movie area"];
+        tips = [
+          "Create ambiance with candles and music - set the mood before your date arrives",
+          "Plan departure 30 min early for outdoor activities to find the perfect spot",
+          "Check weather forecast and dress in layers - evenings can be 10-15°F cooler"
+        ];
       } else if (isMediumBudget) {
         activitySuggestions = [
           "Dinner at a nice casual restaurant",
@@ -1114,7 +1121,12 @@ GENERAL ACTIVITY QUESTIONS:
           "Mini golf or bowling + drinks",
           "Coffee shop + local attraction"
         ];
-        tips = ["Make reservations in advance", "Check happy hour times", "Dress smart casual"];
+        tips = [
+          "🗓️ Book restaurant reservations 1-2 weeks ahead for weekends via OpenTable/Resy",
+          "⏰ Plan departure 30-45 min before reservation time for parking + check-in buffer",
+          "👔 Dress smart casual - collared shirt for men, nice blouse/dress for women",
+          "💡 Request outdoor seating or quiet corner when booking, not at arrival"
+        ];
       } else {
         activitySuggestions = [
           "Fine dining restaurant experience",
@@ -1123,18 +1135,23 @@ GENERAL ACTIVITY QUESTIONS:
           "Spa day + romantic dinner",
           "Weekend getaway planning"
         ];
-        tips = ["Make reservations well in advance", "Dress up for the occasion", "Consider transportation/parking"];
+        tips = [
+          "🗓️ Book 2-3 weeks ahead for fine dining - use Resy for exclusive reservations",
+          "👔 Dress code: Business casual to semi-formal. Men: dress shoes required. Check restaurant policy",
+          "⏰ Arrive 10 min early, allow 30+ min for parking/valet. Rush hour adds 50% travel time",
+          "💡 Mention special occasion when booking for potential complimentary touches"
+        ];
       }
     } else if (activityType && activityType.includes('travel')) {
       const isBusinessTravel = Boolean(
-        slots.vibe?.includes?.('business') || 
-        (slots.companions && 
-         typeof slots.companions === 'object' && 
+        slots.vibe?.includes?.('business') ||
+        (slots.companions &&
+         typeof slots.companions === 'object' &&
          'relationships' in slots.companions &&
-         Array.isArray(slots.companions.relationships) && 
+         Array.isArray(slots.companions.relationships) &&
          slots.companions.relationships.some((rel: string) => typeof rel === 'string' && rel.includes('business')))
       );
-      
+
       if (isBusinessTravel) {
         activitySuggestions = [
           "Book accommodations near meeting location",
@@ -1143,7 +1160,12 @@ GENERAL ACTIVITY QUESTIONS:
           "Identify backup travel options",
           "Schedule buffer time for meetings"
         ];
-        tips = ["Pack business attire", "Download offline maps", "Prepare for different time zones"];
+        tips = [
+          "👔 Pack business attire - suit/blazer, dress shoes. Check luggage restrictions for wrinkle-free packing",
+          "⏰ Build 45-60 min buffer before meetings for unexpected delays. Airport→hotel: add 30 min",
+          "📱 Download offline maps and save meeting addresses. Pre-book airport transfers 48h ahead",
+          `🗓️ Book client dinner reservations NOW via OpenTable - popular spots fill up${destination ? ` in ${destination}` : ''}`
+        ];
       } else {
         activitySuggestions = [
           "Research top local attractions",
@@ -1152,8 +1174,21 @@ GENERAL ACTIVITY QUESTIONS:
           "Find local experiences and tours",
           "Schedule relaxation time"
         ];
-        tips = ["Pack weather-appropriate clothing", "Download travel apps", "Keep copies of important documents"];
+        tips = [
+          `🌤️ Check ${destination || 'destination'} weather forecast - pack layers (mornings 10-15°F cooler), comfortable walking shoes for 5+ miles/day`,
+          "✈️ Book flights 6-8 weeks ahead for best prices. Use Google Flights price alerts",
+          "🗓️ Reserve popular restaurants 2+ weeks ahead via OpenTable/Resy. Tours sell out 3-5 days before",
+          "⏰ Calculate departure times with 30-45 min buffer for parking/security. Rush hour adds 50% travel time"
+        ];
       }
+    } else if (activityType.includes('outdoor') || activityType.includes('hiking') || activityType.includes('beach')) {
+      activitySuggestions = ["Hiking trails", "Beach activities", "Outdoor sports", "Nature walks", "Picnic spots"];
+      tips = [
+        `🌤️ Check weather and UV index - pack sunscreen SPF 50+, hat, sunglasses${date ? ` for ${date}` : ''}`,
+        "👔 Wear moisture-wicking layers, comfortable shoes with ankle support for trails",
+        "🎒 Pack: 2L water/person, snacks, first aid kit, portable phone charger",
+        "⏰ Start early (before 10 AM) to avoid crowds and afternoon heat. Allow 20% extra time for trails"
+      ];
     } else {
       // General activity suggestions based on budget
       if (isLowBudget) {
@@ -1163,7 +1198,11 @@ GENERAL ACTIVITY QUESTIONS:
       } else {
         activitySuggestions = ["Premium experiences", "Fine dining", "Special events"];
       }
-      tips = ["Check weather conditions", "Confirm all reservations", "Plan your transportation"];
+      tips = [
+        `🌤️ Check weather forecast${date ? ` for ${date}` : ''} - dress in layers, bring umbrella if 30%+ rain chance`,
+        "🗓️ Confirm all reservations 24h before - popular spots may release no-shows",
+        "⏰ Plan departure 30 min before needed arrival time for parking/unexpected delays"
+      ];
     }
 
     return {
@@ -1180,8 +1219,32 @@ GENERAL ACTIVITY QUESTIONS:
       ],
       budgetBreakdown: this.generateBudgetBreakdown(slots),
       tips,
-      outfit: slots.outfit ? `${slots.outfit.formality || 'casual'} style` : "Dress appropriately for the occasion"
+      outfit: slots.outfit ? `${slots.outfit.formality || 'casual'} style` : this.generateOutfitRecommendation(activityType, budgetLevel)
     };
+  }
+
+  /**
+   * Generate specific outfit recommendation based on activity type and budget
+   */
+  private generateOutfitRecommendation(activityType: string, budgetLevel: string): string {
+    if (activityType.includes('date')) {
+      if (budgetLevel === 'high') {
+        return "👔 Semi-formal: Men - dress shirt, dress pants, leather shoes. Women - cocktail dress or elegant separates";
+      } else if (budgetLevel === 'medium') {
+        return "👔 Smart casual: Men - collared shirt, chinos, clean shoes. Women - nice blouse with jeans/dress";
+      }
+      return "👔 Casual: Comfortable but put-together. Avoid athletic wear for restaurants";
+    }
+    if (activityType.includes('travel') || activityType.includes('sightseeing')) {
+      return "👔 Comfortable layers: Walking shoes essential (5+ miles expected), light jacket for AC/evening. Check restaurant dress codes";
+    }
+    if (activityType.includes('outdoor') || activityType.includes('hiking')) {
+      return "👔 Athletic: Moisture-wicking layers, hiking boots/trail shoes, hat for sun. Pack rain jacket";
+    }
+    if (activityType.includes('business')) {
+      return "👔 Business professional: Suit/blazer, dress shoes. Pack wrinkle-free options for travel";
+    }
+    return "👔 Smart casual: Comfortable but presentable. Check venue requirements";
   }
 
   /**
