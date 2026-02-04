@@ -141,5 +141,16 @@
 	<!-- Live Activities Support -->
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+
+	<!-- App Transport Security - Allow HTTPS connections -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
+
+	<!-- Encryption Export Compliance - Using standard HTTPS only -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
