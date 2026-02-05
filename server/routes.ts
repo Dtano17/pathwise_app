@@ -19941,6 +19941,36 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
+  // Get contacts who are also JournalMate users
+  app.get("/api/contacts/on-journalmate", async (req, res) => {
+    try {
+      const userId = getUserId(req) || getDemoUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Unable to identify user" });
+      }
+
+      // Get all user contacts with their JournalMate status
+      const allContacts = await contactSyncService.getUserContactsWithStatus(userId);
+
+      // Filter to only contacts who are JournalMate users
+      const journalmateContacts = allContacts.filter(
+        (contact: any) => contact.isOnJournalmate === true
+      );
+
+      console.log(
+        `[CONTACTS ON-JOURNALMATE] Found ${journalmateContacts.length} JournalMate contacts out of ${allContacts.length} total for user ${userId}`
+      );
+
+      res.json(journalmateContacts);
+    } catch (error) {
+      console.error(
+        "[CONTACTS ON-JOURNALMATE] Error:",
+        error instanceof Error ? error.message : "Unknown error"
+      );
+      res.status(500).json({ error: "Failed to fetch JournalMate contacts" });
+    }
+  });
+
   // Generate invite message for sharing
   app.post("/api/sharing/generate-invite", async (req, res) => {
     try {

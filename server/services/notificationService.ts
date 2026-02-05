@@ -102,8 +102,27 @@ export async function sendUserNotification(
 ): Promise<void> {
   try {
     // Check user's notification preferences
-    const prefs = await storage.getNotificationPreferences(userId);
-    
+    let prefs = await storage.getNotificationPreferences(userId);
+
+    // Create default preferences if none exist (new users should get notifications by default)
+    if (!prefs) {
+      console.log(`[NOTIFICATION] Creating default notification preferences for user ${userId}`);
+      prefs = await storage.createNotificationPreferences({
+        userId: userId,
+        enableBrowserNotifications: true,
+        enableTaskReminders: true,
+        enableDeadlineWarnings: true,
+        enableDailyPlanning: false,
+        enableGroupNotifications: true,
+        enableStreakReminders: true,
+        enableAccountabilityReminders: true,
+        reminderLeadTime: 30,
+        dailyPlanningTime: "09:00",
+        quietHoursStart: "22:00",
+        quietHoursEnd: "08:00",
+      });
+    }
+
     if (!prefs?.enableBrowserNotifications) {
       console.log(`[NOTIFICATION] User ${userId} has notifications disabled`);
       return;
