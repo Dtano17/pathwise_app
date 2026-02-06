@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { eq, and, desc, isNull, isNotNull, or, lte, inArray, sql } from "drizzle-orm";
+import { eq, and, desc, isNull, isNotNull, or, lte, gte, inArray, sql } from "drizzle-orm";
 import crypto from "crypto";
 import { 
   type User, 
@@ -264,6 +264,7 @@ export interface IStorage {
   createProgressStats(stats: InsertProgressStats & { userId: string }): Promise<ProgressStats>;
   getUserProgressStats(userId: string, date: string): Promise<ProgressStats | undefined>;
   getUserProgressHistory(userId: string, days: number): Promise<ProgressStats[]>;
+  getUsersWithActiveStreaks(minStreak: number): Promise<Array<{ userId: string; currentStreak: number; lastActivityDate: string | null }>>;
 
   // Chat Imports
   createChatImport(chatImport: InsertChatImport & { userId: string }): Promise<ChatImport>;
@@ -1637,6 +1638,83 @@ export class DatabaseStorage implements IStorage {
       .where(eq(progressStats.userId, userId))
       .orderBy(desc(progressStats.date))
       .limit(days);
+  }
+
+  async getUsersWithActiveStreaks(minStreak: number): Promise<Array<{ userId: string; currentStreak: number; lastActivityDate: string | null }>> {
+    try {
+      // Get users who have had activity in the last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const cutoffDate = thirtyDaysAgo.toISOString().split('T')[0];
+
+      // Get all progress stats from the last 30 days
+      const recentStats = await db.select({
+        userId: progressStats.userId,
+        date: progressStats.date,
+        completedCount: progressStats.completedCount,
+      })
+        .from(progressStats)
+        .where(gte(progressStats.date, cutoffDate))
+        .orderBy(desc(progressStats.date));
+
+      // Group by user and calculate streaks
+      const userStats = new Map<string, { dates: string[]; lastActivityDate: string | null }>();
+
+      for (const stat of recentStats) {
+        if (!stat.userId || (stat.completedCount || 0) === 0) continue;
+
+        if (!userStats.has(stat.userId)) {
+          userStats.set(stat.userId, { dates: [], lastActivityDate: null });
+        }
+        const userData = userStats.get(stat.userId)!;
+        userData.dates.push(stat.date);
+        if (!userData.lastActivityDate) {
+          userData.lastActivityDate = stat.date;
+        }
+      }
+
+      // Calculate consecutive day streaks
+      const usersWithStreaks: Array<{ userId: string; currentStreak: number; lastActivityDate: string | null }> = [];
+
+      for (const [usrId, userData] of userStats) {
+        const sortedDates = [...new Set(userData.dates)].sort().reverse();
+        let streak = 0;
+        let expectedDate = new Date();
+
+        for (const dateStr of sortedDates) {
+          const expected = expectedDate.toISOString().split('T')[0];
+          if (dateStr === expected) {
+            streak++;
+            expectedDate.setDate(expectedDate.getDate() - 1);
+          } else if (streak === 0) {
+            // Allow for checking yesterday if no activity today yet
+            expectedDate.setDate(expectedDate.getDate() - 1);
+            const yesterdayStr = expectedDate.toISOString().split('T')[0];
+            if (dateStr === yesterdayStr) {
+              streak++;
+              expectedDate.setDate(expectedDate.getDate() - 1);
+            } else {
+              break;
+            }
+          } else {
+            break;
+          }
+        }
+
+        if (streak >= minStreak) {
+          usersWithStreaks.push({
+            userId: usrId,
+            currentStreak: streak,
+            lastActivityDate: userData.lastActivityDate,
+          });
+        }
+      }
+
+      return usersWithStreaks;
+    } catch (error) {
+      console.error('[STORAGE] Error getting users with active streaks:', error);
+      return [];
+    }
   }
 
   // Chat Imports

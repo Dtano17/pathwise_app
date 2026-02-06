@@ -1,19 +1,22 @@
 import type { IStorage } from '../storage.js';
 
 // Dynamic import for firebase-admin to prevent crashes when package not available
-let admin: any = null;
+let firebaseAdminModule: any = null;
 let fcmApp: any = null;
 
 /**
  * Lazy load firebase-admin package
- * Returns null if package not available or fails to load
+ * Returns the firebase-admin module or null if not available
  */
 async function loadFirebaseAdmin() {
-  if (admin) return admin;
+  if (firebaseAdminModule) return firebaseAdminModule;
 
   try {
-    admin = await import('firebase-admin');
-    return admin.default || admin;
+    const imported = await import('firebase-admin');
+    // Handle both ESM and CJS module structures
+    firebaseAdminModule = imported.default || imported;
+    console.log('[PUSH] Firebase Admin SDK loaded successfully');
+    return firebaseAdminModule;
   } catch (error) {
     console.warn('[PUSH] firebase-admin package not available:', error);
     return null;
@@ -110,6 +113,24 @@ export class PushNotificationService {
         return { success: false, sentCount: 0, failedCount: 0 };
       }
 
+      // Get messaging service - handle different module structures
+      let messagingService;
+      if (typeof firebaseAdmin.messaging === 'function') {
+        messagingService = firebaseAdmin.messaging(fcmApp);
+      } else if (fcmApp && typeof fcmApp.messaging === 'function') {
+        messagingService = fcmApp.messaging();
+      } else {
+        // Try to get messaging from the module directly
+        const { getMessaging } = firebaseAdmin;
+        if (typeof getMessaging === 'function') {
+          messagingService = getMessaging(fcmApp);
+        } else {
+          console.error('[PUSH] Could not get messaging service from Firebase Admin SDK');
+          console.error('[PUSH] Available methods:', Object.keys(firebaseAdmin));
+          return { success: false, sentCount: 0, failedCount: 0 };
+        }
+      }
+
       // Send to all devices using FCM multicast
       const message: any = {
         tokens: deviceTokens,
@@ -139,7 +160,7 @@ export class PushNotificationService {
         },
       };
 
-      const response = await firebaseAdmin.messaging(fcmApp).sendEachForMulticast(message);
+      const response = await messagingService.sendEachForMulticast(message);
 
       console.log(`[PUSH] Sent to user ${userId}: ${response.successCount}/${deviceTokens.length} devices`);
 

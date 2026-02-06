@@ -289,7 +289,7 @@ async function dispatchNotification(
     }
 
     // Send the notification
-    await sendUserNotification(notification.userId, {
+    await sendUserNotification(storage, notification.userId, {
       title: notification.title,
       body: notification.body,
       type: notification.notificationType,
@@ -529,7 +529,7 @@ export async function sendImmediateNotification(
     }
 
     // Send the notification
-    await sendUserNotification(userId, {
+    await sendUserNotification(storage, userId, {
       title: options.title,
       body: options.body,
       type: options.type,
