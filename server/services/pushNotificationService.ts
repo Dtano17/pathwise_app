@@ -143,12 +143,23 @@ export class PushNotificationService {
 
       console.log(`[PUSH] Sent to user ${userId}: ${response.successCount}/${deviceTokens.length} devices`);
 
+      // Log detailed response for debugging
+      if (response.failureCount > 0) {
+        console.log(`[PUSH] Failure details for user ${userId}:`);
+        response.responses.forEach((resp: any, idx: number) => {
+          if (!resp.success) {
+            console.log(`[PUSH]   Token ${idx}: ${resp.error?.code} - ${resp.error?.message}`);
+          }
+        });
+      }
+
       // Remove invalid tokens
       if (response.failureCount > 0) {
         const failedTokens: string[] = [];
         response.responses.forEach((resp: any, idx: number) => {
           if (!resp.success) {
             const errorCode = (resp.error as any)?.code;
+            console.log(`[PUSH] Token ${idx} failed with error: ${errorCode} - ${(resp.error as any)?.message}`);
             if (errorCode === 'messaging/invalid-registration-token' ||
                 errorCode === 'messaging/registration-token-not-registered') {
               failedTokens.push(deviceTokens[idx]);

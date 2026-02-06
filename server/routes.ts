@@ -13132,6 +13132,10 @@ Return ONLY valid JSON, no markdown or explanation.`;
           deviceName: d.deviceName,
           isActive: d.isActive,
           createdAt: d.createdAt,
+          // Show partial token for debugging (first 20 chars + length)
+          tokenPreview: d.token ? `${d.token.substring(0, 20)}... (${d.token.length} chars)` : 'empty',
+          // FCM tokens are typically 150+ chars, web push tokens are different
+          looksLikeFCM: d.token && d.token.length > 100,
         })),
       };
 
