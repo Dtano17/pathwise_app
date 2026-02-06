@@ -168,8 +168,6 @@ function AppContent() {
                     onShowChatHistory={() => setShowChatHistory(true)}
                     onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
                     onShowRecentGoals={() => setShowRecentGoals(true)}
-                    onShowProgressReport={() => setShowProgressReport(true)}
-                    onShowEndOfDayReview={() => setShowEndOfDayReview(true)}
                     onOpenUpgradeModal={(trigger) => {
                       setUpgradeTrigger(trigger);
                       setShowUpgradeModal(true);
@@ -178,7 +176,7 @@ function AppContent() {
                     onShowDiscover={() => mainAppTabRef.current('discover')}
                     onShowActivities={() => mainAppTabRef.current('activities')}
                     onShowAllTasks={() => mainAppTabRef.current('tasks')}
-                    onShowProgress={() => mainAppTabRef.current('progress')}
+                    onShowProgress={() => mainAppTabRef.current('reports')}
                     onShowGroups={() => mainAppTabRef.current('groups')}
                     onShowIntegrations={() => mainAppTabRef.current('sync')}
                   />

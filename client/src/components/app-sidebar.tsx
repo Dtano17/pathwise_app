@@ -53,7 +53,7 @@ const AVAILABLE_QUICK_ACTIONS: Record<string, Omit<QuickAction, 'action'>> = {
   discover: { id: 'discover', name: 'Discover', icon: Globe2, href: '/?tab=discover', testId: 'button-discover-quick' },
   activities: { id: 'activities', name: 'Activities', icon: Target, href: '/?tab=activities', testId: 'button-activities-quick' },
   allTasks: { id: 'allTasks', name: 'All Tasks', icon: CheckSquare, href: '/?tab=tasks', testId: 'button-all-tasks-quick' },
-  progress: { id: 'progress', name: 'Progress', icon: BarChart3, href: '/?tab=progress', testId: 'button-progress-quick' },
+  reports: { id: 'reports', name: 'Reports', icon: BarChart3, href: '/?tab=reports', testId: 'button-reports-quick' },
   groups: { id: 'groups', name: 'Groups', icon: Users, href: '/?tab=groups', testId: 'button-groups-quick' },
   integrations: { id: 'integrations', name: 'Integrations', icon: Plug, href: '/?tab=sync', testId: 'button-integrations-quick' },
 };
@@ -68,8 +68,6 @@ interface AppSidebarProps {
   onShowChatHistory?: () => void;
   onShowLifestylePlanner?: () => void;
   onShowRecentGoals?: () => void;
-  onShowProgressReport?: () => void;
-  onShowEndOfDayReview?: () => void;
   onShowInsightsDashboard?: () => void;
   onOpenUpgradeModal?: (trigger: 'planLimit' | 'favorites' | 'export' | 'insights') => void;
   onShowActivities?: () => void;
@@ -91,12 +89,10 @@ export function AppSidebar({
   onShowChatHistory,
   onShowLifestylePlanner,
   onShowRecentGoals,
-  onShowProgressReport,
   onShowGoalInput,
   onShowDiscover,
   onShowProgress,
   onShowGroups,
-  onShowEndOfDayReview,
   onOpenUpgradeModal,
   onShowActivities,
   onShowAllTasks,
@@ -161,7 +157,7 @@ export function AppSidebar({
 
   // Quick Actions customization
   const [isQuickActionsDialogOpen, setIsQuickActionsDialogOpen] = useState(false);
-  const DEFAULT_QUICK_ACTIONS = ['goalInput', 'discover', 'progress'];
+  const DEFAULT_QUICK_ACTIONS = ['goalInput', 'discover', 'reports'];
   const [enabledQuickActions, setEnabledQuickActions] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('quickActionsEnabled');
@@ -253,7 +249,7 @@ export function AppSidebar({
       discover: onShowDiscover || (() => {}),
       activities: onShowActivities || (() => {}),
       allTasks: onShowAllTasks || (() => {}),
-      progress: onShowProgress || (() => {}),
+      reports: onShowProgress || (() => {}),
       groups: onShowGroups || (() => {}),
       integrations: onShowIntegrations || (() => {}),
     };
@@ -499,19 +495,6 @@ export function AppSidebar({
                 <SidebarMenuButton data-testid="button-chat-history" onClick={onShowChatHistory}>
                   <MessageSquare className="w-4 h-4" />
                   <span>Chat History</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton data-testid="button-completed-tasks" onClick={onShowProgressReport}>
-                  <BarChart3 className="w-4 h-4" />
-                  <span>Progress Report</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton data-testid="button-end-of-day-review" onClick={onShowEndOfDayReview}>
-                  <Moon className="w-4 h-4" />
-                  <span>End of Day Review</span>
-                  <Badge variant="secondary" className="ml-auto text-xs">New</Badge>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
