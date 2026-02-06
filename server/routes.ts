@@ -143,6 +143,7 @@ import {
   onJournalEntryCreated,
   onActivityProcessingComplete,
 } from "./services/notificationEventHooks";
+import { getBadgesWithProgress, BADGES } from "./services/achievementService";
 
 // Tavily client is now managed by tavilyProvider.ts with automatic key rotation
 
@@ -11726,6 +11727,226 @@ ${emoji} ${progressLine}
       res.status(500).json({ error: "Failed to fetch progress data" });
     }
   });
+
+  // Get all badges with progress for user
+  app.get("/api/achievements", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const badgesWithProgress = await getBadgesWithProgress(storage, userId);
+
+      // Separate unlocked and locked badges
+      const unlocked = badgesWithProgress.filter(b => b.unlocked);
+      const locked = badgesWithProgress.filter(b => !b.unlocked);
+
+      // Sort unlocked by most recently earned
+      unlocked.sort((a, b) => {
+        if (!a.unlockedAt || !b.unlockedAt) return 0;
+        return new Date(b.unlockedAt).getTime() - new Date(a.unlockedAt).getTime();
+      });
+
+      // Sort locked by closest to completion
+      locked.sort((a, b) => {
+        const aProgress = a.progress / a.progressMax;
+        const bProgress = b.progress / b.progressMax;
+        return bProgress - aProgress;
+      });
+
+      res.json({
+        unlocked,
+        locked,
+        totalUnlocked: unlocked.length,
+        totalBadges: Object.keys(BADGES).length,
+      });
+    } catch (error) {
+      console.error("Achievements error:", error);
+      res.status(500).json({ error: "Failed to fetch achievements" });
+    }
+  });
+
+  // Get comprehensive reports data (progress + activities + achievements)
+  app.get("/api/reports", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Get all tasks
+      const tasks = await db
+        .select()
+        .from(tasksTable)
+        .where(
+          and(
+            eq(tasksTable.userId, userId),
+            or(eq(tasksTable.archived, false), isNull(tasksTable.archived)),
+          ),
+        );
+
+      // Get all activities
+      const userActivities = await storage.getUserActivities(userId);
+
+      // Calculate today's date
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+      // Tasks calculations
+      const completedTasks = tasks.filter(t => t.completed === true);
+      const completedToday = completedTasks.filter(t => {
+        if (!t.completedAt) return false;
+        const completionDate = t.completedAt instanceof Date
+          ? `${t.completedAt.getFullYear()}-${String(t.completedAt.getMonth() + 1).padStart(2, "0")}-${String(t.completedAt.getDate()).padStart(2, "0")}`
+          : t.completedAt.toString().split("T")[0];
+        return completionDate === today;
+      }).length;
+
+      // Calculate actual streak from consecutive days
+      const streakDays = await calculateActualStreak(userId);
+
+      // Activity statistics
+      const completedActivities = userActivities.filter(a => {
+        const activityTasks = tasks.filter(t => t.activityId === a.id);
+        const completedActivityTasks = activityTasks.filter(t => t.completed);
+        return activityTasks.length > 0 && completedActivityTasks.length === activityTasks.length;
+      });
+
+      // Activity breakdown with task counts
+      const activityStats = userActivities.map(activity => {
+        const activityTasks = tasks.filter(t => t.activityId === activity.id);
+        const completedActivityTasks = activityTasks.filter(t => t.completed);
+        return {
+          id: activity.id,
+          title: activity.title,
+          category: activity.category,
+          totalTasks: activityTasks.length,
+          completedTasks: completedActivityTasks.length,
+          progress: activityTasks.length > 0
+            ? Math.round((completedActivityTasks.length / activityTasks.length) * 100)
+            : 0,
+          isComplete: activityTasks.length > 0 && completedActivityTasks.length === activityTasks.length,
+          startDate: activity.startDate,
+          createdAt: activity.createdAt,
+        };
+      });
+
+      // Category breakdown
+      const categoryMap = new Map<string, { completed: number; total: number }>();
+      tasks.forEach(task => {
+        const cat = task.category || 'Uncategorized';
+        const existing = categoryMap.get(cat) || { completed: 0, total: 0 };
+        existing.total++;
+        if (task.completed) existing.completed++;
+        categoryMap.set(cat, existing);
+      });
+
+      const categories = Array.from(categoryMap.entries()).map(([name, stats]) => ({
+        name,
+        ...stats,
+        percentage: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0,
+      }));
+
+      // Get achievements
+      const badgesWithProgress = await getBadgesWithProgress(storage, userId);
+      const unlockedBadges = badgesWithProgress.filter(b => b.unlocked);
+
+      // Weekly summary (last 7 days)
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const weekAgoStr = weekAgo.toISOString().split('T')[0];
+
+      const completedThisWeek = completedTasks.filter(t => {
+        if (!t.completedAt) return false;
+        const date = t.completedAt instanceof Date
+          ? t.completedAt.toISOString().split('T')[0]
+          : t.completedAt.toString().split('T')[0];
+        return date >= weekAgoStr;
+      }).length;
+
+      res.json({
+        // Overview
+        summary: {
+          totalTasks: tasks.length,
+          completedTasks: completedTasks.length,
+          completedToday,
+          completedThisWeek,
+          totalActivities: userActivities.length,
+          completedActivities: completedActivities.length,
+          currentStreak: streakDays,
+          completionRate: tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0,
+        },
+        // Category breakdown
+        categories,
+        // Activity-level stats
+        activities: activityStats.sort((a, b) => {
+          // Sort by most recent first
+          const aDate = new Date(a.createdAt || 0).getTime();
+          const bDate = new Date(b.createdAt || 0).getTime();
+          return bDate - aDate;
+        }),
+        // Achievements
+        achievements: {
+          unlocked: unlockedBadges,
+          totalUnlocked: unlockedBadges.length,
+          totalBadges: Object.keys(BADGES).length,
+          recentBadges: unlockedBadges.slice(0, 5),
+        },
+        // For widget sync
+        widgetData: {
+          streakCount: streakDays,
+          completedToday,
+          totalToday: tasks.filter(t => !t.completed).length + completedToday,
+          completionRate: tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0,
+        },
+      });
+    } catch (error) {
+      console.error("Reports data error:", error);
+      res.status(500).json({ error: "Failed to fetch reports data" });
+    }
+  });
+
+  // Helper function to calculate actual consecutive day streak
+  async function calculateActualStreak(userId: string): Promise<number> {
+    try {
+      // Get progress stats for last 100 days
+      const progressHistory = await storage.getUserProgressHistory(userId, 100);
+
+      if (progressHistory.length === 0) return 0;
+
+      // Sort by date descending
+      const sortedDays = progressHistory
+        .filter(p => (p.completedCount || 0) > 0)
+        .map(p => p.date)
+        .sort()
+        .reverse();
+
+      if (sortedDays.length === 0) return 0;
+
+      let streak = 0;
+      const today = new Date();
+      let checkDate = new Date(today);
+
+      // Start from today or yesterday
+      const todayStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, "0")}-${String(checkDate.getDate()).padStart(2, "0")}`;
+
+      // If no activity today, start checking from yesterday
+      if (!sortedDays.includes(todayStr)) {
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+
+      // Count consecutive days
+      for (let i = 0; i < 100; i++) {
+        const dateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, "0")}-${String(checkDate.getDate()).padStart(2, "0")}`;
+
+        if (sortedDays.includes(dateStr)) {
+          streak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+
+      return streak;
+    } catch (error) {
+      console.error("Error calculating streak:", error);
+      return 0;
+    }
+  }
 
   // Journal entry endpoints
   // NOTE: More specific routes MUST come before parameterized routes
