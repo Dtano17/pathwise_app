@@ -143,9 +143,7 @@ export async function sendUserNotification(
       body: payload.body,
     });
 
-    // Check user's notification preferences for PUSH notifications
-    const prefs = await storage.getNotificationPreferences(userId);
-
+    // Check if user has push notifications enabled (prefs already loaded above)
     if (!prefs?.enableBrowserNotifications) {
       console.log(`[NOTIFICATION] User ${userId} has push notifications disabled, skipping push`);
       return;
