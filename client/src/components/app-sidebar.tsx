@@ -68,8 +68,6 @@ interface AppSidebarProps {
   onShowChatHistory?: () => void;
   onShowLifestylePlanner?: () => void;
   onShowRecentGoals?: () => void;
-  onShowProgressReport?: () => void;
-  onShowEndOfDayReview?: () => void;
   onShowInsightsDashboard?: () => void;
   onOpenUpgradeModal?: (trigger: 'planLimit' | 'favorites' | 'export' | 'insights') => void;
   onShowActivities?: () => void;
@@ -91,12 +89,10 @@ export function AppSidebar({
   onShowChatHistory,
   onShowLifestylePlanner,
   onShowRecentGoals,
-  onShowProgressReport,
   onShowGoalInput,
   onShowDiscover,
   onShowProgress,
   onShowGroups,
-  onShowEndOfDayReview,
   onOpenUpgradeModal,
   onShowActivities,
   onShowAllTasks,
@@ -499,19 +495,6 @@ export function AppSidebar({
                 <SidebarMenuButton data-testid="button-chat-history" onClick={onShowChatHistory}>
                   <MessageSquare className="w-4 h-4" />
                   <span>Chat History</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton data-testid="button-completed-tasks" onClick={onShowProgressReport}>
-                  <BarChart3 className="w-4 h-4" />
-                  <span>Progress Report</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton data-testid="button-end-of-day-review" onClick={onShowEndOfDayReview}>
-                  <Moon className="w-4 h-4" />
-                  <span>End of Day Review</span>
-                  <Badge variant="secondary" className="ml-auto text-xs">New</Badge>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

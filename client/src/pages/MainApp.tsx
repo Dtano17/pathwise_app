@@ -2482,12 +2482,12 @@ export default function MainApp({
                     <span>All Tasks ({tasks.length})</span>
                   </TabsTrigger>
                   <TabsTrigger
-                    value="progress"
+                    value="reports"
                     className="gap-2 text-sm font-medium"
-                    data-testid="tab-progress"
+                    data-testid="tab-reports"
                   >
                     <BarChart3 className="w-4 h-4" />
-                    <span>Progress</span>
+                    <span>Reports</span>
                   </TabsTrigger>
                   <TabsTrigger
                     value="groups"
