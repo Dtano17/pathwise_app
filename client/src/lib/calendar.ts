@@ -15,6 +15,29 @@
 
 import { CapacitorCalendar, Calendar, CalendarEvent } from '@ebarooni/capacitor-calendar';
 import { isNative, isIOS, isAndroid } from './platform';
+import { Capacitor } from '@capacitor/core';
+
+/**
+ * Check if the calendar plugin is available
+ * Returns false on web or if plugin failed to load
+ */
+export function isCalendarPluginAvailable(): boolean {
+  if (!isNative()) {
+    console.log('[CALENDAR] Not on native platform, calendar plugin not available');
+    return false;
+  }
+
+  try {
+    const isAvailable = Capacitor.isPluginAvailable('CapacitorCalendar');
+    if (!isAvailable) {
+      console.warn('[CALENDAR] Calendar plugin is not available');
+    }
+    return isAvailable;
+  } catch (error) {
+    console.error('[CALENDAR] Error checking calendar plugin availability:', error);
+    return false;
+  }
+}
 
 export interface CalendarPermissionStatus {
   granted: boolean;
@@ -129,6 +152,12 @@ export async function getCalendars(): Promise<Calendar[]> {
 
   if (!isNative()) {
     console.log('[CALENDAR] Not native platform, returning empty array');
+    return [];
+  }
+
+  // Check if calendar plugin is available
+  if (!isCalendarPluginAvailable()) {
+    console.error('[CALENDAR] Calendar plugin not available on this device');
     return [];
   }
 

@@ -105,6 +105,27 @@ export async function sendUserNotification(
   payload: NotificationPayload
 ): Promise<void> {
   try {
+    // Check user's notification preferences
+    let prefs = await storage.getNotificationPreferences(userId);
+
+    // Create default preferences if none exist (new users should get notifications by default)
+    if (!prefs) {
+      console.log(`[NOTIFICATION] Creating default notification preferences for user ${userId}`);
+      prefs = await storage.createNotificationPreferences({
+        userId: userId,
+        enableBrowserNotifications: true,
+        enableTaskReminders: true,
+        enableDeadlineWarnings: true,
+        enableDailyPlanning: false,
+        enableGroupNotifications: true,
+        enableStreakReminders: true,
+        enableAccountabilityReminders: true,
+        reminderLeadTime: 30,
+        dailyPlanningTime: "09:00",
+        quietHoursStart: "22:00",
+        quietHoursEnd: "08:00",
+      });
+    }
     // ALWAYS create in-app notification record first (for the bell icon)
     // This should happen regardless of push notification settings
     await storage.createUserNotification({

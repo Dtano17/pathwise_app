@@ -544,7 +544,7 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       });
 
       if (result.success) {
-        toast({ title: 'Notification Sent', description: 'Check your notification shade' });
+        toast({ title: 'Local Notification Sent', description: 'Check your notification shade' });
       } else {
         toast({
           title: 'Failed',
@@ -557,6 +557,74 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       toast({
         title: 'Failed',
         description: error?.message || 'Could not send test notification',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // Test FCM server push notifications (the kind used for scheduled reminders)
+  const handleTestFCMNotification = async () => {
+    try {
+      const response = await fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ notificationType: 'default' }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast({
+          title: 'FCM Push Sent',
+          description: 'Server sent push via Firebase. If not received, check diagnostics.',
+        });
+      } else {
+        toast({
+          title: 'FCM Test Failed',
+          description: data.error || 'Server could not send push notification',
+          variant: 'destructive'
+        });
+      }
+    } catch (error: any) {
+      console.error('[SETTINGS] FCM test error:', error);
+      toast({
+        title: 'FCM Test Failed',
+        description: error?.message || 'Network error testing FCM',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // Run notification diagnostics to identify issues
+  const handleNotificationDiagnostics = async () => {
+    try {
+      const response = await fetch('/api/notifications/diagnose', {
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: 'Notifications Working',
+          description: `FCM ready! ${data.diagnostics.deviceTokens.count} device(s) registered.`,
+        });
+      } else {
+        toast({
+          title: 'Issues Found',
+          description: data.issues.join('; ') || 'Check console for details',
+          variant: 'destructive'
+        });
+      }
+
+      // Log full diagnostics for debugging
+      console.log('[SETTINGS] Notification diagnostics:', data);
+    } catch (error: any) {
+      console.error('[SETTINGS] Diagnostics error:', error);
+      toast({
+        title: 'Diagnostics Failed',
+        description: error?.message || 'Could not run diagnostics',
         variant: 'destructive'
       });
     }
@@ -1489,13 +1557,32 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
                 />
                 {notificationLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 {notificationStatus === 'granted' && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleTestNotification}
-                  >
-                    Test
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleTestNotification}
+                      title="Test local notification (device-side)"
+                    >
+                      Local
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleTestFCMNotification}
+                      title="Test FCM push (server-side)"
+                    >
+                      FCM
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleNotificationDiagnostics}
+                      title="Run notification diagnostics"
+                    >
+                      ?
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>

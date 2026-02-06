@@ -13069,6 +13069,141 @@ Return ONLY valid JSON, no markdown or explanation.`;
     });
   });
 
+  // Firebase/FCM diagnostic endpoint - tests the full push notification pipeline
+  app.get("/api/notifications/diagnose", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const diagnostics: {
+        firebase: { initialized: boolean; error?: string };
+        credentials: { projectId: boolean; clientEmail: boolean; privateKey: boolean };
+        deviceTokens: { count: number; tokens: Array<{ platform: string; deviceName: string; isActive: boolean; createdAt: Date }> };
+        preferences: { enabled: boolean; details?: any };
+        testSend?: { success: boolean; sentCount?: number; failedCount?: number; errors?: string[] };
+      } = {
+        firebase: { initialized: false },
+        credentials: { projectId: false, clientEmail: false, privateKey: false },
+        deviceTokens: { count: 0, tokens: [] },
+        preferences: { enabled: false },
+      };
+
+      // Check Firebase credentials availability
+      diagnostics.credentials = {
+        projectId: !!process.env.FIREBASE_PROJECT_ID,
+        clientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+      };
+
+      // Check if all credentials are present
+      const allCredentialsPresent = diagnostics.credentials.projectId &&
+                                     diagnostics.credentials.clientEmail &&
+                                     diagnostics.credentials.privateKey;
+
+      // Try to initialize Firebase
+      if (allCredentialsPresent) {
+        try {
+          const { initializePushNotifications } = await import('./services/pushNotificationService');
+          const fcmApp = await initializePushNotifications();
+          diagnostics.firebase.initialized = !!fcmApp;
+          if (!fcmApp) {
+            diagnostics.firebase.error = 'Firebase initialization returned null - check credentials format';
+          }
+        } catch (firebaseError: any) {
+          diagnostics.firebase.error = firebaseError.message || 'Firebase initialization failed';
+        }
+      } else {
+        diagnostics.firebase.error = 'Missing credentials: ' +
+          [
+            !diagnostics.credentials.projectId && 'FIREBASE_PROJECT_ID',
+            !diagnostics.credentials.clientEmail && 'FIREBASE_CLIENT_EMAIL',
+            !diagnostics.credentials.privateKey && 'FIREBASE_PRIVATE_KEY'
+          ].filter(Boolean).join(', ');
+      }
+
+      // Get user's device tokens
+      const devices = await storage.getUserDeviceTokens(userId);
+      diagnostics.deviceTokens = {
+        count: devices.length,
+        tokens: devices.map((d: any) => ({
+          platform: d.platform,
+          deviceName: d.deviceName,
+          isActive: d.isActive,
+          createdAt: d.createdAt,
+        })),
+      };
+
+      // Check notification preferences
+      const prefs = await storage.getNotificationPreferences(userId);
+      diagnostics.preferences = {
+        enabled: prefs?.enableBrowserNotifications ?? false,
+        details: prefs ? {
+          taskReminders: prefs.enableTaskReminders,
+          deadlineWarnings: prefs.enableDeadlineWarnings,
+          groupNotifications: prefs.enableGroupNotifications,
+          streakReminders: prefs.enableStreakReminders,
+          accountabilityReminders: prefs.enableAccountabilityReminders,
+          quietHours: `${prefs.quietHoursStart} - ${prefs.quietHoursEnd}`,
+        } : null,
+      };
+
+      // Attempt a test send if Firebase is initialized and there are tokens
+      if (diagnostics.firebase.initialized && devices.length > 0) {
+        try {
+          const { PushNotificationService } = await import('./services/pushNotificationService');
+          const pushService = new PushNotificationService(storage);
+          const result = await pushService.sendToUser(userId, {
+            title: '🔬 FCM Diagnostic Test',
+            body: 'This notification confirms Firebase Cloud Messaging is working!',
+            data: { type: 'diagnostic', timestamp: new Date().toISOString() },
+          });
+          diagnostics.testSend = {
+            success: result.success,
+            sentCount: result.sentCount,
+            failedCount: result.failedCount,
+          };
+        } catch (sendError: any) {
+          diagnostics.testSend = {
+            success: false,
+            errors: [sendError.message || 'Unknown send error'],
+          };
+        }
+      } else if (!diagnostics.firebase.initialized) {
+        diagnostics.testSend = { success: false, errors: ['Firebase not initialized'] };
+      } else if (devices.length === 0) {
+        diagnostics.testSend = { success: false, errors: ['No device tokens registered for this user'] };
+      }
+
+      // Summary and recommendations
+      const issues: string[] = [];
+      if (!allCredentialsPresent) issues.push('Firebase credentials incomplete');
+      if (!diagnostics.firebase.initialized) issues.push('Firebase SDK not initialized');
+      if (devices.length === 0) issues.push('No device tokens - user needs to enable notifications in mobile app');
+      if (!diagnostics.preferences.enabled) issues.push('User has notifications disabled in preferences');
+
+      const recommendations: string[] = [];
+      if (!allCredentialsPresent) recommendations.push('Add missing Firebase credentials to server environment');
+      if (devices.length === 0) recommendations.push('Open the mobile app and enable push notifications in Settings');
+      if (!diagnostics.preferences.enabled) recommendations.push('Enable notifications in app Settings > Notifications');
+      if (diagnostics.testSend?.failedCount) recommendations.push('Some device tokens may be invalid and were cleaned up');
+
+      res.json({
+        success: issues.length === 0,
+        diagnostics,
+        issues,
+        recommendations,
+        summary: issues.length === 0
+          ? 'FCM push notifications are fully operational!'
+          : `Found ${issues.length} issue(s) preventing push notifications`,
+      });
+    } catch (error: any) {
+      console.error("Error running notification diagnostics:", error);
+      res.status(500).json({ error: error.message || "Diagnostics failed" });
+    }
+  });
+
   // Get user notifications
   app.get("/api/user/notifications", async (req: any, res) => {
     try {
@@ -20261,6 +20396,36 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         error instanceof Error ? error.message : "Unknown error",
       );
       res.status(500).json({ error: "Failed to fetch contacts" });
+    }
+  });
+
+  // Get contacts who are also JournalMate users
+  app.get("/api/contacts/on-journalmate", async (req, res) => {
+    try {
+      const userId = getUserId(req) || getDemoUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Unable to identify user" });
+      }
+
+      // Get all user contacts with their JournalMate status
+      const allContacts = await contactSyncService.getUserContactsWithStatus(userId);
+
+      // Filter to only contacts who are JournalMate users
+      const journalmateContacts = allContacts.filter(
+        (contact: any) => contact.isOnJournalmate === true
+      );
+
+      console.log(
+        `[CONTACTS ON-JOURNALMATE] Found ${journalmateContacts.length} JournalMate contacts out of ${allContacts.length} total for user ${userId}`
+      );
+
+      res.json(journalmateContacts);
+    } catch (error) {
+      console.error(
+        "[CONTACTS ON-JOURNALMATE] Error:",
+        error instanceof Error ? error.message : "Unknown error"
+      );
+      res.status(500).json({ error: "Failed to fetch JournalMate contacts" });
     }
   });
 
