@@ -28,6 +28,8 @@ import {
   type InsertDeviceToken,
   type SchedulingSuggestion,
   type InsertSchedulingSuggestion,
+  type SmartNotification,
+  type InsertSmartNotification,
   type AuthIdentity,
   type InsertAuthIdentity,
   type ExternalOAuthToken,
@@ -90,12 +92,8 @@ import {
   type InsertMobilePreferences,
   type JournalEnrichmentCache,
   type InsertJournalEnrichmentCache,
-  type SmartNotification,
-  type InsertSmartNotification,
-  type UserStreak,
-  type InsertUserStreak,
-  type AccountabilityCheckin,
-  type InsertAccountabilityCheckin,
+  type Verification,
+  type InsertVerification,
   users,
   goals,
   tasks,
@@ -108,6 +106,7 @@ import {
   activityReminders,
   deviceTokens,
   schedulingSuggestions,
+  smartNotifications,
   authIdentities,
   externalOAuthTokens,
   contacts,
@@ -139,9 +138,7 @@ import {
   contentImports,
   mobilePreferences,
   journalEnrichmentCache,
-  smartNotifications,
-  userStreaks,
-  accountabilityCheckins
+  verifications
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -296,6 +293,7 @@ export interface IStorage {
 
   // Task Reminders
   createTaskReminder(reminder: InsertTaskReminder & { userId: string }): Promise<TaskReminder>;
+  getTaskReminders(taskId: string): Promise<TaskReminder[]>;
   getUserTaskReminders(userId: string): Promise<TaskReminder[]>;
   getPendingReminders(): Promise<TaskReminder[]>;
   getPendingTaskReminders(beforeTime: Date): Promise<TaskReminder[]>;
@@ -325,7 +323,14 @@ export interface IStorage {
   getUserSchedulingSuggestions(userId: string, date?: string): Promise<SchedulingSuggestion[]>;
   acceptSchedulingSuggestion(suggestionId: string, userId: string): Promise<SchedulingSuggestion | undefined>;
   deleteSchedulingSuggestion(suggestionId: string, userId: string): Promise<void>;
-  
+
+  // Smart Notifications (scheduled alerts for tasks, activities, goals)
+  createSmartNotification(data: Omit<InsertSmartNotification, 'id' | 'createdAt' | 'updatedAt'>): Promise<SmartNotification>;
+  getPendingSmartNotifications(beforeTime: Date): Promise<SmartNotification[]>;
+  updateSmartNotification(id: string, updates: Partial<SmartNotification>): Promise<SmartNotification | undefined>;
+  cancelSmartNotifications(sourceType: string, sourceId: string): Promise<void>;
+  getUserSmartNotifications(userId: string, status?: string): Promise<SmartNotification[]>;
+
   // User Context for Personalized Planning
   getUserContext(userId: string): Promise<{
     user: User;
@@ -538,31 +543,6 @@ export interface IStorage {
   createMobilePreferences(prefs: InsertMobilePreferences & { userId: string }): Promise<MobilePreferences>;
   updateMobilePreferences(userId: string, updates: Partial<InsertMobilePreferences>): Promise<MobilePreferences | undefined>;
   getOrCreateMobilePreferences(userId: string): Promise<MobilePreferences>;
-
-  // Smart Notifications (event-driven notification system)
-  createSmartNotification(notification: InsertSmartNotification): Promise<SmartNotification>;
-  getSmartNotification(notificationId: string): Promise<SmartNotification | undefined>;
-  getPendingSmartNotifications(beforeTime: Date): Promise<SmartNotification[]>;
-  getSmartNotificationByTypeAndSource(userId: string, notificationType: string, sourceType: string, sourceId: string): Promise<SmartNotification | undefined>;
-  markSmartNotificationSent(notificationId: string): Promise<void>;
-  cancelSmartNotification(notificationId: string): Promise<void>;
-  cancelSmartNotificationsForSource(sourceType: string, sourceId: string): Promise<number>;
-  cancelAllPendingNotificationsForUser(userId: string): Promise<void>;
-  getTasksWithDueDates(userId: string): Promise<Task[]>;
-  getActivitiesWithDates(userId: string): Promise<Activity[]>;
-  getGoalsWithDeadlines(userId: string): Promise<Goal[]>;
-
-  // User Streaks
-  getUserStreak(userId: string): Promise<UserStreak | undefined>;
-  createUserStreak(streak: InsertUserStreak): Promise<UserStreak>;
-  updateUserStreak(userId: string, updates: Partial<InsertUserStreak>): Promise<UserStreak | undefined>;
-  getUsersWithActiveStreaks(minStreak: number): Promise<UserStreak[]>;
-
-  // Accountability Checkins
-  createAccountabilityCheckin(checkin: InsertAccountabilityCheckin): Promise<AccountabilityCheckin>;
-  getUserAccountabilityCheckins(userId: string, checkinType?: string): Promise<AccountabilityCheckin[]>;
-  updateAccountabilityCheckin(checkinId: string, updates: Partial<InsertAccountabilityCheckin>): Promise<AccountabilityCheckin | undefined>;
-  getUsersWithAccountabilityEnabled(): Promise<{ userId: string }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -699,6 +679,33 @@ export class DatabaseStorage implements IStorage {
     userId: string,
     expectedVersion?: number
   ): Promise<{ task?: Task; conflict?: boolean; currentTask?: Task }> {
+    // Helper function to sanitize date fields
+    const sanitizeDates = (data: Partial<Task>) => {
+      const sanitized = { ...data };
+      if ('dueDate' in sanitized) {
+        if (sanitized.dueDate === null || sanitized.dueDate === undefined) {
+          sanitized.dueDate = null;
+        } else if (typeof sanitized.dueDate === 'string') {
+          sanitized.dueDate = new Date(sanitized.dueDate);
+        }
+      }
+      if ('completedAt' in sanitized) {
+        if (sanitized.completedAt === null || sanitized.completedAt === undefined) {
+          sanitized.completedAt = null;
+        } else if (typeof sanitized.completedAt === 'string') {
+          sanitized.completedAt = new Date(sanitized.completedAt);
+        }
+      }
+      if ('snoozeUntil' in sanitized) {
+        if (sanitized.snoozeUntil === null || sanitized.snoozeUntil === undefined) {
+          sanitized.snoozeUntil = null;
+        } else if (typeof sanitized.snoozeUntil === 'string') {
+          sanitized.snoozeUntil = new Date(sanitized.snoozeUntil);
+        }
+      }
+      return sanitized;
+    };
+
     // Simple update - version checking is no longer supported
     if (expectedVersion !== undefined) {
       // Get the current task
@@ -710,9 +717,7 @@ export class DatabaseStorage implements IStorage {
 
       // Just update the task (no version field available)
       const result = await db.update(tasks)
-        .set({
-          ...updates,
-        })
+        .set(sanitizeDates(updates))
         .where(and(
           eq(tasks.id, taskId),
           eq(tasks.userId, userId)
@@ -732,9 +737,7 @@ export class DatabaseStorage implements IStorage {
 
     // No version check - simple update
     const result = await db.update(tasks)
-      .set({
-        ...updates,
-      })
+      .set(sanitizeDates(updates))
       .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
       .returning();
     return { task: result[0], conflict: false };
@@ -1771,12 +1774,6 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(taskReminders.scheduledAt));
   }
 
-  async getTaskReminders(taskId: string): Promise<TaskReminder[]> {
-    return await db.select().from(taskReminders)
-      .where(eq(taskReminders.taskId, taskId))
-      .orderBy(taskReminders.scheduledAt);
-  }
-
   async getPendingReminders(): Promise<TaskReminder[]> {
     return await db.select().from(taskReminders)
       .where(eq(taskReminders.isSent, false))
@@ -1802,6 +1799,12 @@ export class DatabaseStorage implements IStorage {
     await db.update(taskReminders)
       .set({ isSent: true, sentAt: new Date() })
       .where(eq(taskReminders.id, reminderId));
+  }
+
+  async getTaskReminders(taskId: string): Promise<TaskReminder[]> {
+    return await db.select().from(taskReminders)
+      .where(eq(taskReminders.taskId, taskId))
+      .orderBy(taskReminders.scheduledAt);
   }
 
   async deleteTaskReminder(reminderId: string, userId: string): Promise<void> {
@@ -1910,6 +1913,56 @@ export class DatabaseStorage implements IStorage {
     await db.update(deviceTokens)
       .set({ lastUsedAt: new Date() })
       .where(eq(deviceTokens.token, token));
+  }
+
+  // Smart Notifications (scheduled alerts for tasks, activities, goals)
+  async createSmartNotification(data: Omit<InsertSmartNotification, 'id' | 'createdAt' | 'updatedAt'>): Promise<SmartNotification> {
+    const [notification] = await db.insert(smartNotifications).values(data).returning();
+    return notification;
+  }
+
+  async getPendingSmartNotifications(beforeTime: Date): Promise<SmartNotification[]> {
+    return await db.select()
+      .from(smartNotifications)
+      .where(and(
+        eq(smartNotifications.status, 'pending'),
+        lte(smartNotifications.scheduledAt, beforeTime)
+      ))
+      .orderBy(smartNotifications.scheduledAt);
+  }
+
+  async updateSmartNotification(id: string, updates: Partial<SmartNotification>): Promise<SmartNotification | undefined> {
+    const [updated] = await db.update(smartNotifications)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(smartNotifications.id, id))
+      .returning();
+    return updated;
+  }
+
+  async cancelSmartNotifications(sourceType: string, sourceId: string): Promise<void> {
+    await db.update(smartNotifications)
+      .set({ status: 'cancelled', updatedAt: new Date() })
+      .where(and(
+        eq(smartNotifications.sourceType, sourceType),
+        eq(smartNotifications.sourceId, sourceId),
+        eq(smartNotifications.status, 'pending')
+      ));
+  }
+
+  async getUserSmartNotifications(userId: string, status?: string): Promise<SmartNotification[]> {
+    if (status) {
+      return await db.select()
+        .from(smartNotifications)
+        .where(and(
+          eq(smartNotifications.userId, userId),
+          eq(smartNotifications.status, status)
+        ))
+        .orderBy(desc(smartNotifications.scheduledAt));
+    }
+    return await db.select()
+      .from(smartNotifications)
+      .where(eq(smartNotifications.userId, userId))
+      .orderBy(desc(smartNotifications.scheduledAt));
   }
 
   // Scheduling Suggestions
@@ -4477,244 +4530,75 @@ export class DatabaseStorage implements IStorage {
       .where(inArray(journalEnrichmentCache.cacheKey, cacheKeys));
   }
 
-  // ============================================
-  // Smart Notifications (event-driven)
-  // ============================================
-
-  async createSmartNotification(notification: InsertSmartNotification): Promise<SmartNotification> {
+  // VerifyMate: Content Verification Methods
+  async createVerification(data: InsertVerification & { userId: string }): Promise<Verification> {
     const [result] = await db
-      .insert(smartNotifications)
-      .values(notification)
+      .insert(verifications)
+      .values(data)
       .returning();
     return result;
   }
 
-  async getSmartNotification(notificationId: string): Promise<SmartNotification | undefined> {
+  async getVerification(id: string): Promise<Verification | undefined> {
     const [result] = await db
       .select()
-      .from(smartNotifications)
-      .where(eq(smartNotifications.id, notificationId));
+      .from(verifications)
+      .where(eq(verifications.id, id));
     return result;
   }
 
-  async getPendingSmartNotifications(beforeTime: Date): Promise<SmartNotification[]> {
+  async getVerificationByShareToken(shareToken: string): Promise<Verification | undefined> {
+    const [result] = await db
+      .select()
+      .from(verifications)
+      .where(eq(verifications.shareToken, shareToken));
+    return result;
+  }
+
+  async getUserVerifications(userId: string): Promise<Verification[]> {
     return db
       .select()
-      .from(smartNotifications)
-      .where(
-        and(
-          eq(smartNotifications.status, 'pending'),
-          lte(smartNotifications.scheduledAt, beforeTime)
-        )
-      )
-      .orderBy(smartNotifications.scheduledAt);
+      .from(verifications)
+      .where(eq(verifications.userId, userId))
+      .orderBy(desc(verifications.createdAt));
   }
 
-  async getSmartNotificationByTypeAndSource(
-    userId: string,
-    notificationType: string,
-    sourceType: string,
-    sourceId: string
-  ): Promise<SmartNotification | undefined> {
-    const [result] = await db
+  async getUserVerificationsThisMonth(userId: string): Promise<number> {
+    // Get the start of the current month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const result = await db
       .select()
-      .from(smartNotifications)
+      .from(verifications)
       .where(
         and(
-          eq(smartNotifications.userId, userId),
-          eq(smartNotifications.notificationType, notificationType),
-          eq(smartNotifications.sourceType, sourceType),
-          eq(smartNotifications.sourceId, sourceId),
-          eq(smartNotifications.status, 'pending')
+          eq(verifications.userId, userId),
+          sql`${verifications.createdAt} >= ${startOfMonth}`
         )
       );
-    return result;
-  }
 
-  async markSmartNotificationSent(notificationId: string): Promise<void> {
-    await db
-      .update(smartNotifications)
-      .set({
-        status: 'sent',
-        sentAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(smartNotifications.id, notificationId));
-  }
-
-  async cancelSmartNotification(notificationId: string): Promise<void> {
-    await db
-      .update(smartNotifications)
-      .set({
-        status: 'cancelled',
-        updatedAt: new Date(),
-      })
-      .where(eq(smartNotifications.id, notificationId));
-  }
-
-  async cancelSmartNotificationsForSource(sourceType: string, sourceId: string): Promise<number> {
-    const result = await db
-      .update(smartNotifications)
-      .set({
-        status: 'cancelled',
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(smartNotifications.sourceType, sourceType),
-          eq(smartNotifications.sourceId, sourceId),
-          eq(smartNotifications.status, 'pending')
-        )
-      )
-      .returning();
     return result.length;
   }
 
-  async cancelAllPendingNotificationsForUser(userId: string): Promise<void> {
+  async updateVerificationVisibility(id: string, isPublic: boolean): Promise<Verification | undefined> {
+    const [result] = await db
+      .update(verifications)
+      .set({ isPublic })
+      .where(eq(verifications.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteVerification(id: string, userId: string): Promise<void> {
     await db
-      .update(smartNotifications)
-      .set({
-        status: 'cancelled',
-        updatedAt: new Date(),
-      })
+      .delete(verifications)
       .where(
         and(
-          eq(smartNotifications.userId, userId),
-          eq(smartNotifications.status, 'pending')
+          eq(verifications.id, id),
+          eq(verifications.userId, userId)
         )
       );
-  }
-
-  async getTasksWithDueDates(userId: string): Promise<Task[]> {
-    return db
-      .select()
-      .from(tasks)
-      .where(
-        and(
-          eq(tasks.userId, userId),
-          isNotNull(tasks.dueDate),
-          eq(tasks.completed, false)
-        )
-      );
-  }
-
-  async getActivitiesWithDates(userId: string): Promise<Activity[]> {
-    return db
-      .select()
-      .from(activities)
-      .where(
-        and(
-          eq(activities.userId, userId),
-          isNotNull(activities.startDate)
-        )
-      );
-  }
-
-  async getGoalsWithDeadlines(userId: string): Promise<Goal[]> {
-    return db
-      .select()
-      .from(goals)
-      .where(
-        and(
-          eq(goals.userId, userId),
-          isNotNull(goals.deadline),
-          eq(goals.completed, false)
-        )
-      );
-  }
-
-  // ============================================
-  // User Streaks
-  // ============================================
-
-  async getUserStreak(userId: string): Promise<UserStreak | undefined> {
-    const [result] = await db
-      .select()
-      .from(userStreaks)
-      .where(eq(userStreaks.userId, userId));
-    return result;
-  }
-
-  async createUserStreak(streak: InsertUserStreak): Promise<UserStreak> {
-    const [result] = await db
-      .insert(userStreaks)
-      .values(streak)
-      .returning();
-    return result;
-  }
-
-  async updateUserStreak(userId: string, updates: Partial<InsertUserStreak>): Promise<UserStreak | undefined> {
-    const [result] = await db
-      .update(userStreaks)
-      .set({
-        ...updates,
-        updatedAt: new Date(),
-      })
-      .where(eq(userStreaks.userId, userId))
-      .returning();
-    return result;
-  }
-
-  async getUsersWithActiveStreaks(minStreak: number): Promise<UserStreak[]> {
-    return db
-      .select()
-      .from(userStreaks)
-      .where(sql`${userStreaks.currentStreak} >= ${minStreak}`);
-  }
-
-  // ============================================
-  // Accountability Checkins
-  // ============================================
-
-  async createAccountabilityCheckin(checkin: InsertAccountabilityCheckin): Promise<AccountabilityCheckin> {
-    const [result] = await db
-      .insert(accountabilityCheckins)
-      .values(checkin)
-      .returning();
-    return result;
-  }
-
-  async getUserAccountabilityCheckins(userId: string, checkinType?: string): Promise<AccountabilityCheckin[]> {
-    if (checkinType) {
-      return db
-        .select()
-        .from(accountabilityCheckins)
-        .where(
-          and(
-            eq(accountabilityCheckins.userId, userId),
-            eq(accountabilityCheckins.checkinType, checkinType)
-          )
-        )
-        .orderBy(desc(accountabilityCheckins.createdAt));
-    }
-    return db
-      .select()
-      .from(accountabilityCheckins)
-      .where(eq(accountabilityCheckins.userId, userId))
-      .orderBy(desc(accountabilityCheckins.createdAt));
-  }
-
-  async updateAccountabilityCheckin(checkinId: string, updates: Partial<InsertAccountabilityCheckin>): Promise<AccountabilityCheckin | undefined> {
-    const [result] = await db
-      .update(accountabilityCheckins)
-      .set(updates)
-      .where(eq(accountabilityCheckins.id, checkinId))
-      .returning();
-    return result;
-  }
-
-  async getUsersWithAccountabilityEnabled(): Promise<{ userId: string }[]> {
-    // Get all users who have accountability reminders enabled (or haven't set preferences, meaning default = enabled)
-    const results = await db
-      .select({ userId: notificationPreferences.userId })
-      .from(notificationPreferences)
-      .where(
-        or(
-          eq(notificationPreferences.enableAccountabilityReminders, true),
-          isNull(notificationPreferences.enableAccountabilityReminders)
-        )
-      );
-    return results;
   }
 }
 

@@ -2463,6 +2463,28 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                                 components={{
                                   a: ({ href, children, ...props }) => {
                                     const isInternal = href?.startsWith('/');
+                                    // Process children to replace [TARGET_ICON] with Target icon
+                                    const processedChildren = Array.isArray(children)
+                                      ? children.map((child, idx) => {
+                                          if (typeof child === 'string' && child.includes('[TARGET_ICON]')) {
+                                            const parts = child.split('[TARGET_ICON]');
+                                            return parts.map((part, partIdx) => (
+                                              <span key={`${idx}-${partIdx}`}>
+                                                {partIdx > 0 && <Target className="inline-block w-4 h-4 text-purple-500 mr-1" />}
+                                                {part}
+                                              </span>
+                                            ));
+                                          }
+                                          return child;
+                                        })
+                                      : (typeof children === 'string' && children.includes('[TARGET_ICON]'))
+                                        ? children.split('[TARGET_ICON]').map((part, idx) => (
+                                            <span key={idx}>
+                                              {idx > 0 && <Target className="inline-block w-4 h-4 text-purple-500 mr-1" />}
+                                              {part}
+                                            </span>
+                                          ))
+                                        : children;
                                     return (
                                       <a
                                         href={href}
@@ -2478,9 +2500,27 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                                         rel={!isInternal ? 'noopener noreferrer' : undefined}
                                         {...props}
                                       >
-                                        {children}
+                                        {processedChildren}
                                       </a>
                                     );
+                                  },
+                                  // Also handle [TARGET_ICON] in plain text nodes
+                                  p: ({ children, ...props }) => {
+                                    const processNode = (node: React.ReactNode): React.ReactNode => {
+                                      if (typeof node === 'string' && node.includes('[TARGET_ICON]')) {
+                                        return node.split('[TARGET_ICON]').map((part, idx) => (
+                                          <span key={idx}>
+                                            {idx > 0 && <Target className="inline-block w-4 h-4 text-purple-500 mr-1" />}
+                                            {part}
+                                          </span>
+                                        ));
+                                      }
+                                      return node;
+                                    };
+                                    const processed = Array.isArray(children)
+                                      ? children.map(processNode)
+                                      : processNode(children);
+                                    return <p {...props}>{processed}</p>;
                                   }
                                 }}
                               >

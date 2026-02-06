@@ -1,0 +1,1588 @@
+import { useEffect, useState, useMemo } from 'react';
+import { useParams } from 'wouter';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Checkbox } from '@/components/ui/checkbox';
+import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, Users, Loader2, RefreshCw, AlertTriangle, type LucideIcon } from 'lucide-react';
+const journalMateLogo = '/journalmate-logo-transparent.png';
+import { motion } from 'framer-motion';
+import Confetti from 'react-confetti';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { apiRequest } from '@/lib/queryClient';
+
+interface SharedActivityData {
+  activity: {
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    status: string;
+    priority?: string;
+    startDate?: string;
+    endDate?: string;
+    userId: string;
+    planSummary?: string;
+    shareTitle?: string;
+    backdrop?: string;
+    createdAt: string;
+    updatedAt: string;
+    targetGroupId?: string;
+  };
+  tasks: Array<{
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    priority: string;
+    completed: boolean;
+    completedAt?: string;
+    dueDate?: string;
+    timeEstimate?: string;
+  }>;
+  requiresAuth: boolean;
+  sharedBy?: {
+    name?: string;
+    email?: string;
+  };
+  groupInfo?: {
+    id: string;
+    name: string;
+    description: string | null;
+    memberCount: number;
+    isUserMember: boolean;
+    inviteCode: string | null;
+  };
+  linkStatus?: {
+    isUsingSnapshot: boolean;
+    isActivityDeleted: boolean;
+    hasUpdates: boolean;
+    snapshotAt: string | null;
+    viewCount: number;
+    copyCount: number;
+  };
+}
+
+const categoryThemes: Record<string, { gradient: string; Icon: LucideIcon; accentColor: string; emoji: string }> = {
+  fitness: {
+    gradient: 'from-orange-500/20 via-red-500/20 to-pink-500/20',
+    Icon: Dumbbell,
+    accentColor: 'text-orange-600 dark:text-orange-400',
+    emoji: '💪'
+  },
+  health: {
+    gradient: 'from-emerald-500/20 via-teal-500/20 to-cyan-500/20',
+    Icon: HeartPulse,
+    accentColor: 'text-emerald-600 dark:text-emerald-400',
+    emoji: '🏥'
+  },
+  career: {
+    gradient: 'from-blue-500/20 via-indigo-500/20 to-purple-500/20',
+    Icon: Briefcase,
+    accentColor: 'text-blue-600 dark:text-blue-400',
+    emoji: '💼'
+  },
+  learning: {
+    gradient: 'from-violet-500/20 via-purple-500/20 to-fuchsia-500/20',
+    Icon: BookOpen,
+    accentColor: 'text-violet-600 dark:text-violet-400',
+    emoji: '📚'
+  },
+  finance: {
+    gradient: 'from-green-500/20 via-emerald-500/20 to-teal-500/20',
+    Icon: DollarSign,
+    accentColor: 'text-green-600 dark:text-green-400',
+    emoji: '💰'
+  },
+  relationships: {
+    gradient: 'from-pink-500/20 via-rose-500/20 to-red-500/20',
+    Icon: Heart,
+    accentColor: 'text-pink-600 dark:text-pink-400',
+    emoji: '❤️'
+  },
+  creativity: {
+    gradient: 'from-yellow-500/20 via-amber-500/20 to-orange-500/20',
+    Icon: Palette,
+    accentColor: 'text-yellow-600 dark:text-yellow-400',
+    emoji: '🎨'
+  },
+  travel: {
+    gradient: 'from-sky-500/20 via-blue-500/20 to-indigo-500/20',
+    Icon: Plane,
+    accentColor: 'text-sky-600 dark:text-sky-400',
+    emoji: '✈️'
+  },
+  home: {
+    gradient: 'from-amber-500/20 via-orange-500/20 to-red-500/20',
+    Icon: Home,
+    accentColor: 'text-amber-600 dark:text-amber-400',
+    emoji: '🏠'
+  },
+  personal: {
+    gradient: 'from-purple-500/20 via-pink-500/20 to-rose-500/20',
+    Icon: Star,
+    accentColor: 'text-purple-600 dark:text-purple-400',
+    emoji: '⭐'
+  },
+  other: {
+    gradient: 'from-slate-500/20 via-gray-500/20 to-zinc-500/20',
+    Icon: ClipboardList,
+    accentColor: 'text-slate-600 dark:text-slate-400',
+    emoji: '📋'
+  }
+};
+
+interface LinkStatusIndicatorProps {
+  linkStatus: SharedActivityData['linkStatus'];
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}
+
+function LinkStatusIndicator({ linkStatus, onRefresh, isRefreshing }: LinkStatusIndicatorProps) {
+  const [dismissed, setDismissed] = useState(false);
+  
+  if (!linkStatus || dismissed) return null;
+  
+  const { isUsingSnapshot, isActivityDeleted, hasUpdates, snapshotAt } = linkStatus;
+  
+  if (isActivityDeleted) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex items-center gap-2 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-amber-300/50 dark:border-amber-600/50"
+        data-testid="link-status-deleted"
+      >
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full bg-amber-400 animate-pulse opacity-50" />
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 relative z-10" />
+        </div>
+        <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+          Original plan archived
+        </span>
+        {snapshotAt && (
+          <span className="text-xs text-amber-600 dark:text-amber-400">
+            • Saved {new Date(snapshotAt).toLocaleDateString()}
+          </span>
+        )}
+      </motion.div>
+    );
+  }
+  
+  if (hasUpdates) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex items-center gap-2"
+        data-testid="link-status-updates"
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm border-amber-300/50 dark:border-amber-600/50 hover:bg-amber-200/90 dark:hover:bg-amber-800/30 text-amber-800 dark:text-amber-200 gap-2 h-7 px-2.5 rounded-full"
+          data-testid="button-refresh-activity"
+        >
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-amber-400 animate-pulse opacity-50" />
+            <RefreshCw className={`w-3.5 h-3.5 relative z-10 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </div>
+          <span className="text-xs font-medium hidden sm:inline">Updates available</span>
+          <span className="text-xs font-medium sm:hidden">Update</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setDismissed(true)}
+          className="h-6 w-6 text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200"
+          data-testid="button-dismiss-status"
+        >
+          <span className="text-xs">×</span>
+        </Button>
+      </motion.div>
+    );
+  }
+  
+  return null;
+}
+
+export default function SharedActivity() {
+  const { token } = useParams<{ token: string }>();
+  const { toast } = useToast();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [permissionRequested, setPermissionRequested] = useState(false);
+  const [copyingLink, setCopyingLink] = useState(false);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const [confirmationData, setConfirmationData] = useState<any>(null);
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [pendingCopy, setPendingCopy] = useState<{ forceUpdate: boolean } | null>(null);
+  const [shareProgress, setShareProgress] = useState(true); // Default to sharing progress
+  const [authRefreshTriggered, setAuthRefreshTriggered] = useState(false); // Track if we've triggered a refresh
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Initialize theme from localStorage or default to dark
+  const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>(() => {
+    const savedTheme = localStorage.getItem('theme');
+    return savedTheme === 'light' ? 'light' : 'dark';
+  });
+
+  const { data: user } = useQuery({
+    queryKey: ['/api/user'],
+  });
+
+  useEffect(() => {
+    setIsAuthenticated(!!user && typeof user === 'object' && 'id' in user && user.id !== 'demo-user');
+  }, [user]);
+
+  // Effect to refresh user data after OAuth authentication
+  // This ensures we trigger a refetch to get fresh session data
+  // NOTE: Auto-copy is gated on actual user data (user?.id !== 'demo-user'), not this flag
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const justAuthenticated = urlParams.get('auth') === 'success' || urlParams.get('autoCopy') === 'true';
+    
+    if (justAuthenticated && !authRefreshTriggered) {
+      console.log('[SHARED ACTIVITY] 🔄 Auth detected, triggering user data refresh...');
+      setAuthRefreshTriggered(true); // Prevent re-triggering
+      
+      // Trigger a refetch of user data to get fresh session
+      // The auto-copy effect will wait for user?.id !== 'demo-user' before proceeding
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+    }
+  }, [authRefreshTriggered]);
+
+  // Apply initial theme to document on mount
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', previewTheme === 'dark');
+  }, []);
+
+  // Toggle theme and sync with localStorage and document class
+  const togglePreviewTheme = () => {
+    const newTheme = previewTheme === 'light' ? 'dark' : 'light';
+    setPreviewTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+  };
+
+  const { data, isLoading, error: queryError, refetch, isRefetching } = useQuery<SharedActivityData>({
+    queryKey: ['/api/share', token],
+    queryFn: async () => {
+      const response = await fetch(`/api/share/activity/${token}`, {
+        credentials: 'include', // Send session cookie to check membership status
+      });
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('This shared activity link is invalid or has expired.');
+        }
+        if (response.status === 401) {
+          throw new Error('AUTH_REQUIRED');
+        }
+        throw new Error('Failed to load shared activity');
+      }
+      return response.json();
+    },
+    enabled: !!token,
+  });
+
+  // Fetch relevant backdrop options using Tavily search when activity doesn't have a custom backdrop
+  const { data: backdropData } = useQuery<{ options: Array<{ url: string; source: string; label?: string }> }>({
+    queryKey: ['/api/activities', data?.activity?.id, 'backdrop-options'],
+    queryFn: async () => {
+      const response = await fetch(`/api/activities/${data?.activity?.id}/backdrop-options`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch backdrop options');
+      }
+      return response.json();
+    },
+    enabled: !!data?.activity?.id && !data?.activity?.backdrop,
+    staleTime: 1000 * 60 * 30, // Cache for 30 minutes
+  });
+
+  useEffect(() => {
+    if (data?.activity && data?.tasks) {
+      const { title, description, category, backdrop, shareTitle, planSummary } = data.activity;
+      const currentUrl = window.location.href;
+      
+      // Category emoji mapping
+      const categoryEmojis: Record<string, string> = {
+        fitness: '💪',
+        health: '🏥',
+        career: '💼',
+        learning: '📚',
+        finance: '💰',
+        relationships: '❤️',
+        creativity: '🎨',
+        travel: '✈️',
+        home: '🏠',
+        personal: '⭐',
+        other: '📋'
+      };
+      const emoji = categoryEmojis[category?.toLowerCase()] || '✨';
+      
+      // Calculate progress
+      const completedTasks = data.tasks.filter(t => t.completed).length;
+      const totalTasks = data.tasks.length;
+      const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
+      
+      // Create rich, emoji-enhanced title and description for social sharing
+      const baseTitle = shareTitle || planSummary || title || 'Shared Activity';
+      const pageTitle = `${emoji} ${baseTitle}${progressText}`;
+      const pageDescription = description 
+        ? description
+        : `Join this ${category} plan on JournalMate`;
+      
+      // Use OG image endpoint for rich social media previews
+      // This generates an image with the activity backdrop + details overlay
+      const baseUrl = window.location.origin;
+      const ogImageUrl = `${baseUrl}/api/share/${token}/og-image`;
+
+      document.title = `${pageTitle} - JournalMate`;
+
+      // Helper function to set or create meta tags
+      const setMetaTag = (selector: string, attribute: string, content: string) => {
+        let tag = document.querySelector(selector);
+        if (!tag) {
+          tag = document.createElement('meta');
+          if (selector.includes('property')) {
+            tag.setAttribute('property', selector.replace('meta[property="', '').replace('"]', ''));
+          } else {
+            tag.setAttribute('name', selector.replace('meta[name="', '').replace('"]', ''));
+          }
+          document.head.appendChild(tag);
+        }
+        tag.setAttribute('content', content);
+      };
+
+      // Standard meta tags
+      setMetaTag('meta[name="description"]', 'content', pageDescription);
+
+      // Open Graph tags for Facebook, LinkedIn, WhatsApp, etc.
+      setMetaTag('meta[property="og:title"]', 'content', pageTitle);
+      setMetaTag('meta[property="og:description"]', 'content', pageDescription);
+      setMetaTag('meta[property="og:image"]', 'content', ogImageUrl);
+      setMetaTag('meta[property="og:image:width"]', 'content', '1200');
+      setMetaTag('meta[property="og:image:height"]', 'content', '630');
+      setMetaTag('meta[property="og:image:type"]', 'content', 'image/jpeg');
+      setMetaTag('meta[property="og:url"]', 'content', currentUrl);
+      setMetaTag('meta[property="og:type"]', 'content', 'website');
+      setMetaTag('meta[property="og:site_name"]', 'content', 'JournalMate');
+
+      // Twitter Card tags
+      setMetaTag('meta[name="twitter:card"]', 'content', 'summary_large_image');
+      setMetaTag('meta[name="twitter:title"]', 'content', pageTitle);
+      setMetaTag('meta[name="twitter:description"]', 'content', pageDescription);
+      setMetaTag('meta[name="twitter:image"]', 'content', ogImageUrl);
+    }
+  }, [data]);
+
+  // Trigger confetti celebration when viewing a completed activity
+  useEffect(() => {
+    if (data?.activity && data?.tasks) {
+      const completedTasks = data.tasks.filter(t => t.completed).length;
+      const totalTasks = data.tasks.length;
+      const isComplete = totalTasks > 0 && completedTasks === totalTasks;
+
+      if (isComplete) {
+        setShowConfetti(true);
+        // Stop confetti after 5 seconds
+        const timer = setTimeout(() => setShowConfetti(false), 5000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [data]);
+
+  const handleSignIn = () => {
+    // Save group join intent BEFORE redirecting to login
+    // This ensures new users see the join dialog after signing up
+    if (data?.groupInfo) {
+      localStorage.setItem('pendingGroupJoin', JSON.stringify({
+        shareToken: token,
+        joinGroup: null, // null = user hasn't decided yet, will show dialog
+        shareProgress: false,
+        groupId: data.groupInfo.id,
+        groupName: data.groupInfo.name,
+        inviteCode: data.groupInfo.inviteCode,
+        timestamp: Date.now()
+      }));
+      console.log('[SHARED ACTIVITY] 💾 Saved group join intent for after auth:', {
+        groupName: data.groupInfo.name,
+        inviteCode: data.groupInfo.inviteCode
+      });
+    }
+    
+    // Use full pathname as returnTo with autoCopy parameter to trigger copy after auth
+    const returnTo = encodeURIComponent(`${window.location.pathname}?autoCopy=true`);
+    console.log('[SHARED ACTIVITY] Redirecting to login with returnTo and autoCopy:', window.location.pathname);
+    window.location.href = `/login?returnTo=${returnTo}`;
+  };
+
+  const copyActivityMutation = useMutation({
+    mutationFn: async ({ forceUpdate = false, joinGroup = false, shareProgress: shareProgressParam = false }: { forceUpdate?: boolean; joinGroup?: boolean; shareProgress?: boolean }) => {
+      if (!token) throw new Error('Share token not found');
+      console.log('[SHARED ACTIVITY] 📤 Sending copy API request:', { forceUpdate, joinGroup, shareProgress: shareProgressParam });
+      const response = await fetch(`/api/activities/copy/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // CRITICAL: Send session cookie for authentication
+        body: JSON.stringify({ forceUpdate, joinGroup, shareProgress: shareProgressParam }),
+      });
+      
+      // Parse JSON response
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        // If JSON parsing fails and response is not ok, throw generic error
+        if (!response.ok) {
+          throw new Error('Failed to copy activity. Please try again.');
+        }
+        // If response is ok but no JSON, return success
+        return { success: true };
+      }
+      
+      if (!response.ok) {
+        // If authentication is required, redirect to login
+        if (result.requiresAuth) {
+          // Save join preferences to localStorage so we can use them after login
+          // This allows auto-join without showing the dialog again
+          // Include inviteCode to use the proven invite code join flow
+          localStorage.setItem('pendingGroupJoin', JSON.stringify({
+            shareToken: token,
+            joinGroup,
+            shareProgress: shareProgressParam,
+            groupId: data?.groupInfo?.id || null,
+            inviteCode: data?.groupInfo?.inviteCode || null,
+            timestamp: Date.now()
+          }));
+          console.log('[SHARED ACTIVITY] Auth required, saving join preferences:', { 
+            joinGroup, 
+            shareProgress: shareProgressParam,
+            inviteCode: data?.groupInfo?.inviteCode 
+          });
+          
+          const returnTo = encodeURIComponent(`${window.location.pathname}?autoCopy=true`);
+          console.log('[SHARED ACTIVITY] Redirecting to login with autoCopy');
+          window.location.href = `/login?returnTo=${returnTo}`;
+          throw new Error('Redirecting to login...');
+        }
+        
+        // If confirmation is required, return the result to handle in UI
+        if (result.requiresConfirmation) {
+          return result;
+        }
+        
+        throw new Error(result.error || result.message || 'Failed to copy activity');
+      }
+      
+      return result;
+    },
+    onSuccess: (result) => {
+      // If confirmation is required, show dialog
+      if (result?.requiresConfirmation) {
+        setConfirmationData(result);
+        setShowUpdateDialog(true);
+        return; // Don't show success toast or redirect
+      }
+      
+      if (result?.activity?.id) {
+        // Invalidate groups query if user joined a group
+        if (result.joinedGroup) {
+          queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+          console.log('[SHARED ACTIVITY] Invalidated groups query after joining:', result.joinedGroup.name);
+        }
+        
+        const message = result.message || `"${result.activity.title}" has been added to your account with ${result.tasks?.length || 0} tasks.`;
+        toast({
+          title: result.isUpdate ? 'Plan Updated!' : 'Plan Copied!',
+          description: message,
+        });
+        // Redirect to the activity page after a short delay
+        setTimeout(() => {
+          window.location.href = `/?activity=${result.activity.id}&tab=tasks`;
+        }, 1500);
+      }
+    },
+    onError: (error: Error) => {
+      // Don't show error toast if we're redirecting to login
+      if (!error.message.includes('Redirecting')) {
+        toast({
+          title: 'Copy Failed',
+          description: error.message || 'Failed to copy activity. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    },
+  });
+
+  // Automatic copy when user signs in
+  // CRITICAL: This effect is gated directly on user?.id !== 'demo-user' to ensure
+  // we only proceed when we have confirmed authenticated user data
+  useEffect(() => {
+    // Check if user just authenticated (auth=success OR autoCopy=true in URL)
+    const urlParams = new URLSearchParams(window.location.search);
+    const justAuthenticated = urlParams.get('auth') === 'success' || urlParams.get('autoCopy') === 'true';
+    
+    // Derive the user ID directly from user object for deterministic gating
+    const currentUserId = user && typeof user === 'object' && 'id' in user ? (user as any).id : null;
+    const isRealUser = currentUserId && currentUserId !== 'demo-user';
+    
+    console.log('[SHARED ACTIVITY] Auto-copy check:', {
+      justAuthenticated,
+      hasActivity: !!data?.activity,
+      hasUser: !!user,
+      userId: currentUserId,
+      isRealUser,
+      isOwner: data?.activity?.userId === currentUserId,
+      permissionRequested,
+      urlParams: Object.fromEntries(urlParams.entries())
+    });
+    
+    // CRITICAL: Wait for real (non-demo) user data before auto-copying
+    // This ensures the session cookie is properly hydrated and user data is fresh
+    if (justAuthenticated && !isRealUser) {
+      console.log('[SHARED ACTIVITY] ⏳ Waiting for authenticated user data (currently:', currentUserId, ')...');
+      return;
+    }
+    
+    // Check for pending join preferences saved before login redirect
+    const pendingJoinStr = localStorage.getItem('pendingGroupJoin');
+    let savedJoinPrefs: { 
+      joinGroup?: boolean | null; 
+      shareProgress?: boolean; 
+      shareToken?: string; 
+      timestamp?: number;
+      inviteCode?: string | null;
+      groupId?: string | null;
+      groupName?: string | null;
+    } | null = null;
+    
+    if (pendingJoinStr) {
+      try {
+        savedJoinPrefs = JSON.parse(pendingJoinStr);
+        // Verify it's for the same share token and not too old (1 hour max)
+        const isValid = savedJoinPrefs?.shareToken === token && 
+          savedJoinPrefs?.timestamp && 
+          (Date.now() - savedJoinPrefs.timestamp) < 3600000; // 1 hour
+        if (!isValid) {
+          savedJoinPrefs = null;
+          localStorage.removeItem('pendingGroupJoin');
+        } else {
+          console.log('[SHARED ACTIVITY] ✅ Found valid pending join preferences:', savedJoinPrefs);
+          // Don't remove yet, wait for copy to succeed
+        }
+      } catch (e) {
+        console.error('[SHARED ACTIVITY] Error parsing pending join preferences:', e);
+        localStorage.removeItem('pendingGroupJoin');
+      }
+    }
+
+    // Force show dialog if user hasn't decided yet
+    if (isRealUser && justAuthenticated && savedJoinPrefs?.joinGroup === null && !showJoinDialog && !permissionRequested) {
+      console.log('[SHARED ACTIVITY] 🚀 Newly authenticated user needs to decide on group join');
+      setPendingCopy({ forceUpdate: false });
+      setShowJoinDialog(true);
+      setPermissionRequested(true);
+      return;
+    }
+    
+    // Only auto-copy if:
+    // 1. User is a real authenticated user (not demo user) - DERIVED FROM USER DATA
+    // 2. Activity data is loaded
+    // 3. User is not the owner
+    // 4. Haven't already requested permission
+    // 5. Just authenticated (from OAuth callback or clicked "Get Started Free")
+    if (
+      isRealUser &&
+      justAuthenticated &&
+      data?.activity && 
+      data.activity.userId !== currentUserId &&
+      !permissionRequested &&
+      (!data.groupInfo || (savedJoinPrefs && savedJoinPrefs.joinGroup !== null))
+    ) {
+      
+      // Automatically trigger copy (forceUpdate = false for initial copy)
+      // For auto-copy, use saved join preferences if available, otherwise show dialog for group activities
+      if (savedJoinPrefs) {
+        // User already chose to join/not join before login, use their preference
+        console.log('[SHARED ACTIVITY] 🚀 Auto-processing with saved preferences:', {
+          joinGroup: savedJoinPrefs.joinGroup,
+          shareProgress: savedJoinPrefs.shareProgress,
+          inviteCode: savedJoinPrefs.inviteCode
+        });
+        
+        // joinGroup can be: true (user chose to join), false (user chose not to join), or null (user hasn't decided)
+        // If joinGroup is null, show the join dialog so user can decide
+        if (savedJoinPrefs.joinGroup === null && savedJoinPrefs.inviteCode) {
+          console.log('[SHARED ACTIVITY] 🚀 User hasn\'t decided yet, showing join dialog for group');
+          setPendingCopy({ forceUpdate: false });
+          setShowJoinDialog(true);
+        } else if (savedJoinPrefs.joinGroup === true && savedJoinPrefs.inviteCode) {
+          // User explicitly opted to join group - use the proven invite code flow
+          console.log('[SHARED ACTIVITY] 🔑 Joining group via invite code first...');
+          
+          // Join group via invite code (the proven working flow)
+          fetch('/api/groups/join', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ inviteCode: savedJoinPrefs.inviteCode })
+          })
+          .then(async (res) => {
+            if (res.ok) {
+              const joinResult = await res.json();
+              console.log('[SHARED ACTIVITY] ✅ Successfully joined group via invite code:', joinResult.group?.name);
+              toast({
+                title: 'Joined Group!',
+                description: `You've joined "${joinResult.group?.name}"`,
+              });
+              // Invalidate groups query to update sidebar
+              queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+            } else {
+              const errorData = await res.json().catch(() => ({}));
+              // If already a member, that's fine - continue with copy
+              if (errorData.error?.includes('already a member')) {
+                console.log('[SHARED ACTIVITY] ℹ️ Already a member of group, proceeding with copy');
+              } else {
+                console.warn('[SHARED ACTIVITY] ⚠️ Failed to join group:', errorData.error);
+              }
+            }
+            // Now copy the activity (with shareProgress if enabled)
+            console.log('[SHARED ACTIVITY] 📋 Copying activity after group join...');
+            copyActivityMutation.mutate({ 
+              forceUpdate: false, 
+              joinGroup: false, // Already joined via invite code
+              shareProgress: savedJoinPrefs?.shareProgress || false
+            });
+          })
+          .catch((err) => {
+            console.error('[SHARED ACTIVITY] ❌ Error joining group:', err);
+            // Still try to copy the activity
+            copyActivityMutation.mutate({ 
+              forceUpdate: false, 
+              joinGroup: false,
+              shareProgress: savedJoinPrefs?.shareProgress || false
+            });
+          });
+        } else {
+          // User chose not to join OR no invite code - just copy without joining
+          console.log('[SHARED ACTIVITY] 📋 Copying activity without group join');
+          copyActivityMutation.mutate({ 
+            forceUpdate: false, 
+            joinGroup: false,
+            shareProgress: savedJoinPrefs.shareProgress || false
+          });
+        }
+      } else if (data.groupInfo) {
+        // No saved preferences but there's group info - show dialog
+        console.log('[SHARED ACTIVITY] 🚀 Showing join dialog for group:', data.groupInfo.name);
+        setPendingCopy({ forceUpdate: false });
+        setShowJoinDialog(true);
+      } else {
+        console.log('[SHARED ACTIVITY] ℹ️ No group info, copying without join dialog');
+        copyActivityMutation.mutate({ forceUpdate: false, joinGroup: false });
+      }
+      
+      // Clean up URL params after triggering copy
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [data, user, permissionRequested]);
+
+  const handleCopyLink = async () => {
+    if (!data?.activity) return;
+    const url = window.location.href;
+    
+    // Simple share text - WhatsApp will show rich preview from OG tags automatically
+    // This avoids duplication between message text and preview card
+    const shareText = `✨ Plan your next adventure with JournalMate.ai\n\nCustomize this plan:\n${url}`;
+
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopyingLink(true);
+      toast({
+        title: 'Link Copied!',
+        description: 'Share link copied to clipboard - WhatsApp will show a rich preview automatically',
+      });
+      setTimeout(() => setCopyingLink(false), 2000);
+    } catch (err) {
+      toast({
+        title: 'Failed to Copy',
+        description: 'Please copy the URL manually',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleShareTwitter = () => {
+    if (!data?.activity) return;
+    const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
+    const activityDescription = data.activity.description || `Join this ${data.activity.category} plan on JournalMate`;
+    const url = window.location.href;
+    
+    const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
+    const categoryEmojis: Record<string, string> = {
+      fitness: '💪',
+      health: '🏥',
+      career: '💼',
+      learning: '📚',
+      finance: '💰',
+      relationships: '❤️',
+      creativity: '🎨',
+      travel: '✈️',
+      home: '🏠',
+      personal: '⭐',
+      other: '📋'
+    };
+    const emoji = categoryEmojis[data.activity.category.toLowerCase()] || '✨';
+    
+    const text = `Check out my activity: ${emoji} ${activityTitle}${progressText}\n${activityDescription}\n\n${url}`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleShareFacebook = () => {
+    if (!data?.activity) return;
+    const url = window.location.href;
+    const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
+    const activityDescription = data.activity.description || `Join this ${data.activity.category} plan on JournalMate`;
+    
+    const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
+    const categoryEmojis: Record<string, string> = {
+      fitness: '💪',
+      health: '🏥',
+      career: '💼',
+      learning: '📚',
+      finance: '💰',
+      relationships: '❤️',
+      creativity: '🎨',
+      travel: '✈️',
+      home: '🏠',
+      personal: '⭐',
+      other: '📋'
+    };
+    const emoji = categoryEmojis[data.activity.category.toLowerCase()] || '✨';
+    
+    const quote = `Check out my activity: ${emoji} ${activityTitle}${progressText}\n${activityDescription}\n\n${url}`;
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(quote)}`, '_blank');
+  };
+
+  const handleShareLinkedIn = () => {
+    if (!data?.activity) return;
+    const url = window.location.href;
+    const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
+    const activityDescription = data.activity.description || `Join this ${data.activity.category} plan on JournalMate`;
+    
+    const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
+    const categoryEmojis: Record<string, string> = {
+      fitness: '💪',
+      health: '🏥',
+      career: '💼',
+      learning: '📚',
+      finance: '💰',
+      relationships: '❤️',
+      creativity: '🎨',
+      travel: '✈️',
+      home: '🏠',
+      personal: '⭐',
+      other: '📋'
+    };
+    const emoji = categoryEmojis[data.activity.category.toLowerCase()] || '✨';
+    
+    const titleWithEmoji = `${emoji} ${activityTitle}${progressText}`;
+    const summary = `Check out my activity: ${titleWithEmoji}\n${activityDescription}\n\n${url}`;
+    window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(titleWithEmoji)}&summary=${encodeURIComponent(summary)}`, '_blank');
+  };
+
+  // Handle copy button click - check if join dialog should be shown for group activities
+  const handleCopyClick = (forceUpdate: boolean = false) => {
+    // If activity is part of a group, show join dialog first
+    if (data?.groupInfo) {
+      setPendingCopy({ forceUpdate });
+      setShowJoinDialog(true);
+    } else {
+      // Regular activity, just copy
+      copyActivityMutation.mutate({ forceUpdate, joinGroup: false });
+    }
+  };
+
+  // Handle join dialog response
+  const handleJoinResponse = (joinGroup: boolean) => {
+    console.log('[SHARED ACTIVITY] 🔔 Join dialog response:', {
+      joinGroup,
+      shareProgress,
+      pendingCopy,
+      groupInfo: data?.groupInfo
+    });
+    setShowJoinDialog(false);
+    if (pendingCopy) {
+      console.log('[SHARED ACTIVITY] 📤 Sending copy request with:', {
+        forceUpdate: pendingCopy.forceUpdate,
+        joinGroup,
+        shareProgress
+      });
+      copyActivityMutation.mutate({ 
+        forceUpdate: pendingCopy.forceUpdate, 
+        joinGroup,
+        shareProgress: shareProgress // Use the checkbox state
+      });
+      setPendingCopy(null);
+    }
+  };
+
+  const queryClient = useQueryClient();
+
+  // Generate themed background image URL (must be before early returns per React Hooks rules)
+  // Priority: 1. Custom backdrop, 2. Tavily search result, 3. Fallback images
+  const backgroundStyle = useMemo(() => {
+    if (!data?.activity) {
+      return {
+        backgroundImage: 'linear-gradient(135deg, rgb(88, 28, 135) 0%, rgb(5, 150, 105) 100%)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      };
+    }
+
+    // Check if there's a custom backdrop set by user
+    if (data.activity.backdrop) {
+      return {
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${data.activity.backdrop}')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      };
+    }
+
+    // Use Tavily-fetched backdrop if available (most relevant to activity content)
+    if (backdropData?.options && backdropData.options.length > 0) {
+      const bestBackdrop = backdropData.options[0].url;
+      console.log('[SHARED ACTIVITY] Using Tavily backdrop:', bestBackdrop);
+      return {
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${bestBackdrop}')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      };
+    }
+
+    // Fallback: Use category-based HD images while Tavily results load
+    const title = data.activity.title.toLowerCase();
+    const category = data.activity.category.toLowerCase();
+    
+    // Map categories to curated high-quality fallback images
+    const categoryFallbacks: Record<string, string> = {
+      'fitness': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1600&h=900&fit=crop&q=80',
+      'travel': 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1600&h=900&fit=crop&q=80',
+      'learning': 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1600&h=900&fit=crop&q=80',
+      'health': 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=1600&h=900&fit=crop&q=80',
+      'career': 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&h=900&fit=crop&q=80',
+      'relationships': 'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=1600&h=900&fit=crop&q=80',
+      'creativity': 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=1600&h=900&fit=crop&q=80',
+      'finance': 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=1600&h=900&fit=crop&q=80',
+      'home': 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1600&h=900&fit=crop&q=80',
+      'personal': 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&h=900&fit=crop&q=80',
+    };
+
+    // Check for city-specific matches in title for better relevance
+    let fallbackUrl = categoryFallbacks[category] || categoryFallbacks['personal'];
+    
+    if (title.includes('new york') || title.includes('nyc')) {
+      fallbackUrl = 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=1600&h=900&fit=crop&q=80';
+    } else if (title.includes('paris')) {
+      fallbackUrl = 'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=1600&h=900&fit=crop&q=80';
+    } else if (title.includes('tokyo')) {
+      fallbackUrl = 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1600&h=900&fit=crop&q=80';
+    } else if (title.includes('beach') || title.includes('tropical')) {
+      fallbackUrl = 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1600&h=900&fit=crop&q=80';
+    } else if (title.includes('mountain') || title.includes('hiking')) {
+      fallbackUrl = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&h=900&fit=crop&q=80';
+    }
+    
+    return {
+      backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${fallbackUrl}')`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat'
+    };
+  }, [data?.activity?.title, data?.activity?.category, data?.activity?.backdrop, backdropData?.options]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading shared activity...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (queryError || !data) {
+    const errorMessage = queryError instanceof Error ? queryError.message : 'Failed to load activity';
+    
+    if (errorMessage === 'AUTH_REQUIRED' || (data?.requiresAuth && !isAuthenticated)) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <Card className="max-w-md w-full p-6 sm:p-8 text-center">
+            <div className="flex items-center justify-center mb-4 sm:mb-6">
+              <img
+                src={journalMateLogo}
+                alt="JournalMate"
+                className="w-14 h-14 sm:w-16 sm:h-16"
+              />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold mb-3">Own, Edit & Track This Plan</h2>
+            <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
+              Sign in to customize this activity, track your progress, and collaborate with others on JournalMate
+            </p>
+            <div className="space-y-2">
+              <Button onClick={handleSignIn} className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto" data-testid="button-sign-in" size="lg">
+                <Sparkles className="w-4 h-4" />
+                Sign In to Own This Plan
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Free to start • Track unlimited goals • Collaborate with friends
+              </p>
+            </div>
+          </Card>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full p-6 sm:p-8 text-center">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Share2 className="w-7 h-7 sm:w-8 sm:h-8 text-destructive" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold mb-2">Activity Not Found</h2>
+          <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
+            {errorMessage === 'AUTH_REQUIRED' ? 'Please sign in to view this activity.' : errorMessage}
+          </p>
+          <Button onClick={() => window.location.href = '/'} className="w-full sm:w-auto" size="lg">
+            Go to Home
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  const { activity, tasks } = data;
+  const completedTasks = tasks.filter(t => t.completed).length;
+  const totalTasks = tasks.length;
+  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  const activeTasks = tasks.filter(t => !t.completed);
+  const completedTasksList = tasks.filter(t => t.completed);
+
+  const theme = categoryThemes[activity.category.toLowerCase()] || categoryThemes.other;
+
+  return (
+    <div className={`min-h-screen ${previewTheme === 'dark' ? 'dark' : ''}`}>
+      {/* Confetti celebration for completed activities */}
+      {showConfetti && (
+        <Confetti
+          width={window.innerWidth}
+          height={window.innerHeight}
+          recycle={false}
+          numberOfPieces={300}
+          colors={['#6C5CE7', '#00B894', '#FDCB6E', '#FF6B6B', '#4ECDC4']}
+          gravity={0.3}
+          style={{ position: 'fixed', top: 0, left: 0, zIndex: 9999 }}
+        />
+      )}
+      <div className="min-h-screen bg-background">
+        {/* Hero Section with Dynamic Themed Background Image - Optimized for all screens */}
+        <div
+          className="relative border-b min-h-[280px] sm:min-h-[350px] md:min-h-[450px] lg:min-h-[500px] flex items-center"
+          style={backgroundStyle}
+        >
+        {/* Dark overlay for text readability */}
+        <div className="absolute inset-0 bg-black/40" />
+        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 lg:py-12 relative w-full">
+          <div className="max-w-4xl mx-auto">
+            {/* JournalMate Branding - Compact on mobile */}
+            <div className="text-center mb-3 sm:mb-4 md:mb-6">
+              <div className="flex items-center justify-center gap-1.5 sm:gap-2 mb-1">
+                <img
+                  src={journalMateLogo}
+                  alt="JournalMate"
+                  className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10"
+                />
+                <h1 className="text-lg sm:text-2xl md:text-3xl font-bold" style={{
+                  background: 'linear-gradient(to right, rgb(168, 85, 247), rgb(16, 185, 129))',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}>
+                  JournalMate
+                </h1>
+              </div>
+              <p className="text-xs sm:text-sm text-white/95 font-normal">Plan and Share Your Activities</p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4 sm:mb-6">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => window.location.href = '/'} data-testid="button-go-home" className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Home
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={togglePreviewTheme}
+                  data-testid="button-theme-toggle"
+                  className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800"
+                  title={`Switch to ${previewTheme === 'light' ? 'dark' : 'light'} mode preview`}
+                >
+                  {previewTheme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                </Button>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap justify-center">
+                {data.linkStatus && (
+                  <LinkStatusIndicator
+                    linkStatus={data.linkStatus}
+                    onRefresh={() => refetch()}
+                    isRefreshing={isRefetching}
+                  />
+                )}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleCopyLink}
+                  data-testid="button-copy-link"
+                  className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800 gap-2 flex-1 sm:flex-initial"
+                >
+                  <Link2 className="w-4 h-4" />
+                  <span className="sm:inline">{copyingLink ? 'Copied!' : 'Copy'}</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={handleShareTwitter}
+                  data-testid="button-share-twitter"
+                  className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800"
+                >
+                  <Twitter className="w-4 h-4" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={handleShareFacebook}
+                  data-testid="button-share-facebook"
+                  className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800"
+                >
+                  <Facebook className="w-4 h-4" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={handleShareLinkedIn}
+                  data-testid="button-share-linkedin"
+                  className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800"
+                >
+                  <Linkedin className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-center"
+            >
+              {/* Activity Summary with Emoji - Responsive sizing */}
+              <div className="mb-2 sm:mb-4">
+                <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-2 sm:mb-3 break-words drop-shadow-lg flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
+                  <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl">{theme.emoji}</span>
+                  <span>{activity.shareTitle || activity.planSummary || activity.title}</span>
+                </h2>
+                {activity.description && (
+                  <p className="text-sm sm:text-base md:text-lg lg:text-xl text-white/95 max-w-2xl mx-auto break-words drop-shadow-md font-medium px-2">
+                    {activity.description}
+                  </p>
+                )}
+
+                {/* Motivational Tagline - Hidden on mobile to save space */}
+                <div className="hidden sm:block mt-3 md:mt-4 text-white/90 text-sm md:text-base lg:text-lg italic">
+                  "{progressPercent === 100 ? '🎉 Achievement unlocked!' : progressPercent > 50 ? '💫 You\'re making great progress!' : '🚀 Ready to start your journey?'}"
+                </div>
+              </div>
+
+              {/* Activity Meta Info */}
+              <div className="flex flex-col items-center gap-2 text-sm">
+                {data.sharedBy?.name && (
+                  <div className="flex items-center gap-2 text-white/90">
+                    <Share2 className="w-4 h-4" />
+                    <span>Shared by {data.sharedBy.name}</span>
+                  </div>
+                )}
+                
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <Badge variant="outline" className="bg-white/90 backdrop-blur-sm border-white/50 text-gray-900">
+                    <span className="capitalize">{activity.category}</span>
+                  </Badge>
+                  <div className="flex items-center gap-1 text-white/90">
+                    <CheckSquare className="w-4 h-4" />
+                    <span>{completedTasks}/{totalTasks} tasks completed</span>
+                  </div>
+                  {progressPercent === 100 && (
+                    <Badge className="bg-emerald-500 text-white border-none">
+                      Complete!
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+
+      {/* Fixed Bottom CTA for Mobile - Always visible */}
+      {!isAuthenticated && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-3 bg-gradient-to-t from-background via-background to-transparent md:hidden border-t shadow-lg">
+          <Button
+            onClick={handleSignIn}
+            className="w-full gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white shadow-lg"
+            data-testid="button-sign-in-mobile-fixed"
+            size="lg"
+          >
+            <Sparkles className="w-4 h-4" />
+            Get Started Free
+          </Button>
+        </div>
+      )}
+
+      {isAuthenticated && user && typeof user === 'object' && 'id' in user && activity.userId !== (user as any).id && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-3 bg-gradient-to-t from-background via-background to-transparent md:hidden border-t shadow-lg">
+          <Button
+            onClick={() => handleCopyClick(false)}
+            disabled={copyActivityMutation.isPending}
+            className="w-full gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white shadow-lg"
+            data-testid="button-copy-activity-mobile-fixed"
+            size="lg"
+          >
+            {copyActivityMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Copying...
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" />
+                Copy to My Account
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Main Content - Add bottom padding for fixed button on mobile */}
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 max-w-4xl pb-24 md:pb-8">
+        {/* Progress Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+        >
+          <Card className="p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 md:mb-8">
+            <div className="space-y-4 sm:space-y-6">
+              {/* Metadata */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <Badge variant="outline" className="gap-1">
+                  <span className="capitalize">{activity.category}</span>
+                </Badge>
+                <Badge variant="outline" className="gap-1">
+                  <span className="capitalize">{activity.status || 'planning'}</span>
+                </Badge>
+                {activity.endDate && (
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Calendar className="w-4 h-4" />
+                    <span className="whitespace-nowrap">Due {new Date(activity.endDate).toLocaleDateString()}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  <span>{totalTasks} tasks</span>
+                </div>
+              </div>
+
+              {/* Progress Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="w-5 h-5 text-green-600" />
+                    <span className="font-semibold text-foreground">
+                      {completedTasks} of {totalTasks} completed
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-sm font-bold text-primary">
+                    {progressPercent}%
+                  </Badge>
+                </div>
+                
+                <Progress value={progressPercent} className="h-3" />
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Active Tasks */}
+        {activeTasks.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            className="mb-4 sm:mb-6 md:mb-8"
+          >
+            <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2 flex-wrap">
+              <span className="text-xl sm:text-2xl">✨</span>
+              <span>What's Ahead</span>
+              <Badge variant="outline" className="ml-0 sm:ml-2 text-xs sm:text-sm">{activeTasks.length}</Badge>
+            </h3>
+            <div className="space-y-2 sm:space-y-3">
+              {activeTasks.map((task, index) => {
+                const priorityEmoji = task.priority === 'high' ? '🔥' : task.priority === 'medium' ? '⚡' : '✅';
+                return (
+                  <motion.div
+                    key={task.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: Math.min(index * 0.05, 0.3) }}
+                  >
+                    <Card
+                      className={`p-3 sm:p-4 md:p-5 hover-elevate ${isAuthenticated ? 'cursor-pointer' : ''} border-l-4 ${
+                        task.priority === 'high' ? 'border-l-red-500' :
+                        task.priority === 'medium' ? 'border-l-yellow-500' :
+                        'border-l-green-500'
+                      }`}
+                      data-testid={`task-active-${task.id}`}
+                      onClick={() => {
+                        if (isAuthenticated) {
+                          window.location.href = `/?activity=${activity.id}&tab=tasks`;
+                        }
+                      }}
+                    >
+                      <div className="flex items-start gap-2 sm:gap-3">
+                        <div className="text-xl sm:text-2xl shrink-0">{priorityEmoji}</div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-foreground mb-1 break-words text-base sm:text-lg">
+                            {task.title}
+                          </h4>
+                          {task.description && (
+                            <p className="text-xs sm:text-sm text-muted-foreground mb-2 sm:mb-3 break-words leading-relaxed">
+                              {task.description}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className="text-xs gap-1">
+                              <span>{categoryThemes[task.category.toLowerCase()]?.emoji || '📋'}</span>
+                              <span>{task.category}</span>
+                            </Badge>
+                            {task.timeEstimate && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">
+                                <Clock className="w-3 h-3" />
+                                <span className="font-medium">{task.timeEstimate}</span>
+                              </div>
+                            )}
+                            {task.priority && (
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs font-bold ${
+                                  task.priority === 'high' ? 'bg-red-50 border-red-300 text-red-700 dark:bg-red-950 dark:border-red-800 dark:text-red-300' :
+                                  task.priority === 'medium' ? 'bg-yellow-50 border-yellow-300 text-yellow-700 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-300' :
+                                  'bg-green-50 border-green-300 text-green-700 dark:bg-green-950 dark:border-green-800 dark:text-green-300'
+                                }`}
+                              >
+                                {task.priority.toUpperCase()}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+            
+            {/* Inspiring Call-to-Action */}
+            {!isAuthenticated && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="mt-6 text-center"
+              >
+                <div className="inline-flex items-center gap-2 text-sm text-muted-foreground bg-muted px-4 py-2 rounded-full">
+                  <span>💡</span>
+                  <span>Sign in to start checking off these tasks!</span>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Completed Tasks */}
+        {completedTasksList.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+          >
+            <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <CheckSquare className="w-5 h-5 text-green-600" />
+              Completed Tasks
+            </h3>
+            <div className="space-y-3">
+              {completedTasksList.map((task, index) => (
+                <motion.div
+                  key={task.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: Math.min(index * 0.05, 0.3) }}
+                >
+                  <Card className="p-4 sm:p-5 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700" data-testid={`task-completed-${task.id}`}>
+                    <div className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center mt-0.5 shrink-0">
+                        <CheckSquare className="w-3 h-3 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-green-800 dark:text-green-200 line-through mb-1 break-words">
+                          {task.title}
+                        </h4>
+                        {task.description && (
+                          <p className="text-sm text-green-700 dark:text-green-300 line-through break-words">
+                            {task.description}
+                          </p>
+                        )}
+                        {task.completedAt && (
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                            Completed {new Date(task.completedAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* CTA Section */}
+        {!isAuthenticated && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+            className="mt-6 sm:mt-8"
+          >
+            <Card className="p-6 sm:p-8 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+              <div className="flex items-center justify-center gap-2 mb-4 sm:mb-6">
+                <img
+                  src={journalMateLogo}
+                  alt="JournalMate"
+                  className="w-14 h-14 sm:w-16 sm:h-16"
+                />
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold mb-2">
+                Make This Plan Yours
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4 sm:mb-6">
+                Sign in to customize, track progress, and share your own activities
+              </p>
+              <Button
+                onClick={handleSignIn}
+                className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto"
+                data-testid="button-sign-in-to-edit"
+                size="lg"
+              >
+                <Sparkles className="w-4 h-4" />
+                Get Started Free
+              </Button>
+            </Card>
+          </motion.div>
+        )}
+
+        {isAuthenticated && user && typeof user === 'object' && 'id' in user && activity.userId !== (user as any).id && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+            className="mt-6 sm:mt-8"
+          >
+            <Card className="p-6 sm:p-8 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+              <div className="flex items-center justify-center gap-2 mb-4 sm:mb-6">
+                <img 
+                  src={journalMateLogo} 
+                  alt="JournalMate" 
+                  className="w-14 h-14 sm:w-16 sm:h-16"
+                />
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold mb-2">Copy this activity to your account</h3>
+              <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
+                This activity will be added to your dashboard and you can edit it however you like
+              </p>
+              <Button 
+                onClick={() => handleCopyClick(false)}
+                disabled={copyActivityMutation.isPending}
+                className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto"
+                data-testid="button-copy-activity"
+                size="lg"
+              >
+                {copyActivityMutation.isPending ? 'Copying...' : 'Copy to My Account'}
+              </Button>
+            </Card>
+          </motion.div>
+        )}
+        
+        {isAuthenticated && user && typeof user === 'object' && 'id' in user && activity.userId === (user as any).id && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+            className="mt-6 sm:mt-8"
+          >
+            <Card className="p-6 sm:p-8 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+              <div className="flex items-center justify-center gap-2 mb-4 sm:mb-6">
+                <img 
+                  src={journalMateLogo} 
+                  alt="JournalMate" 
+                  className="w-14 h-14 sm:w-16 sm:h-16"
+                />
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold mb-2">This is Your Activity</h3>
+              <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
+                You can edit this activity from your dashboard
+              </p>
+              <Button onClick={() => window.location.href = '/'} variant="default" className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto" size="lg">
+                <Home className="w-4 h-4" />
+                Go to Dashboard
+              </Button>
+            </Card>
+          </motion.div>
+        )}
+      </main>
+      </div>
+      
+      {/* Update Confirmation Dialog */}
+      <AlertDialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
+        <AlertDialogContent data-testid="dialog-update-plan">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Plan Already Exists</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmationData?.message || 'You already have this plan. Would you like to update it with the latest version?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-update">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="button-confirm-update"
+              onClick={() => {
+                setShowUpdateDialog(false);
+                handleCopyClick(true); // forceUpdate = true
+              }}
+              className="bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700"
+            >
+              Update Plan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Join Group Dialog */}
+      <AlertDialog open={showJoinDialog} onOpenChange={setShowJoinDialog}>
+        <AlertDialogContent data-testid="dialog-join-group">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Join "{data?.groupInfo?.name}"?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                This activity is part of a group. Would you like to join the group when copying this activity?
+              </p>
+              <div className="bg-muted p-3 rounded-lg space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium">{data?.groupInfo?.memberCount || 0} members</span>
+                </div>
+                {data?.groupInfo?.description && (
+                  <p className="text-sm text-muted-foreground">{data.groupInfo.description}</p>
+                )}
+              </div>
+              <p className="text-sm">
+                <strong>Join Group:</strong> Collaborate with members and share updates
+              </p>
+              <p className="text-sm">
+                <strong>Just Copy:</strong> Get a private copy without joining the group
+              </p>
+              
+              {/* Progress Sharing Checkbox */}
+              <div className="flex items-start space-x-2 pt-2 border-t">
+                <Checkbox
+                  id="share-progress"
+                  checked={shareProgress}
+                  onCheckedChange={(checked) => setShareProgress(checked === true)}
+                  data-testid="checkbox-share-progress"
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="share-progress"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Share my progress with the group
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Group admins can see your task completion progress
+                  </p>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => handleJoinResponse(false)}
+              disabled={copyActivityMutation.isPending}
+              data-testid="button-copy-without-join"
+            >
+              No, Just Copy
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleJoinResponse(true)}
+              disabled={copyActivityMutation.isPending}
+              data-testid="button-join-and-copy"
+              className="bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700"
+            >
+              {copyActivityMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Joining...
+                </>
+              ) : (
+                "Yes, Join Group"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

@@ -1,0 +1,474 @@
+/**
+ * Contact Sync Integration for Capacitor
+ *
+ * Enables users to invite friends from contacts and sync contact
+ * information for collaborative activities
+ */
+
+import { Contacts, type GetContactsResult } from '@capacitor-community/contacts';
+import { isNative } from './platform';
+import { z } from 'zod';
+
+// Define Contact type locally to match Capacitor ContactPayload
+interface Contact {
+  contactId: string;
+  name?: {
+    display?: string | null;
+    given?: string | null;
+    family?: string | null;
+  };
+  phones?: Array<{ number?: string | null }>;
+  emails?: Array<{ address?: string | null }>;
+  image?: {
+    base64String?: string | null;
+  };
+}
+
+export interface SimpleContact {
+  id: string;
+  displayName: string;
+  phoneNumbers?: string[];
+  emails?: string[];
+  photoUrl?: string;
+}
+
+export interface ContactInviteOptions {
+  message?: string;
+  method?: 'sms' | 'email' | 'both';
+}
+
+/**
+ * Request contacts permission
+ */
+export async function requestContactsPermission(): Promise<boolean> {
+  if (!isNative()) {
+    console.warn('Contacts only available on native platforms');
+    return false;
+  }
+
+  try {
+    const permission = await Contacts.requestPermissions();
+    return permission.contacts === 'granted';
+  } catch (error) {
+    console.error('Failed to request contacts permission:', error);
+    return false;
+  }
+}
+
+/**
+ * Check contacts permission status
+ */
+export async function checkContactsPermission(): Promise<boolean> {
+  if (!isNative()) {
+    return false;
+  }
+
+  try {
+    const permission = await Contacts.checkPermissions();
+    return permission.contacts === 'granted';
+  } catch (error) {
+    console.error('Failed to check contacts permission:', error);
+    return false;
+  }
+}
+
+/**
+ * Get all contacts from device
+ */
+export async function getContacts(): Promise<SimpleContact[]> {
+  if (!isNative()) {
+    console.warn('Contacts only available on native platforms');
+    return [];
+  }
+
+  try {
+    // Check permission first
+    const hasPermission = await checkContactsPermission();
+    if (!hasPermission) {
+      const granted = await requestContactsPermission();
+      if (!granted) {
+        console.warn('Contacts permission not granted');
+        return [];
+      }
+    }
+
+    // Fetch contacts
+    const result: GetContactsResult = await Contacts.getContacts({
+      projection: {
+        name: true,
+        phones: true,
+        emails: true,
+        image: true,
+      },
+    });
+
+    // Transform to simple format
+    return result.contacts.map(transformContact).filter((c) => c !== null) as SimpleContact[];
+  } catch (error) {
+    console.error('Failed to get contacts:', error);
+    return [];
+  }
+}
+
+/**
+ * Search contacts by name
+ */
+export async function searchContacts(query: string): Promise<SimpleContact[]> {
+  const allContacts = await getContacts();
+
+  const lowerQuery = query.toLowerCase();
+  return allContacts.filter((contact) =>
+    contact.displayName.toLowerCase().includes(lowerQuery)
+  );
+}
+
+/**
+ * Get contact by ID
+ */
+export async function getContactById(contactId: string): Promise<SimpleContact | null> {
+  const contacts = await getContacts();
+  return contacts.find((c) => c.id === contactId) || null;
+}
+
+/**
+ * Pick a single contact using native contact picker
+ * Opens the device's native contact selection UI
+ */
+export async function pickContact(): Promise<SimpleContact | null> {
+  if (!isNative()) {
+    console.warn('[CONTACTS] Contact picker only available on native platforms');
+    return null;
+  }
+
+  try {
+    // Check permission first
+    const hasPermission = await checkContactsPermission();
+    if (!hasPermission) {
+      console.log('[CONTACTS] Requesting contacts permission...');
+      const granted = await requestContactsPermission();
+      if (!granted) {
+        console.warn('[CONTACTS] Contacts permission not granted');
+        return null;
+      }
+    }
+
+    console.log('[CONTACTS] Opening native contact picker...');
+
+    // Use the pickContact method from @capacitor-community/contacts
+    const result = await Contacts.pickContact({
+      projection: {
+        name: true,
+        phones: true,
+        emails: true,
+        image: true,
+      },
+    });
+
+    console.log('[CONTACTS] Contact picked:', result.contact);
+
+    if (!result.contact) {
+      return null;
+    }
+
+    // Transform the picked contact to our SimpleContact format
+    const contact = result.contact as unknown as Contact;
+    return transformContact(contact);
+  } catch (error: any) {
+    // User cancelled the picker - this is not an error
+    if (error?.message?.includes('cancel') || error?.code === 'CANCELLED') {
+      console.log('[CONTACTS] User cancelled contact picker');
+      return null;
+    }
+    console.error('[CONTACTS] Failed to pick contact:', error);
+    return null;
+  }
+}
+
+/**
+ * Open native share dialog to invite a contact
+ */
+export async function shareInviteWithContact(contact: SimpleContact): Promise<boolean> {
+  const message = `Hey ${contact.displayName.split(' ')[0]}! I'm using JournalMate to plan my goals and track my journey. Join me! 🚀\n\nhttps://journalmate.ai/invite`;
+  const subject = "Join me on JournalMate!";
+
+  try {
+    // Try SMS first if phone available
+    if (contact.phoneNumbers && contact.phoneNumbers.length > 0) {
+      const phoneNumber = contact.phoneNumbers[0];
+      const smsUrl = `sms:${phoneNumber}?body=${encodeURIComponent(message)}`;
+      window.location.href = smsUrl;
+      return true;
+    }
+
+    // Fall back to email
+    if (contact.emails && contact.emails.length > 0) {
+      const email = contact.emails[0];
+      const emailUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+      window.location.href = emailUrl;
+      return true;
+    }
+
+    console.warn('[CONTACTS] Contact has no phone or email');
+    return false;
+  } catch (error) {
+    console.error('[CONTACTS] Failed to share invite:', error);
+    return false;
+  }
+}
+
+/**
+ * Invite contacts to use JournalMate
+ */
+export async function inviteContacts(
+  contacts: SimpleContact[],
+  options: ContactInviteOptions = {}
+): Promise<{ success: boolean; invitedCount: number }> {
+  const message =
+    options.message ||
+    `Hey! I'm using JournalMate to plan my goals and track my journey. Join me! 🚀\n\nhttps://journalmate.ai`;
+
+  let invitedCount = 0;
+
+  for (const contact of contacts) {
+    const invited = await inviteContact(contact, message, options.method);
+    if (invited) {
+      invitedCount++;
+    }
+  }
+
+  return {
+    success: invitedCount > 0,
+    invitedCount,
+  };
+}
+
+/**
+ * Invite a single contact
+ */
+async function inviteContact(
+  contact: SimpleContact,
+  message: string,
+  method: 'sms' | 'email' | 'both' = 'both'
+): Promise<boolean> {
+  try {
+    if (method === 'sms' || method === 'both') {
+      if (contact.phoneNumbers && contact.phoneNumbers.length > 0) {
+        const phoneNumber = contact.phoneNumbers[0];
+        const smsUrl = `sms:${phoneNumber}?body=${encodeURIComponent(message)}`;
+        window.location.href = smsUrl;
+        return true;
+      }
+    }
+
+    if (method === 'email' || method === 'both') {
+      if (contact.emails && contact.emails.length > 0) {
+        const email = contact.emails[0];
+        const subject = encodeURIComponent('Join me on JournalMate!');
+        const body = encodeURIComponent(message);
+        const emailUrl = `mailto:${email}?subject=${subject}&body=${body}`;
+        window.location.href = emailUrl;
+        return true;
+      }
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Failed to invite contact:', error);
+    return false;
+  }
+}
+
+/**
+ * Transform Capacitor Contact to SimpleContact
+ */
+function transformContact(contact: Contact): SimpleContact | null {
+  try {
+    const displayName =
+      contact.name?.display ||
+      `${contact.name?.given || ''} ${contact.name?.family || ''}`.trim() ||
+      'Unknown';
+
+    const phoneNumbers = contact.phones?.map((p: { number?: string | null }) => p.number || '').filter(Boolean) || [];
+    const emails = contact.emails?.map((e: { address?: string | null }) => e.address || '').filter(Boolean) || [];
+    const photoUrl = contact.image?.base64String
+      ? `data:image/jpeg;base64,${contact.image.base64String}`
+      : undefined;
+
+    return {
+      id: contact.contactId,
+      displayName,
+      phoneNumbers,
+      emails,
+      photoUrl,
+    };
+  } catch (error) {
+    console.error('Failed to transform contact:', error);
+    return null;
+  }
+}
+
+/**
+ * Sync contacts with backend to store and display in app
+ * Sends actual contact data (name, emails, phones) for storage
+ * Batches contacts in groups of 100 to comply with backend limits
+ */
+export async function syncContactsWithServer(
+  contacts: SimpleContact[],
+  onProgress?: (synced: number, total: number) => void
+): Promise<{ syncedCount: number }> {
+  try {
+    // Use Zod's email validator directly - guarantees 100% compatibility with backend validation
+    const emailSchema = z.string().email();
+    const isValidEmail = (email: string): boolean => {
+      if (!email || typeof email !== 'string') return false;
+      try {
+        emailSchema.parse(email.trim().toLowerCase());
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    console.log('[CONTACTS] Starting sync with', contacts.length, 'raw contacts');
+
+    // Transform and validate contacts to match backend syncContactsSchema requirements:
+    // - name: min 1 char, max 100 chars
+    // - emails: array of valid email strings (Zod-compatible)
+    // - tel: array of non-empty strings (min 1 char)
+    const formattedContacts = contacts
+      .filter(c => {
+        const hasName = c.displayName && c.displayName.trim().length > 0;
+        return hasName;
+      })
+      .map((contact) => {
+        const name = contact.displayName.trim().slice(0, 100);
+
+        // Process emails - filter and validate
+        const emails = (contact.emails || [])
+          .filter((e): e is string => typeof e === 'string' && e.trim().length > 0)
+          .map(e => e.trim().toLowerCase())
+          .filter(e => isValidEmail(e));
+
+        // Process phone numbers - clean and filter
+        const tel = (contact.phoneNumbers || [])
+          .filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
+          .map(p => p.trim().replace(/[^\d+\-() ]/g, ''))
+          .filter(p => p.length > 0);
+
+        return { name, emails, tel };
+      })
+      .filter(c => c.emails.length > 0 || c.tel.length > 0);
+
+    console.log('[CONTACTS] After filtering:', formattedContacts.length, 'valid contacts');
+
+    if (formattedContacts.length === 0) {
+      console.warn('[CONTACTS] No valid contacts to sync after filtering');
+      return { syncedCount: 0 };
+    }
+
+    // Batch contacts in groups of 100 (backend limit)
+    const BATCH_SIZE = 100;
+    const batches: Array<typeof formattedContacts> = [];
+    for (let i = 0; i < formattedContacts.length; i += BATCH_SIZE) {
+      batches.push(formattedContacts.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log('[CONTACTS] Syncing in', batches.length, 'batches of up to', BATCH_SIZE);
+
+    let totalSynced = 0;
+
+    // Process each batch sequentially
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      console.log(`[CONTACTS] Syncing batch ${i + 1}/${batches.length} (${batch.length} contacts)`);
+
+      const response = await fetch('/api/contacts/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ contacts: batch }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`[CONTACTS] Batch ${i + 1} failed:`, response.status, JSON.stringify(errorData));
+
+        // Show more specific error message
+        if (errorData.details && Array.isArray(errorData.details)) {
+          const firstError = errorData.details[0];
+          const errorPath = firstError?.path?.join('.') || 'unknown field';
+          const errorMsg = firstError?.message || 'validation failed';
+          throw new Error(`Batch ${i + 1} validation error: ${errorPath} - ${errorMsg}`);
+        }
+
+        throw new Error(errorData.error || `Failed to sync batch ${i + 1}`);
+      }
+
+      const result = await response.json();
+      console.log(`[CONTACTS] Batch ${i + 1} response:`, {
+        syncedCount: result.syncedCount,
+        contactsReturned: result.contacts?.length || 0,
+        message: result.message
+      });
+      totalSynced += result.syncedCount || batch.length;
+
+      // Report progress
+      if (onProgress) {
+        onProgress(totalSynced, formattedContacts.length);
+      }
+
+      console.log(`[CONTACTS] Batch ${i + 1} complete. Total synced: ${totalSynced}`);
+    }
+
+    console.log('[CONTACTS] All contacts synced successfully:', totalSynced);
+    return { syncedCount: totalSynced };
+  } catch (error) {
+    console.error('[CONTACTS] Failed to sync contacts:', error);
+    throw error;
+  }
+}
+
+/**
+ * Simple hash function for privacy (use proper crypto in production)
+ */
+function hashString(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return hash.toString(36);
+}
+
+/**
+ * Get contacts with JournalMate accounts (from server)
+ */
+export async function getContactsOnJournalMate(): Promise<
+  Array<{ contactId: string; userId: string; displayName: string }>
+> {
+  try {
+    const response = await fetch('/api/contacts/on-journalmate');
+    if (!response.ok) {
+      throw new Error('Failed to fetch JournalMate contacts');
+    }
+
+    const data = await response.json();
+    return data.contacts || [];
+  } catch (error) {
+    console.error('Failed to get JournalMate contacts:', error);
+    return [];
+  }
+}
+
+export default {
+  requestContactsPermission,
+  checkContactsPermission,
+  getContacts,
+  searchContacts,
+  getContactById,
+  pickContact,
+  inviteContacts,
+  syncContactsWithServer,
+  getContactsOnJournalMate,
+};

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Goals Icon: Circle with checkmark (Green #10b981) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Outer circle -->
+    <path
+        android:strokeColor="#10b981"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M12,2a10,10 0,1 0,10 10A10,10 0,0 0,12 2z"/>
+    <!-- Checkmark -->
+    <path
+        android:strokeColor="#10b981"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M8,12l3,3l5,-6"/>
+</vector>

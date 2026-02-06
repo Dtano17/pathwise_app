@@ -748,59 +748,92 @@ Respond with ONLY a JSON object in this format:
   // MAIN ENRICHMENT METHOD
   // ==========================================================================
 
-  async enrichJournalEntry(entry: JournalEntryForEnrichment, forceRefresh: boolean = false): Promise<EnrichmentResult> {
+  /**
+   * Enrich a journal entry with web data (images, metadata, etc.)
+   *
+   * @param entry - The journal entry to enrich
+   * @param forceRefresh - If true, re-enrich Coming Soon placeholders and unverified entries
+   * @param forceRevalidate - If true, re-enrich ALL entries including verified TMDB matches
+   *                          Use this when user explicitly wants to re-check a potentially wrong match
+   */
+  async enrichJournalEntry(entry: JournalEntryForEnrichment, forceRefresh: boolean = false, forceRevalidate: boolean = false): Promise<EnrichmentResult> {
     const startTime = Date.now();
-    console.log(`[JOURNAL_WEB_ENRICH] Enriching entry ${entry.id}: "${entry.text.substring(0, 50)}..."${forceRefresh ? ' (FORCE REFRESH)' : ''}`);
+    const refreshMode = forceRevalidate ? 'FORCE REVALIDATE' : (forceRefresh ? 'FORCE REFRESH' : '');
+    console.log(`[JOURNAL_WEB_ENRICH] Enriching entry ${entry.id}: "${entry.text.substring(0, 50)}..."${refreshMode ? ` (${refreshMode})` : ''}`);
 
     try {
       // FIRST: Extract venue name and location from text
       // This MUST happen BEFORE cache key generation to avoid cache collisions
       // when multiple entries have the same ID but different content
-      const extractedInfo = this.extractVenueInfo(entry.text);
-      
+      // CRITICAL: Pass category so extractVenueInfo can use movie patterns for entries
+      // in "Movies & TV Shows" category even without text signals
+      const extractedInfo = this.extractVenueInfo(entry.text, entry.category);
+
       // For movies, ALWAYS use extracted title (not the full venue name with parentheses)
-      // This ensures "Watch Mission Impossible: The Final Reckoning (#1 ranked movie)" 
+      // This ensures "Watch Mission Impossible: The Final Reckoning (#1 ranked movie)"
       // becomes just "Mission Impossible: The Final Reckoning" for TMDB search
       const contentType = this.detectContentType(entry.text);
       const isMovieContent = contentType === 'movie' || contentType === 'movies' ||
-                             entry.category === 'custom-entertainment' || entry.category === 'Entertainment';
-      
-      const venueName = isMovieContent && extractedInfo.venueName 
+                             entry.category === 'custom-entertainment' || entry.category === 'Entertainment' ||
+                             entry.category === 'Movies & TV Shows' || entry.category === 'movies';
+
+      const venueName = isMovieContent && extractedInfo.venueName
         ? extractedInfo.venueName  // Use extracted clean title for movies
         : (entry.venueName || extractedInfo.venueName);
       const city = entry.location?.city || extractedInfo.city;
-      
+
       // CRITICAL: Generate cache key using the EXTRACTED venue name (not entry.venueName)
       // This prevents cache collisions when entries share the same ID but have different content
       const cacheKey = this.generateCacheKeyFromVenue(venueName || '', city || '');
-      
+
+      // Check cache - but handle force refresh differently for verified vs unverified entries
+      try {
+        const dbCached = await storage.getJournalEnrichmentCache(cacheKey);
+
+        if (dbCached) {
+          // forceRevalidate = re-check EVERYTHING including verified entries (user thinks match is wrong)
+          // forceRefresh = only re-check Coming Soon and unverified entries
+          if (forceRevalidate) {
+            // User explicitly wants to re-verify - clear cache for ALL entries
+            this.cache.delete(cacheKey);
+            await storage.deleteJournalEnrichmentCache(cacheKey);
+            console.log(`[JOURNAL_WEB_ENRICH] REVALIDATE: Clearing verified entry for re-check: "${venueName}" (was tmdbId: ${dbCached.tmdbId})`);
+          } else if (forceRefresh) {
+            if (dbCached.verified && dbCached.enrichmentSource === 'tmdb' && !dbCached.isComingSoon) {
+              // This is a verified TMDB entry - keep it, don't re-fetch (unless forceRevalidate)
+              const enrichedData = dbCached.enrichedData as WebEnrichedData;
+              this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+              console.log(`[JOURNAL_WEB_ENRICH] SKIP refresh for verified TMDB entry: "${venueName}" (tmdbId: ${dbCached.tmdbId})`);
+              return { entryId: entry.id, success: true, enrichedData };
+            } else {
+              // Unverified or Coming Soon - clear cache and re-enrich
+              this.cache.delete(cacheKey);
+              await storage.deleteJournalEnrichmentCache(cacheKey);
+              console.log(`[JOURNAL_WEB_ENRICH] Clearing ${dbCached.isComingSoon ? 'Coming Soon placeholder' : 'unverified entry'} for refresh: "${venueName}"`);
+            }
+          } else {
+            // Normal cache hit (no force refresh)
+            const enrichedData = dbCached.enrichedData as WebEnrichedData;
+            this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+            console.log(`[JOURNAL_WEB_ENRICH] DB cache hit for "${venueName}" (source: ${dbCached.enrichmentSource}, verified: ${dbCached.verified})`);
+            return { entryId: entry.id, success: true, enrichedData };
+          }
+        }
+      } catch (dbError) {
+        console.warn(`[JOURNAL_WEB_ENRICH] DB cache lookup failed for "${venueName}":`, dbError);
+        // Continue with fresh enrichment if DB lookup fails
+      }
+
+      // Also check in-memory cache if not force refresh
       if (!forceRefresh) {
-        // STEP 1: Check in-memory cache first (fastest)
         const cached = this.cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
           console.log(`[JOURNAL_WEB_ENRICH] Memory cache hit for "${venueName}"`);
           return { entryId: entry.id, success: true, enrichedData: cached.data };
         }
-
-        // STEP 2: Check persistent database cache (survives server restarts)
-        try {
-          const dbCached = await storage.getJournalEnrichmentCache(cacheKey);
-          if (dbCached) {
-            const enrichedData = dbCached.enrichedData as WebEnrichedData;
-            // Populate in-memory cache for faster subsequent lookups
-            this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
-            console.log(`[JOURNAL_WEB_ENRICH] DB cache hit for "${venueName}" (source: ${dbCached.enrichmentSource})`);
-            return { entryId: entry.id, success: true, enrichedData };
-          }
-        } catch (dbError) {
-          console.warn(`[JOURNAL_WEB_ENRICH] DB cache lookup failed for "${venueName}":`, dbError);
-          // Continue with fresh enrichment if DB lookup fails
-        }
       } else {
-        // Clear in-memory cache for this entry on force refresh
+        // Clear in-memory cache on force refresh
         this.cache.delete(cacheKey);
-        console.log(`[JOURNAL_WEB_ENRICH] Memory cache cleared for forced refresh of "${venueName}"`);
-        // Note: We don't delete DB cache on force refresh - allows selective refresh
       }
 
       if (!venueName) {
@@ -863,15 +896,42 @@ Respond with ONLY a JSON object in this format:
 
         let tmdbResult = validation.tmdbResult || await tmdbService.searchMovie(searchTitle, yearHint);
 
+        // CRITICAL: If movie search fails, try TV search as fallback
+        // Many shows like "12 Monkeys", "Counterpart", "The OA" are TV series not movies
+        if (!tmdbResult) {
+          console.log(`[JOURNAL_WEB_ENRICH] Movie search failed for "${searchTitle}", trying TV search...`);
+          tmdbResult = await tmdbService.searchTV(searchTitle, yearHint);
+        }
+
+        // Also try TV if movie search returned null AND entry text suggests TV content
+        // (e.g., "Counterpart TV series" or entry mentions "season", "episode", "series")
+        if (!tmdbResult) {
+          const tvSignals = /\b(series|season|episode|tv\s*show|netflix|hbo|amazon|hulu|apple\s*tv|streaming|miniseries)\b/i;
+          if (tvSignals.test(entry.text) || tvSignals.test(aiRecommendation.searchQuery || '')) {
+            console.log(`[JOURNAL_WEB_ENRICH] TV signals detected in text, trying TV search for "${searchTitle}"...`);
+            tmdbResult = await tmdbService.searchTV(searchTitle, yearHint);
+          }
+        }
+
         // YEAR VALIDATION: If batch context has yearRange, validate the result year
         // Reject results that are way off from expected year (e.g., 1943 when expecting 2024)
+        // BUT skip this for well-known classics with high vote counts
         if (tmdbResult && batchCtx?.yearRange && tmdbResult.releaseYear) {
           const resultYear = parseInt(tmdbResult.releaseYear);
           const { min, max } = batchCtx.yearRange;
-          // Allow 2-year tolerance (e.g., 2024 batch could match 2022-2026)
-          if (resultYear < min - 2 || resultYear > max + 2) {
-            console.log(`[JOURNAL_WEB_ENRICH] TMDB result year ${resultYear} outside expected range ${min}-${max}, rejecting match`);
-            tmdbResult = null; // Reject this match, will trigger Coming Soon placeholder
+
+          // Check if this is a well-known classic (high vote count from older years)
+          // Classics like "12 Monkeys" (1995), "Blade Runner" (1982) should pass
+          const isWellKnownClassic = resultYear < 2010 && (tmdbResult.ratingCount || 0) > 500;
+
+          if (!isWellKnownClassic) {
+            // Allow 2-year tolerance (e.g., 2024 batch could match 2022-2026)
+            if (resultYear < min - 2 || resultYear > max + 2) {
+              console.log(`[JOURNAL_WEB_ENRICH] TMDB result year ${resultYear} outside expected range ${min}-${max}, rejecting match`);
+              tmdbResult = null; // Reject this match, will trigger Coming Soon placeholder
+            }
+          } else {
+            console.log(`[JOURNAL_WEB_ENRICH] TMDB result "${tmdbResult.title}" (${resultYear}) is well-known classic with ${tmdbResult.ratingCount} votes, bypassing year filter`);
           }
         }
 
@@ -906,16 +966,20 @@ Respond with ONLY a JSON object in this format:
           };
 
           // Save to both in-memory and persistent DB cache
+          // Include tmdbId for deduplication and to skip re-fetching on future refreshes
           this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
           try {
             await storage.saveJournalEnrichmentCache({
               cacheKey,
               enrichedData: enrichedData as any,
               imageUrl: enrichedData.primaryImageUrl,
-              verified: enrichedData.venueVerified,
+              verified: true, // TMDB is authoritative source
               enrichmentSource: 'tmdb',
               isComingSoon: false,
+              tmdbId: tmdbResult.tmdbId,
+              mediaType: tmdbResult.mediaType,
             });
+            console.log(`[JOURNAL_WEB_ENRICH] Saved verified TMDB entry: "${tmdbResult.title}" (tmdbId: ${tmdbResult.tmdbId})`);
           } catch (saveError) {
             console.warn(`[JOURNAL_WEB_ENRICH] Failed to save TMDB result to DB cache:`, saveError);
           }
@@ -953,15 +1017,17 @@ Respond with ONLY a JSON object in this format:
         };
 
         // Save Coming Soon placeholder to both caches
+        // Note: These will be refreshed on next force refresh since verified=false and isComingSoon=true
         this.cache.set(cacheKey, { data: comingSoonData, timestamp: Date.now() });
         try {
           await storage.saveJournalEnrichmentCache({
             cacheKey,
             enrichedData: comingSoonData as any,
             imageUrl: comingSoonData.primaryImageUrl,
-            verified: false,
+            verified: false, // NOT verified - will be refreshed on next force refresh
             enrichmentSource: 'placeholder',
-            isComingSoon: true,
+            isComingSoon: true, // Flag to indicate this needs re-enrichment
+            mediaType: 'movie',
           });
         } catch (saveError) {
           console.warn(`[JOURNAL_WEB_ENRICH] Failed to save Coming Soon placeholder to DB cache:`, saveError);
@@ -1235,11 +1301,19 @@ Respond with ONLY a JSON object in this format:
   // BATCH ENRICHMENT
   // ==========================================================================
 
-  async enrichBatch(entries: JournalEntryForEnrichment[], forceRefresh: boolean = false): Promise<EnrichmentResult[]> {
-    console.log(`[JOURNAL_WEB_ENRICH] Starting batch enrichment for ${entries.length} entries${forceRefresh ? ' (FORCE REFRESH)' : ''}`);
+  /**
+   * Enrich multiple journal entries in batch
+   *
+   * @param entries - The entries to enrich
+   * @param forceRefresh - If true, re-enrich Coming Soon placeholders and unverified entries
+   * @param forceRevalidate - If true, re-enrich ALL entries including verified TMDB matches
+   */
+  async enrichBatch(entries: JournalEntryForEnrichment[], forceRefresh: boolean = false, forceRevalidate: boolean = false): Promise<EnrichmentResult[]> {
+    const refreshMode = forceRevalidate ? 'FORCE REVALIDATE ALL' : (forceRefresh ? 'FORCE REFRESH' : '');
+    console.log(`[JOURNAL_WEB_ENRICH] Starting batch enrichment for ${entries.length} entries${refreshMode ? ` (${refreshMode})` : ''}`);
 
-    // Filter entries that need enrichment (skip filter if forceRefresh)
-    const needsEnrichment = forceRefresh ? entries : entries.filter(entry => {
+    // Filter entries that need enrichment (skip filter if forceRefresh or forceRevalidate)
+    const needsEnrichment = (forceRefresh || forceRevalidate) ? entries : entries.filter(entry => {
       // Skip if already enriched recently
       if (entry.existingEnrichment?.enrichedAt) {
         const enrichedTime = new Date(entry.existingEnrichment.enrichedAt).getTime();
@@ -1262,6 +1336,24 @@ Respond with ONLY a JSON object in this format:
         const batchContext = await this.inferUniversalBatchContext(needsEnrichment);
         if (batchContext && batchContext.confidence > 0.5) {
           console.log(`[JOURNAL_WEB_ENRICH] Batch context established: ${batchContext.contentType} - "${batchContext.collectionDescription}"`);
+
+          // PROPAGATE to TMDB service for tiered validation
+          // This ensures TMDB's strict tiers use the year range from batch context
+          if ((batchContext.contentType === 'movie' || batchContext.contentType === 'tv_show') && tmdbService.isAvailable()) {
+            tmdbService.setBatchContext({
+              inferredYear: batchContext.yearRange?.min || null,
+              inferredYearRange: batchContext.yearRange || null,
+              inferredLanguage: batchContext.inferredRegion === 'US' ? 'en' : (batchContext.inferredRegion === 'Korea' ? 'ko' : null),
+              inferredMediaType: batchContext.contentType === 'movie' ? 'movie' : 'tv',
+              inferredGenre: batchContext.inferredGenre || null,
+              inferredRegion: batchContext.inferredRegion || null,
+              collectionDescription: batchContext.collectionDescription,
+              isUpcoming: batchContext.isUpcoming || false,
+              isClassic: batchContext.isClassic || false,
+              confidence: batchContext.confidence
+            });
+            console.log(`[JOURNAL_WEB_ENRICH] TMDB batch context propagated: year=${batchContext.yearRange?.min}-${batchContext.yearRange?.max}, region=${batchContext.inferredRegion}`);
+          }
         }
       } catch (error) {
         console.warn(`[JOURNAL_WEB_ENRICH] Batch context inference failed, continuing without context:`, error);
@@ -1278,7 +1370,7 @@ Respond with ONLY a JSON object in this format:
     for (let i = 0; i < needsEnrichment.length; i += batchSize) {
       const batch = needsEnrichment.slice(i, i + batchSize);
       const batchResults = await Promise.all(
-        batch.map(entry => this.enrichJournalEntry(entry, forceRefresh))
+        batch.map(entry => this.enrichJournalEntry(entry, forceRefresh, forceRevalidate))
       );
       results.push(...batchResults);
 
@@ -1293,6 +1385,7 @@ Respond with ONLY a JSON object in this format:
     // Clean up after batch processing is complete
     // =========================================================================
     this.clearBatchContext();
+    tmdbService.clearBatchContext(); // Also clear TMDB's propagated context
 
     const successCount = results.filter(r => r.success).length;
     console.log(`[JOURNAL_WEB_ENRICH] Batch complete: ${successCount}/${results.length} successful`);
@@ -1308,32 +1401,41 @@ Respond with ONLY a JSON object in this format:
    * Extract EXACT title/venue name from entry text.
    * CRITICAL: Must extract the precise title to prevent content mismatches.
    * For "Watch Wicked for Good" - must extract "Wicked for Good", not something else.
+   *
+   * @param text - The entry text to extract from
+   * @param category - Optional category hint (e.g., "Movies & TV Shows") to help detection
    */
-  private extractVenueInfo(text: string): { venueName?: string; city?: string; author?: string; exactTitle?: string } {
+  private extractVenueInfo(text: string, category?: string): { venueName?: string; city?: string; author?: string; exactTitle?: string } {
     const contentType = this.detectContentType(text);
 
+    // CRITICAL: Check if category indicates movie/TV even without text signals
+    // This handles simple entries like "Dark", "Interstellar", "Tenet" in Movies & TV Shows category
+    const isMovieCategory = category === 'Movies & TV Shows' || category === 'movies' ||
+                            category === 'custom-entertainment' || category === 'Entertainment';
+
     // MOVIE-specific extraction - CRITICAL for preventing mismatches
-    if (contentType === 'movie' || contentType === 'movies') {
+    // Run movie patterns if: detected as movie OR category indicates movie
+    if (contentType === 'movie' || contentType === 'movies' || isMovieCategory) {
       const moviePatterns = [
         // PRIORITY 1: Single-quoted titles - e.g., "Stream or rent 'Die My Love'" -> "Die My Love"
         // These are very reliable because they have explicit delimiters
         /'([^']+)'/,
         // PRIORITY 2: Double-quoted titles - e.g., 'Watch "Sinners"' -> "Sinners"
         /"([^"]+)"/,
-        // "Watch Mission Impossible: The Final Reckoning (#1 ranked movie)" - extract before hashtag/parenthesis
-        /(?:watch|streaming|stream|see|cinema|theater)\s+([^#('"\n]+?)(?:\s*[#(\n]|$)/i,
-        // "Stream Sinners (#2 ranked movie)" - extract title between keyword and parenthesis  
-        /(?:watch|streaming|stream|see)\s+([^('"\n]+?)\s*\(/i,
-        // "Watch [Title]" - common movie entry format (no quotes in title)
-        /^(?:Watch|Watching|Watched|See|Saw|Stream|Streaming)\s+([^"'\-–—#(]+?)(?:\s*[-–—#(]|$)/i,
-        // "[Title] movie" or "[Title] film"
-        /^([^"'\-–—#(]+?)\s+(?:movie|film)(?:\s|$)/i,
-        // Title - description (extract before first dash)
-        /^([^-–—#("']+?)\s*[-–—]\s*.+(?:movie|film|watch|stream|theater|cinema)/i,
-        // Title followed by year in parentheses: "Title (2024)"
+        // PRIORITY 3: "Watch [Title]" - common movie entry format (no quotes in title)
+        // Allow hyphens within words (Spider-Man, X-Men), break on " - " (space-dash-space) or # or (
+        /^(?:Watch|Watching|Watched|See|Saw|Stream|Streaming)\s+(.+?)(?:\s+[-–—]\s+|[#(]|$)/i,
+        // PRIORITY 4: "Stream Sinners (#2 ranked movie)" - extract title between keyword and parenthesis
+        /(?:watch|streaming|stream|see)\s+(.+?)\s*\(/i,
+        // PRIORITY 5: Title followed by year in parentheses: "Title (2024)"
         /^([^"'(]+?)\s*\(\d{4}\)/,
-        // Fallback: first part before dash or parenthesis (no quotes)
-        /^([^-–—#("']+)/,
+        // PRIORITY 6: "Title - description" - extract before space-dash-space (allows hyphenated titles)
+        // This catches "Blade Runner 2049 - a classic film", "Re-Animator - horror classic"
+        /^(.+?)\s+[-–—]\s+/,
+        // PRIORITY 7: "[Title] movie" or "[Title] film" - allow hyphens within title
+        /^(.+?)\s+(?:movie|film)(?:\s|$)/i,
+        // PRIORITY 8: Fallback - entire text if no delimiters found (for simple titles like "F1")
+        /^(.+?)$/,
       ];
 
       for (const pattern of moviePatterns) {
@@ -1358,8 +1460,8 @@ Respond with ONLY a JSON object in this format:
       const bookPatterns = [
         // "Title" by Author Name
         /^["']([^"']+)["']\s+by\s+([A-Z][a-zA-Z\s.'-]+?)(?:\s*[-–—]|$)/i,
-        // Read "Title" by Author
-        /^(?:Read|Reading|Finished|Started)\s+["']?([^"'-]+?)["']?\s+by\s+([A-Z][a-zA-Z\s.'-]+?)(?:\s*[-–—]|$)/i,
+        // Read "Title" by Author - allow hyphens in titles
+        /^(?:Read|Reading|Finished|Started)\s+["']?(.+?)["']?\s+by\s+([A-Z][a-zA-Z\s.'-]+?)(?:\s+[-–—]\s+|$)/i,
         // Title by First Last (proper name)
         /^(.+?)\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/,
         // Title - biography/novel/memoir/book
@@ -1383,8 +1485,8 @@ Respond with ONLY a JSON object in this format:
         }
       }
 
-      // Fallback for books: use first part before dash as title
-      const dashSplit = text.split(/\s*[-–—]\s*/);
+      // Fallback for books: use first part before space-dash-space as title (allows hyphenated titles)
+      const dashSplit = text.split(/\s+[-–—]\s+/);
       if (dashSplit.length > 0 && dashSplit[0].length > 2) {
         const title = dashSplit[0].trim().replace(/^["']|["']$/g, '').replace(/^(?:Read|Reading|Finished|Started)\s+/i, '');
         console.log(`[JOURNAL_WEB_ENRICH] Book fallback extraction: title="${title}"`);
@@ -1395,10 +1497,10 @@ Respond with ONLY a JSON object in this format:
     // MUSIC-specific extraction
     if (contentType === 'music') {
       const musicPatterns = [
-        // "Listen to [Artist/Song]" 
-        /^(?:Listen(?:ing)? to|Play(?:ing)?)\s+["']?([^"'\-–—]+?)["']?(?:\s*[-–—]|$)/i,
-        // "[Artist] - [Album/Song]"
-        /^["']?([^"'\-–—]+?)["']?\s*[-–—]\s*["']?([^"'\-–—]+?)["']?$/,
+        // "Listen to [Artist/Song]" - allow hyphens in names, break on space-dash-space
+        /^(?:Listen(?:ing)? to|Play(?:ing)?)\s+["']?(.+?)["']?(?:\s+[-–—]\s+|$)/i,
+        // "[Artist] - [Album/Song]" - split on space-dash-space (allows hyphenated names)
+        /^["']?(.+?)["']?\s+[-–—]\s+["']?(.+?)["']?$/,
         // Quoted: "Artist Name"
         /^["']([^"']+)["']/,
       ];
@@ -1421,10 +1523,10 @@ Respond with ONLY a JSON object in this format:
     // FITNESS-specific extraction
     if (contentType === 'exercise') {
       const fitnessPatterns = [
-        // "[Exercise name] workout/exercise"
-        /^["']?([^"'\-–—]+?)["']?\s+(?:workout|exercise|routine|training|pose)/i,
-        // "Do [Exercise]"
-        /^(?:Do|Try|Practice)\s+["']?([^"'\-–—]+?)["']?(?:\s*[-–—]|$)/i,
+        // "[Exercise name] workout/exercise" - allow hyphens (e.g., "high-intensity")
+        /^["']?(.+?)["']?\s+(?:workout|exercise|routine|training|pose)/i,
+        // "Do [Exercise]" - allow hyphens, break on space-dash-space
+        /^(?:Do|Try|Practice)\s+["']?(.+?)["']?(?:\s+[-–—]\s+|$)/i,
       ];
 
       for (const pattern of fitnessPatterns) {
@@ -1444,7 +1546,7 @@ Respond with ONLY a JSON object in this format:
 
     // Standard venue patterns for restaurants, travel, etc.
     const patterns = [
-      /^["']?([A-Z][^-–—]+?)["']?\s*[-–—]\s*/i, // "Name - description"
+      /^["']?([A-Z].+?)["']?\s+[-–—]\s+/i, // "Name - description" (space-dash-space, allows hyphens in names)
       /^["']?([A-Z][^(]+?)["']?\s*\(([^)]+)\)/i, // "Name (City)"
       /(?:at|visit(?:ed)?|tried|went to)\s+["']?([A-Z][A-Za-z0-9\s'&-]{2,40})["']?/i, // "visited Name"
       /^([A-Z][A-Za-z0-9\s'&-]{2,30})\s+(?:restaurant|cafe|bar|hotel|resort|museum)/i, // "Name restaurant"

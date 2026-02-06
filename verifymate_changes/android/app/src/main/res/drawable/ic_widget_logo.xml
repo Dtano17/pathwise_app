@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget logo: Book icon without background, matching JournalMate brand -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Book cover (outer shape) -->
+    <path
+        android:fillColor="#8b5cf6"
+        android:pathData="M4,4 C4,2.9 4.9,2 6,2 L18,2 C19.1,2 20,2.9 20,4 L20,20 C20,21.1 19.1,22 18,22 L6,22 C4.9,22 4,21.1 4,20 L4,4 Z" />
+
+    <!-- Book spine highlight -->
+    <path
+        android:fillColor="#a78bfa"
+        android:pathData="M4,4 L4,20 C4,21.1 4.9,22 6,22 L7,22 L7,2 L6,2 C4.9,2 4,2.9 4,4 Z" />
+
+    <!-- Book pages (inner white area) -->
+    <path
+        android:fillColor="#ffffff"
+        android:pathData="M8,5 L17,5 L17,19 L8,19 Z" />
+
+    <!-- Page lines -->
+    <path
+        android:fillColor="#e5e7eb"
+        android:pathData="M10,8 L15,8 L15,9 L10,9 Z" />
+    <path
+        android:fillColor="#e5e7eb"
+        android:pathData="M10,11 L15,11 L15,12 L10,12 Z" />
+    <path
+        android:fillColor="#e5e7eb"
+        android:pathData="M10,14 L13,14 L13,15 L10,15 Z" />
+
+    <!-- Bookmark ribbon -->
+    <path
+        android:fillColor="#ec4899"
+        android:pathData="M14,2 L14,7 L15.5,5.5 L17,7 L17,2 Z" />
+</vector>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Card background for 4x2 widget data cards -->
+<!-- Background: rgba(26, 31, 46, 0.8) = #CC1a1f2e -->
+<!-- Border: rgba(255, 255, 255, 0.05) = #0Dffffff -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#CC1a1f2e" />
+    <corners android:radius="14dp" />
+    <stroke android:width="1dp" android:color="#0Dffffff" />
+</shape>

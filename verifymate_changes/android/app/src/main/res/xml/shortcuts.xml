@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App Shortcuts - Long press app icon to see these -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Quick Add Task -->
+    <shortcut
+        android:shortcutId="add_task"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_task"
+        android:shortcutShortLabel="@string/shortcut_add_task"
+        android:shortcutLongLabel="@string/shortcut_add_task_long">
+        <intent
+            android:action="ADD_TASK"
+            android:targetPackage="ai.journalmate.app"
+            android:targetClass="ai.journalmate.app.MainActivity" />
+    </shortcut>
+
+    <!-- View Today's Tasks -->
+    <shortcut
+        android:shortcutId="view_today"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_today"
+        android:shortcutShortLabel="@string/shortcut_today"
+        android:shortcutLongLabel="@string/shortcut_today_long">
+        <intent
+            android:action="VIEW_TODAY"
+            android:targetPackage="ai.journalmate.app"
+            android:targetClass="ai.journalmate.app.MainActivity" />
+    </shortcut>
+
+    <!-- Quick Journal Entry -->
+    <shortcut
+        android:shortcutId="quick_journal"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_journal"
+        android:shortcutShortLabel="@string/shortcut_journal"
+        android:shortcutLongLabel="@string/shortcut_journal_long">
+        <intent
+            android:action="QUICK_JOURNAL"
+            android:targetPackage="ai.journalmate.app"
+            android:targetClass="ai.journalmate.app.MainActivity" />
+    </shortcut>
+
+    <!-- View Activities -->
+    <shortcut
+        android:shortcutId="view_activities"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_activities"
+        android:shortcutShortLabel="@string/shortcut_activities"
+        android:shortcutLongLabel="@string/shortcut_activities_long">
+        <intent
+            android:action="VIEW_ACTIVITIES"
+            android:targetPackage="ai.journalmate.app"
+            android:targetClass="ai.journalmate.app.MainActivity" />
+    </shortcut>
+
+</shortcuts>

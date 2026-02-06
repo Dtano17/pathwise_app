@@ -206,6 +206,10 @@ export async function createCalendarEvent(
     start: { dateTime: string; timeZone?: string };
     end: { dateTime: string; timeZone?: string };
     location?: string;
+    reminders?: {
+      useDefault?: boolean;
+      overrides?: Array<{ method: 'email' | 'popup'; minutes: number }>;
+    };
   }
 ): Promise<{ success: boolean; eventId?: string; error?: string }> {
   const calendar = await getCalendarClient(userId);
@@ -222,6 +226,13 @@ export async function createCalendarEvent(
         location: eventData.location,
         start: eventData.start,
         end: eventData.end,
+        reminders: eventData.reminders || {
+          useDefault: false,
+          overrides: [
+            { method: 'popup', minutes: 30 },    // 30 min before
+            { method: 'popup', minutes: 1440 },  // 1 day before
+          ],
+        },
         extendedProperties: {
           private: {
             source: APP_EVENT_SOURCE,

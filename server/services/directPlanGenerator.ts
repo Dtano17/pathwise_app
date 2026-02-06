@@ -1240,8 +1240,12 @@ USER REQUEST:
 
 TASK:
 1. Create an activity with a CLEAR, SPECIFIC, USER-FRIENDLY title
-2. Break down into 6-9 actionable tasks (occasionally 5 for very simple goals)
-3. Each task MUST include SPECIFIC details - real prices, budgets, named recommendations
+2. Break down into AS MANY actionable tasks as needed for completeness:
+   - Simple goals: 5-8 tasks
+   - Day activities: 8-15 tasks
+   - Multi-day trips: 15-25+ tasks
+   - Generate EVERY booking, transport, activity, meal as separate clickable task
+3. Each task MUST include SPECIFIC details - real prices, budgets, named recommendations with CLICKABLE LINKS
 4. Use appropriate priorities (high/medium/low)
 
 CRITICAL - ACTIVITY TITLE REQUIREMENTS:
@@ -1410,12 +1414,24 @@ Today's date is: ${new Date().toISOString().split('T')[0]}
 - "09:00", "0900" → "09:00"
 
 **Natural language times:**
-- "morning", "in the morning" → "09:00"
-- "afternoon" → "14:00"
-- "evening" → "18:00"
+- "morning", "in the morning", "early morning" → "09:00"
+- "late morning" → "11:00"
+- "afternoon", "in the afternoon" → "14:00"
+- "late afternoon" → "16:00"
+- "evening", "in the evening" → "18:00"
+- "late evening" → "20:00"
 - "night", "at night" → "20:00"
 - "noon", "midday" → "12:00"
 - "midnight" → "00:00"
+
+**Time constraints (IMPORTANT - extract from task descriptions):**
+- "before 12 PM", "before noon" → startTime: "10:00" (reasonable time before deadline)
+- "before 3 PM" → startTime: "13:00"
+- "by 5 PM" → startTime: "15:00" (2 hours before deadline)
+- "no later than 8 AM" → startTime: "07:00"
+- "complete workout before 12 PM" → startTime: "10:00"
+- "afternoon study session" → startTime: "14:00"
+- "evening drinks" → startTime: "18:00"
 
 **Time ranges:**
 - "9 AM - 5 PM", "9am-5pm" → startTime: "09:00", endTime: "17:00"
@@ -1439,7 +1455,12 @@ Today's date is: ${new Date().toISOString().split('T')[0]}
 - Activity startDate/endDate: "YYYY-MM-DD" for multi-day plans
 
 ### 6. IMPORTANT RULES:
-- If NO time is mentioned → leave startTime as null (date only)
+- **ALWAYS** extract times from task descriptions if they contain time hints (morning, afternoon, evening, before X, by X)
+- If task description says "before 12 PM" or "by noon" → set appropriate startTime (don't leave null)
+- If task mentions "morning workout" → startTime: "09:00"
+- If task mentions "afternoon study" → startTime: "14:00"
+- If task mentions "evening drinks" → startTime: "18:00"
+- If absolutely NO time hint is present → distribute tasks reasonably across the day (9 AM to 8 PM)
 - If date is ambiguous (e.g., "next week") → calculate best estimate from today
 - If year is not specified → use current year (or next year if date has passed)
 - Always output dates in ISO format regardless of input format
@@ -1451,12 +1472,65 @@ ALL tasks MUST include:
 2. **Named recommendations** (specific restaurants, hotels, apps, tools by name)
 3. **Concrete quantities** (3 hours, 5 pages, 2 weeks, 30 minutes)
 4. **Actionable steps** - not "research X" but "do X using Y method"
+5. **CLICKABLE LINKS** - Every venue/restaurant/hotel must have a Google Maps link
 
 ❌ FORBIDDEN VAGUE PATTERNS:
 - "Research prices for hotels" → Instead: "Book hotel ($80-120/night, try Booking.com for Medina riads)"
 - "Find flights" → Instead: "Book roundtrip flights ($400-600, check Google Flights/Kayak)"
 - "Set a budget" → Instead: "Allocate $500 for dining, $300 for activities, $200 for shopping"
 - "Look into transportation" → Instead: "Rent car via Avis ($45/day) or use Uber ($15-25 avg ride)"
+
+## 🔗 CLICKABLE LINKS IN TASKS (CRITICAL)
+
+Every task involving a VENUE, RESTAURANT, HOTEL, or BOOKABLE EXPERIENCE must include:
+
+**In title field - Format as markdown link:**
+- "Book dinner at [Nobu Malibu](https://www.google.com/maps/search/?api=1&query=Nobu+Malibu+CA)"
+- "Check in at [Hotel Arts](https://www.google.com/maps/search/?api=1&query=Hotel+Arts+Barcelona)"
+- "Visit [The Getty Center](https://www.google.com/maps/search/?api=1&query=Getty+Center+Los+Angeles)"
+
+**In description field - Include booking and map links:**
+- 📍 [Open in Maps](https://www.google.com/maps/search/?api=1&query=VENUE+NAME+CITY)
+- 🎫 [Book on OpenTable](https://www.opentable.com) or [Resy](https://resy.com)
+- 🏨 [Reserve on Booking.com](https://www.booking.com)
+- ✈️ [Search Google Flights](https://www.google.com/travel/flights)
+
+## ⏰ DEPARTURE & ARRIVAL TIMING (MANDATORY FOR TIMED TASKS)
+
+For EVERY task with a location and time, calculate and include:
+"⏰ **Timing:** Leave [origin] by [time] → [duration] travel → Arrive by [time]"
+
+**Rules:**
+1. Calculate travel time (estimate 2 min/mile in city, 1 min/mile highway)
+2. Add buffers: +10-15 min parking, +15-30 min airports, +5-10 min restaurant check-in
+3. Rush hour (7-9 AM, 4-7 PM): +50% travel time
+
+**Examples:**
+✅ "⏰ Leave hotel at 8:15 AM → 35 min drive + 10 min parking → Arrive 9:00 AM"
+❌ "Get there early" (TOO VAGUE)
+
+## 🌤️ WEATHER & DRESS CODE (FOR OUTDOOR/TRAVEL/EVENT TASKS)
+
+Include in description:
+- "👔 **Dress:** [specific recommendations based on weather + venue]"
+- "🎒 **Pack:** [weather-specific items]"
+
+**Examples:**
+✅ "👔 Dress: Layers recommended - 58°F morning, 75°F afternoon. Smart casual for dinner."
+✅ "🎒 Pack: Comfortable walking shoes (3+ miles), sunscreen, light jacket for evening"
+❌ "Dress appropriately" (TOO VAGUE)
+
+## 🗓️ RESERVATION & BOOKING DETAILS (FOR BOOKABLE VENUES)
+
+For restaurants, tours, hotels, or ticketed activities include:
+1. **When to book:** "Book 2 weeks ahead for weekend"
+2. **How to book:** "[Book on OpenTable](url)" or "Call: (555) 123-4567"
+3. **Best times:** "6:30 PM avoids kitchen rush"
+4. **Special requests:** "Request patio when booking"
+5. **Confirmation:** "Confirm 24h before"
+
+**Format:**
+"🗓️ **Booking:** Book [timeframe] via [platform](link). Best times: [times]. Confirm [when]."
 
 RULES FOR TITLE EXTRACTION:
 1. If user's request starts with a title/header → USE IT as activity title

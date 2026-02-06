@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1F2937"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Header -->
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="JournalMate"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"/>
+
+    <!-- Streak Counter -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/streak_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔥 0"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=" day streak"
+            android:textSize="14sp"
+            android:textColor="#D1D5DB"
+            android:layout_marginStart="4dp"/>
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#4B5563"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp"/>
+
+    <!-- Tasks List -->
+    <LinearLayout
+        android:id="@+id/tasks_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <!-- Task 1 -->
+        <TextView
+            android:id="@+id/task_1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="○ Task 1"
+            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:paddingVertical="4dp"
+            android:visibility="gone"/>
+
+        <!-- Task 2 -->
+        <TextView
+            android:id="@+id/task_2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="○ Task 2"
+            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:paddingVertical="4dp"
+            android:visibility="gone"/>
+
+        <!-- Task 3 -->
+        <TextView
+            android:id="@+id/task_3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="○ Task 3"
+            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:paddingVertical="4dp"
+            android:visibility="gone"/>
+
+        <!-- Empty state message -->
+        <TextView
+            android:id="@+id/tasks_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No tasks today"
+            android:textSize="14sp"
+            android:textColor="#9CA3AF"
+            android:textStyle="italic"
+            android:paddingVertical="8dp"
+            android:visibility="gone"/>
+    </LinearLayout>
+
+    <!-- Quick Journal Button -->
+    <Button
+        android:id="@+id/quick_journal_btn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="+ Quick Journal"
+        android:backgroundTint="#A78BFA"
+        android:textColor="#FFFFFF"/>
+</LinearLayout>

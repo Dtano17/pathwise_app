@@ -44,9 +44,6 @@ export const users = pgTable("users", {
   primaryGoalCategories: jsonb("primary_goal_categories").$type<string[]>().default([]), // ['health', 'work', 'personal', etc.]
   motivationStyle: text("motivation_style"), // 'achievement' | 'progress' | 'social' | 'rewards'
   difficultyPreference: text("difficulty_preference").default("medium"), // 'easy' | 'medium' | 'challenging'
-
-  // Legacy/discovery fields (keep for production compatibility)
-  hasDiscoveryBonus: boolean("has_discovery_bonus").default(false),
   
   // Personality insights
   interests: jsonb("interests").$type<string[]>().default([]),
@@ -107,7 +104,8 @@ export const users = pgTable("users", {
   
   // Import tracking for tier-based limits
   discoveryBonusImports: integer("discovery_bonus_imports").default(0), // +2 bonus imports earned each time user publishes to Discovery
-  
+  hasDiscoveryBonus: boolean("has_discovery_bonus").default(false), // Whether user has claimed their discovery bonus
+
   // User role for special plan publishing (emergency/sponsored)
   userRole: varchar("user_role").default("standard"), // 'standard' | 'government' | 'sponsor' | 'admin'
   organizationName: text("organization_name"), // Organization/agency name for government/sponsor users
@@ -123,19 +121,7 @@ export const goals = pgTable("goals", {
   description: text("description"),
   category: text("category").notNull(),
   priority: text("priority").notNull(), // 'low' | 'medium' | 'high'
-  // Goal tracking fields
-  deadline: timestamp("deadline"), // Target completion date for goal
-  completed: boolean("completed").default(false),
-  completedAt: timestamp("completed_at"),
-  progress: integer("progress").default(0), // 0-100 percentage
-  // Notification settings
-  enableReminders: boolean("enable_reminders").default(true),
-  reminderFrequency: text("reminder_frequency").default("weekly"), // 'daily' | 'weekly' | 'monthly'
-  lastReminderSent: timestamp("last_reminder_sent"),
-  // Calendar sync
-  googleCalendarEventId: varchar("google_calendar_event_id"),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 
@@ -535,33 +521,19 @@ export const notificationPreferences = pgTable("notification_preferences", {
   quietHoursStart: text("quiet_hours_start").default("22:00"), // HH:MM format
   quietHoursEnd: text("quiet_hours_end").default("08:00"), // HH:MM format
 
-  // Smart notification system additions
+  // Additional notification preferences (synced from production)
   enableAccountabilityReminders: boolean("enable_accountability_reminders").default(true),
   enableStreakReminders: boolean("enable_streak_reminders").default(true),
   enableMediaReleaseAlerts: boolean("enable_media_release_alerts").default(true),
   enableTripPrepReminders: boolean("enable_trip_prep_reminders").default(true),
-  weeklyCheckinDay: text("weekly_checkin_day").default("sunday"), // day of week
+  weeklyCheckinDay: text("weekly_checkin_day").default("sunday"), // Day of week for weekly check-in
   weeklyCheckinTime: text("weekly_checkin_time").default("10:00"), // HH:MM format
-  streakReminderTime: text("streak_reminder_time").default("18:00"), // HH:MM format
   enableVibration: boolean("enable_vibration").default(true),
   enableSound: boolean("enable_sound").default(true),
-
-  // Per-channel settings (granular control)
   channelSettings: jsonb("channel_settings").$type<{
-    tasks?: { enabled: boolean; sound: boolean; vibrate: boolean; priority: string };
-    activities?: { enabled: boolean; sound: boolean; vibrate: boolean; priority: string };
-    groups?: { enabled: boolean; sound: boolean; vibrate: boolean; priority: string };
-    streaks?: { enabled: boolean; sound: boolean; vibrate: boolean; priority: string };
-    achievements?: { enabled: boolean; sound: boolean; vibrate: boolean; priority: string };
-    assistant?: { enabled: boolean; sound: boolean; vibrate: boolean; priority: string };
-  }>().default({
-    tasks: { enabled: true, sound: true, vibrate: true, priority: "high" },
-    activities: { enabled: true, sound: true, vibrate: true, priority: "high" },
-    groups: { enabled: true, sound: true, vibrate: true, priority: "high" },
-    streaks: { enabled: true, sound: true, vibrate: true, priority: "default" },
-    achievements: { enabled: true, sound: true, vibrate: true, priority: "default" },
-    assistant: { enabled: true, sound: false, vibrate: false, priority: "low" },
-  }),
+    [channelId: string]: { enabled: boolean; sound?: string; vibration?: boolean };
+  }>(),
+  streakReminderTime: text("streak_reminder_time").default("20:00"), // HH:MM format
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -645,6 +617,37 @@ export const deviceTokens = pgTable("device_tokens", {
   tokenIndex: index("device_tokens_token_index").on(table.token),
 }));
 
+// Smart notifications for scheduled alerts (tasks, activities, goals)
+export const smartNotifications = pgTable("smart_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  sourceType: text("source_type").notNull(), // 'task' | 'activity' | 'goal'
+  sourceId: varchar("source_id").notNull(), // ID of the task/activity/goal
+  notificationType: text("notification_type").notNull(), // 'reminder' | 'deadline' | 'streak' | 'check_in'
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  timezone: text("timezone").default("UTC"),
+  status: text("status").default("pending"), // 'pending' | 'sent' | 'failed' | 'cancelled'
+  sentAt: timestamp("sent_at"),
+  failureReason: text("failure_reason"),
+  metadata: jsonb("metadata").$type<{
+    haptic?: string;
+    channel?: string;
+    deepLink?: string;
+    priority?: string;
+    [key: string]: any;
+  }>(),
+  route: text("route"), // Navigation route for the notification (synced from production)
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdStatusIndex: index("smart_notifications_user_status_index").on(table.userId, table.status),
+  scheduledAtIndex: index("smart_notifications_scheduled_at_index").on(table.scheduledAt),
+  pendingIndex: index("smart_notifications_pending_index").on(table.status, table.scheduledAt),
+  sourceIndex: index("smart_notifications_source_index").on(table.sourceType, table.sourceId),
+}));
+
 // Smart scheduling suggestions
 export const schedulingSuggestions = pgTable("scheduling_suggestions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -706,6 +709,14 @@ export const insertSchedulingSuggestionSchema = createInsertSchema(schedulingSug
   userId: true,
   createdAt: true,
   acceptedAt: true,
+});
+
+export const insertSmartNotificationSchema = createInsertSchema(smartNotifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  sentAt: true,
+  failureReason: true,
 });
 
 // Types
@@ -781,6 +792,9 @@ export type InsertDeviceToken = z.infer<typeof insertDeviceTokenSchema>;
 
 export type SchedulingSuggestion = typeof schedulingSuggestions.$inferSelect;
 export type InsertSchedulingSuggestion = z.infer<typeof insertSchedulingSuggestionSchema>;
+
+export type SmartNotification = typeof smartNotifications.$inferSelect;
+export type InsertSmartNotification = z.infer<typeof insertSmartNotificationSchema>;
 
 // Lifestyle Planner Session for conversational planning
 export const lifestylePlannerSessions = pgTable("lifestyle_planner_sessions", {
@@ -1041,6 +1055,9 @@ export const activities = pgTable("activities", {
   creatorAvatar: text("creator_avatar"), // Avatar URL for discovery cards
   seasonalTags: jsonb("seasonal_tags").$type<string[]>().default([]), // 'summer' | 'winter' | 'spring' | 'fall' | 'holiday' | 'year-round'
 
+  // Calendar integration
+  googleCalendarEventId: varchar("google_calendar_event_id"), // Google Calendar event ID for synced activities
+
   // Share-to-earn metrics
   shareCount: integer("share_count").default(0), // Total shares (downloads of share cards)
   adoptionCount: integer("adoption_count").default(0), // Total times plan was copied/adopted
@@ -1114,10 +1131,7 @@ export const activities = pgTable("activities", {
     email?: string;
     userId?: string;
   }>>().default([]),
-
-  // Google Calendar integration
-  googleCalendarEventId: varchar("google_calendar_event_id"), // ID of the corresponding Google Calendar event
-
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -1454,13 +1468,13 @@ export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
   nickname: text("nickname"), // Display name / preferred name
+  bio: text("bio"), // General bio field (synced from production)
   publicBio: text("public_bio"), // Public bio visible to others
   privateBio: text("private_bio"), // Private notes only visible to the user
-  bio: text("bio"), // Legacy bio field (keep for production compatibility)
   height: text("height"), // Height as string (e.g., "5'10" or "178cm")
+  heightCm: integer("height_cm"), // Height in centimeters (numeric for calculations)
   weight: text("weight"), // Weight as string (e.g., "170 lbs" or "77kg")
-  heightCm: integer("height_cm"), // Legacy height in cm (keep for production compatibility)
-  weightKg: integer("weight_kg"), // Legacy weight in kg (keep for production compatibility)
+  weightKg: real("weight_kg"), // Weight in kilograms (numeric for calculations)
   birthDate: text("birth_date"), // YYYY-MM-DD format for age calculation
   sex: text("sex"), // 'male' | 'female' | 'other' | 'prefer_not_to_say'
   ethnicity: text("ethnicity"), // Self-identified ethnicity
@@ -2281,172 +2295,159 @@ export const insertJournalEnrichmentCacheSchema = createInsertSchema(journalEnri
 export type JournalEnrichmentCache = typeof journalEnrichmentCache.$inferSelect;
 export type InsertJournalEnrichmentCache = z.infer<typeof insertJournalEnrichmentCacheSchema>;
 
-// ==========================================
-// SMART NOTIFICATION SYSTEM
-// ==========================================
-
-// Smart notifications queue - all scheduled notifications
-export const smartNotifications = pgTable("smart_notifications", {
+// VerifyMate: Content verifications table for fact-checking and trust scores
+export const verifications = pgTable("verifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
 
-  // Event source
-  sourceType: text("source_type").notNull(), // 'activity' | 'task' | 'goal' | 'streak' | 'media' | 'accountability' | 'group'
-  sourceId: varchar("source_id"), // activity_id, task_id, goal_id, etc.
+  // Source content
+  sourceUrl: text("source_url"), // Original URL of the post
+  sourcePlatform: varchar("source_platform", { length: 50 }), // 'instagram' | 'tiktok' | 'youtube' | 'x' | 'facebook' | 'threads' | 'linkedin' | 'news' | 'screenshot'
+  sourceContent: text("source_content"), // Extracted text content
+  sourceMediaUrls: jsonb("source_media_urls").$type<string[]>().default([]), // Images/videos from the post
+  sourceAuthor: jsonb("source_author").$type<{
+    username?: string;
+    displayName?: string;
+    followers?: number;
+    verified?: boolean;
+    accountAge?: string;
+  }>(),
 
-  // Notification content
-  notificationType: text("notification_type").notNull(), // 'task_due_soon', 'activity_one_week', 'streak_milestone', etc.
-  title: text("title").notNull(),
-  body: text("body").notNull(),
+  // Overall verdict
+  trustScore: integer("trust_score").notNull(), // 0-100 overall trust score
+  verdict: varchar("verdict", { length: 20 }).notNull(), // 'verified' | 'mostly_true' | 'mixed' | 'misleading' | 'false' | 'unverifiable'
+  verdictSummary: text("verdict_summary").notNull(), // AI-generated summary of the verdict
 
-  // Scheduling
-  scheduledAt: timestamp("scheduled_at").notNull(),
-  timezone: text("timezone").default("UTC"),
+  // Claims analysis
+  claims: jsonb("claims").$type<Array<{
+    id: string;
+    text: string;
+    type: 'factual' | 'opinion' | 'speculation' | 'exaggeration' | 'misleading';
+    verdict: 'verified' | 'partially_true' | 'unverified' | 'false' | 'opinion';
+    confidence: number; // 0-100
+    evidence?: string;
+    sources?: Array<{ title: string; url: string; credibility?: number }>;
+  }>>().default([]),
 
-  // Context for smart messaging
-  metadata: jsonb("metadata").$type<{
-    location?: string;
-    weather?: string;
-    contextualTips?: string[];
-    firstTask?: string;
-    streakCount?: number;
-    goalCount?: number;
-    movieTitle?: string;
-    releaseDate?: string;
-    groupName?: string;
-    inviterName?: string;
-    haptic?: 'light' | 'medium' | 'heavy' | 'celebration' | 'urgent';
-    channel?: string;
-    actions?: Array<{ id: string; title: string; action: string }>;
-  }>().default({}),
+  // AI content detection
+  aiDetection: jsonb("ai_detection").$type<{
+    isAiGenerated: boolean;
+    confidence: number;
+    textAiScore?: number; // 0-100 likelihood text is AI-generated
+    imageAiScore?: number; // 0-100 likelihood images are AI-generated
+    videoAiScore?: number; // 0-100 likelihood video is AI-generated/deepfake
+    synthIdDetected?: boolean; // Google SynthID watermark detected
+    detectionMethod?: string; // 'synthid' | 'hive' | 'pattern_analysis'
+  }>(),
 
-  // Deep link
-  route: text("route"),
+  // Account/Bot analysis
+  accountAnalysis: jsonb("account_analysis").$type<{
+    isSuspectedBot: boolean;
+    botScore: number; // 0-100 likelihood of being a bot
+    redFlags?: string[]; // List of suspicious patterns
+    accountCredibility: number; // 0-100 account credibility score
+  }>(),
 
-  // Status
-  status: text("status").notNull().default("pending"), // 'pending' | 'sent' | 'cancelled' | 'failed'
-  sentAt: timestamp("sent_at"),
-  failureReason: text("failure_reason"),
+  // Business verification (if applicable)
+  businessVerification: jsonb("business_verification").$type<{
+    businessName?: string;
+    isVerified: boolean;
+    bbbRating?: string;
+    bbbAccredited?: boolean;
+    trustpilotScore?: number;
+    domainAge?: string;
+    domainRegistrar?: string;
+    scamAdviserScore?: number;
+    redFlags?: string[];
+    recommendations?: string[];
+  }>(),
+
+  // Bias and source analysis
+  biasAnalysis: jsonb("bias_analysis").$type<{
+    politicalBias?: 'left' | 'center-left' | 'center' | 'center-right' | 'right' | 'unknown';
+    sensationalism: number; // 0-100
+    emotionalLanguage: number; // 0-100
+    clickbait: boolean;
+  }>(),
+
+  // SOURCE TRACING - Track original source of content
+  sourceTracing: jsonb("source_tracing").$type<{
+    originalSourceFound: boolean;
+    originalSource?: {
+      url: string;
+      platform: string;
+      author?: string;
+      publishedAt?: string; // ISO date when first appeared
+      title?: string;
+    };
+    spreadTimeline?: Array<{
+      platform: string;
+      url?: string;
+      date: string;
+      reach?: number; // estimated views/shares
+    }>;
+    viralityScore?: number; // 0-100 how viral the content has become
+    firstAppearance?: string; // ISO date of earliest known appearance
+    isOriginalPoster: boolean; // Is the shared post the original source?
+    sourceConfidence: number; // 0-100 confidence in source tracing
+  }>(),
+
+  // EVENT CORRELATION - Match content to real-world events
+  eventCorrelation: jsonb("event_correlation").$type<{
+    correlatedEventFound: boolean;
+    event?: {
+      title: string;
+      description: string;
+      date: string; // When the event actually occurred
+      location?: string;
+      category: 'news' | 'incident' | 'announcement' | 'disaster' | 'political' | 'entertainment' | 'sports' | 'other';
+      verifiedSources: Array<{ title: string; url: string; credibility: number }>;
+    };
+    eventMatch: 'exact' | 'related' | 'misattributed' | 'fabricated' | 'not_found';
+    discrepancies?: string[]; // Differences between post and actual event
+    manipulationIndicators?: string[]; // Signs the event was misrepresented
+    noCorrelationReason?: string; // Why no event was found (if applicable)
+  }>(),
+
+  // TIMELINE ANALYSIS - When things happened vs when posted
+  timelineAnalysis: jsonb("timeline_analysis").$type<{
+    postDate: string; // When user received/shared this
+    contentCreationDate?: string; // When content was likely created
+    eventDate?: string; // When the actual event occurred (if applicable)
+    timelineMismatch: boolean; // Does posting date not match event date?
+    mismatchSeverity?: 'none' | 'minor' | 'significant' | 'critical';
+    mismatchExplanation?: string;
+    isRecycledContent: boolean; // Old content being reshared as new
+    recycledFromDate?: string; // Original date if recycled
+    ageAnalysis: {
+      contentAge: string; // "2 hours ago", "3 months old", etc.
+      relevanceToday: 'current' | 'recent' | 'dated' | 'outdated' | 'historical';
+      recommendation: string; // "This content is current" or "This is old news being recirculated"
+    };
+  }>(),
+
+  // Processing metadata
+  processingTimeMs: integer("processing_time_ms"),
+  geminiModel: varchar("gemini_model", { length: 50 }),
+  webGroundingUsed: boolean("web_grounding_used").default(false),
+
+  // Share functionality
+  isPublic: boolean("is_public").default(false),
+  shareToken: varchar("share_token").unique(),
 
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  userScheduledIndex: index("smart_notifications_user_scheduled_idx").on(table.userId, table.scheduledAt),
-  pendingIndex: index("smart_notifications_pending_idx").on(table.status, table.scheduledAt),
-  sourceIndex: index("smart_notifications_source_idx").on(table.sourceType, table.sourceId),
+  userIdIndex: index("verifications_user_id_idx").on(table.userId),
+  trustScoreIndex: index("verifications_trust_score_idx").on(table.trustScore),
+  verdictIndex: index("verifications_verdict_idx").on(table.verdict),
+  shareTokenIndex: uniqueIndex("verifications_share_token_idx").on(table.shareToken),
 }));
 
-// User streaks tracking
-export const userStreaks = pgTable("user_streaks", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull().unique(),
-  currentStreak: integer("current_streak").default(0),
-  longestStreak: integer("longest_streak").default(0),
-  lastActivityDate: text("last_activity_date"), // YYYY-MM-DD format
-  streakStartDate: text("streak_start_date"), // YYYY-MM-DD format
-  totalActiveDays: integer("total_active_days").default(0),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
-  userIdIndex: uniqueIndex("user_streaks_user_id_idx").on(table.userId),
-}));
-
-// Accountability check-ins
-export const accountabilityCheckins = pgTable("accountability_checkins", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  checkinType: text("checkin_type").notNull(), // 'weekly' | 'monthly' | 'quarterly'
-  periodStart: timestamp("period_start").notNull(),
-  periodEnd: timestamp("period_end").notNull(),
-
-  // Metrics at time of check-in
-  goalsCount: integer("goals_count").default(0),
-  tasksCompleted: integer("tasks_completed").default(0),
-  tasksTotal: integer("tasks_total").default(0),
-  streakDays: integer("streak_days").default(0),
-
-  // User response
-  status: text("status").notNull().default("pending"), // 'pending' | 'completed' | 'skipped'
-  userNotes: text("user_notes"),
-  respondedAt: timestamp("responded_at"),
-
-  // Notification tracking
-  notificationSentAt: timestamp("notification_sent_at"),
-  notificationId: varchar("notification_id"),
-
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => ({
-  userTypeIndex: index("accountability_checkins_user_type_idx").on(table.userId, table.checkinType),
-}));
-
-// Notification history for analytics
-export const notificationHistory = pgTable("notification_history", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  notificationType: text("notification_type").notNull(),
-  title: text("title").notNull(),
-  body: text("body").notNull(),
-  channel: text("channel"),
-  hapticType: text("haptic_type"),
-
-  // Delivery tracking
-  sentAt: timestamp("sent_at").notNull(),
-  deliveredAt: timestamp("delivered_at"),
-  openedAt: timestamp("opened_at"),
-  actionTaken: text("action_taken"), // 'view' | 'complete' | 'snooze' | 'dismiss' | 'ignore'
-  actionTakenAt: timestamp("action_taken_at"),
-
-  // Context
-  sourceType: text("source_type"),
-  sourceId: varchar("source_id"),
-  metadata: jsonb("metadata").default({}),
-
-  // Analytics
-  deliveryLatencyMs: integer("delivery_latency_ms"),
-  engagementLatencyMs: integer("engagement_latency_ms"),
-
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => ({
-  userSentIndex: index("notification_history_user_sent_idx").on(table.userId, table.sentAt),
-  analyticsIndex: index("notification_history_analytics_idx").on(table.notificationType, table.actionTaken),
-}));
-
-// Zod schemas for new tables
-export const insertSmartNotificationSchema = createInsertSchema(smartNotifications).omit({
+// Zod schema for verifications
+export const insertVerificationSchema = createInsertSchema(verifications).omit({
   id: true,
   createdAt: true,
-  updatedAt: true,
-  sentAt: true,
 });
 
-export const insertUserStreakSchema = createInsertSchema(userStreaks).omit({
-  id: true,
-  updatedAt: true,
-});
-
-export const insertAccountabilityCheckinSchema = createInsertSchema(accountabilityCheckins).omit({
-  id: true,
-  createdAt: true,
-  respondedAt: true,
-  notificationSentAt: true,
-});
-
-export const insertNotificationHistorySchema = createInsertSchema(notificationHistory).omit({
-  id: true,
-  createdAt: true,
-  deliveredAt: true,
-  openedAt: true,
-  actionTakenAt: true,
-});
-
-// Types for new tables
-export type SmartNotification = typeof smartNotifications.$inferSelect;
-export type InsertSmartNotification = z.infer<typeof insertSmartNotificationSchema>;
-
-export type UserStreak = typeof userStreaks.$inferSelect;
-export type InsertUserStreak = z.infer<typeof insertUserStreakSchema>;
-
-export type AccountabilityCheckin = typeof accountabilityCheckins.$inferSelect;
-export type InsertAccountabilityCheckin = z.infer<typeof insertAccountabilityCheckinSchema>;
-
-export type NotificationHistoryEntry = typeof notificationHistory.$inferSelect;
-export type InsertNotificationHistory = z.infer<typeof insertNotificationHistorySchema>;
+export type Verification = typeof verifications.$inferSelect;
+export type InsertVerification = z.infer<typeof insertVerificationSchema>;

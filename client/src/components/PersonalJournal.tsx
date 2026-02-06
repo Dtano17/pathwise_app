@@ -299,6 +299,7 @@ interface RichJournalEntry {
     runtime?: string;
     genre?: string;
     streamingLinks?: Array<{ platform: string; url: string }>;
+    isComingSoon?: boolean;  // True for unreleased/unverified movies
     
     // Fitness-specific
     muscleGroups?: string[];
@@ -442,6 +443,22 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [editEntryBackdrop, setEditEntryBackdrop] = useState('');
   const [editEntryCategory, setEditEntryCategory] = useState('');
   const [editEntrySubcategory, setEditEntrySubcategory] = useState('');
+
+  // Media picker states (for user confirmation when TMDB match is uncertain)
+  const [showMediaPickerDialog, setShowMediaPickerDialog] = useState(false);
+  const [mediaPickerEntry, setMediaPickerEntry] = useState<RichJournalEntry | null>(null);
+  const [mediaPickerCandidates, setMediaPickerCandidates] = useState<Array<{
+    tmdbId: number;
+    title: string;
+    posterUrl: string | null;
+    releaseYear: string;
+    overview: string;
+    confidence: number;
+    confidenceLevel: 'high' | 'medium' | 'low';
+    matchReasons: string[];
+    mediaType: 'movie' | 'tv';
+  }>>([]);
+  const [mediaPickerLoading, setMediaPickerLoading] = useState(false);
 
   // Smart icon mapping for custom categories based on name/keywords
   const getIconForCategoryName = (name: string): LucideIcon => {
@@ -1003,12 +1020,25 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     onSuccess: (data) => {
       console.log('[ENRICH] Success - enriched:', data.enriched, 'duplicates removed:', data.duplicatesRemoved);
       queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+
+      // Build detailed summary message
       const parts = [];
-      if (data.enriched) parts.push(`${data.enriched} enriched`);
-      if (data.duplicatesRemoved) parts.push(`${data.duplicatesRemoved} duplicates removed`);
+      if (data.enriched > 0) parts.push(`${data.enriched} entries enriched with images`);
+      if (data.duplicatesRemoved > 0) {
+        parts.push(`${data.duplicatesRemoved} duplicate${data.duplicatesRemoved > 1 ? 's' : ''} removed`);
+      }
+
+      // Build description with duplicate names if available
+      let description = parts.length > 0 ? parts.join(', ') : 'All entries are up to date.';
+      if (data.duplicateNames && data.duplicateNames.length > 0) {
+        const names = data.duplicateNames.slice(0, 3).join(', ');
+        const more = data.duplicateNames.length > 3 ? ` +${data.duplicateNames.length - 3} more` : '';
+        description += `\nRemoved: ${names}${more}`;
+      }
+
       toast({
-        title: "Details loaded!",
-        description: parts.length > 0 ? parts.join(', ') : 'Entries processed.',
+        title: data.duplicatesRemoved > 0 ? "Data refreshed & cleaned!" : "Details loaded!",
+        description,
       });
     },
     onError: (error) => {
@@ -1020,6 +1050,78 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       });
     }
   });
+
+  // Verify media mutation - fetches candidates for user to pick from
+  const verifyMediaMutation = useMutation({
+    mutationFn: async ({ query, category, entryId }: { query: string; category: string; entryId: string }) => {
+      const response = await apiRequest('POST', '/api/journal/verify-media', { query, category, entryId });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.candidates && data.candidates.length > 0) {
+        setMediaPickerCandidates(data.candidates);
+        setShowMediaPickerDialog(true);
+      } else {
+        toast({
+          title: "No matches found",
+          description: "Could not find this movie/show in our database.",
+          variant: "destructive"
+        });
+      }
+      setMediaPickerLoading(false);
+    },
+    onError: () => {
+      toast({
+        title: "Search failed",
+        description: "Could not search for this title. Try again later.",
+        variant: "destructive"
+      });
+      setMediaPickerLoading(false);
+    }
+  });
+
+  // Confirm media selection mutation - user picks the correct match
+  const confirmMediaMutation = useMutation({
+    mutationFn: async ({ category, entryId, selectedTmdbId, mediaType }: {
+      category: string;
+      entryId: string;
+      selectedTmdbId: number;
+      mediaType: 'movie' | 'tv';
+    }) => {
+      const response = await apiRequest('POST', '/api/journal/confirm-media', {
+        category, entryId, selectedTmdbId, mediaType
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      setShowMediaPickerDialog(false);
+      setMediaPickerEntry(null);
+      setMediaPickerCandidates([]);
+      toast({
+        title: "Image confirmed!",
+        description: `Set to "${data.enrichment?.venueName || 'selected movie'}"`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Failed to confirm",
+        description: "Could not save your selection. Try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Helper to open media picker for an entry
+  const openMediaPicker = (entry: RichJournalEntry) => {
+    setMediaPickerEntry(entry);
+    setMediaPickerLoading(true);
+    verifyMediaMutation.mutate({
+      query: entry.text || entry.venueName || '',
+      category: activeCategory,
+      entryId: entry.id
+    });
+  };
 
   // Edit entry mutation
   const editEntryMutation = useMutation({
@@ -1844,6 +1946,32 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                               <div className="absolute top-3 right-3 bg-green-500/95 text-white text-[10px] sm:text-xs px-2.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-xl z-30 border border-white/20">
                                 <Check className="w-3.5 h-3.5" /> <span>Verified</span>
                               </div>
+                            )}
+                            {/* Coming Soon badge - clickable to find correct match */}
+                            {webEnrichment?.isComingSoon && !webEnrichment?.venueVerified && !hasManualOverride && (
+                              <button
+                                className="absolute top-3 right-3 bg-amber-500/95 text-white text-[10px] sm:text-xs px-2.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-xl z-30 border border-white/20 hover:bg-amber-600 transition-colors cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openMediaPicker(item as RichJournalEntry);
+                                }}
+                                title="Click to find the correct match"
+                              >
+                                <Clock className="w-3.5 h-3.5" /> <span>Verify</span>
+                              </button>
+                            )}
+                            {/* Unverified badge - clickable to find correct match */}
+                            {webEnrichment && !webEnrichment.venueVerified && !webEnrichment.isComingSoon && !hasManualOverride && (
+                              <button
+                                className="absolute top-3 right-3 bg-gray-500/80 text-white text-[10px] sm:text-xs px-2.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-xl z-30 border border-white/20 hover:bg-gray-600 transition-colors cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openMediaPicker(item as RichJournalEntry);
+                                }}
+                                title="Click to find the correct match"
+                              >
+                                <EyeOff className="w-3.5 h-3.5" /> <span>Verify</span>
+                              </button>
                             )}
                             {/* Mark as Watched/Read/Attended button - floating on image */}
                             <Button
@@ -3069,6 +3197,148 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
           ) : (
             'Save Changes'
           )}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* Media Picker Dialog - User confirms correct movie/show */}
+  <Dialog open={showMediaPickerDialog} onOpenChange={(open) => {
+    if (!open) {
+      setShowMediaPickerDialog(false);
+      setMediaPickerEntry(null);
+      setMediaPickerCandidates([]);
+    }
+  }}>
+    <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Film className="w-5 h-5" />
+          Select the correct match
+        </DialogTitle>
+        <DialogDescription>
+          We found multiple matches for "{mediaPickerEntry?.text}". Please select the correct one:
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="py-4 space-y-3">
+        {mediaPickerCandidates.map((candidate, index) => (
+          <div
+            key={candidate.tmdbId}
+            className={`flex gap-3 p-3 rounded-lg border cursor-pointer transition-all hover:border-primary hover:bg-accent/50 ${
+              candidate.confidenceLevel === 'high' ? 'border-green-500/50 bg-green-500/5' :
+              candidate.confidenceLevel === 'medium' ? 'border-yellow-500/50 bg-yellow-500/5' :
+              'border-gray-300'
+            }`}
+            onClick={() => {
+              if (mediaPickerEntry) {
+                confirmMediaMutation.mutate({
+                  category: activeCategory,
+                  entryId: mediaPickerEntry.id,
+                  selectedTmdbId: candidate.tmdbId,
+                  mediaType: candidate.mediaType
+                });
+              }
+            }}
+          >
+            {/* Poster thumbnail */}
+            <div className="flex-shrink-0 w-16 h-24 bg-muted rounded overflow-hidden">
+              {candidate.posterUrl ? (
+                <img
+                  src={candidate.posterUrl}
+                  alt={candidate.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                  <Film className="w-8 h-8" />
+                </div>
+              )}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h4 className="font-medium text-sm line-clamp-1">{candidate.title}</h4>
+                  <p className="text-xs text-muted-foreground">
+                    {candidate.releaseYear} • {candidate.mediaType === 'tv' ? 'TV Show' : 'Movie'}
+                  </p>
+                </div>
+                <Badge
+                  variant={candidate.confidenceLevel === 'high' ? 'default' : 'secondary'}
+                  className={`text-[10px] flex-shrink-0 ${
+                    candidate.confidenceLevel === 'high' ? 'bg-green-500' :
+                    candidate.confidenceLevel === 'medium' ? 'bg-yellow-500' : ''
+                  }`}
+                >
+                  {candidate.confidence}% match
+                </Badge>
+              </div>
+
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                {candidate.overview || 'No description available'}
+              </p>
+
+              {/* Match reasons */}
+              <div className="flex flex-wrap gap-1 mt-2">
+                {candidate.matchReasons.slice(0, 3).map((reason, i) => (
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 bg-muted rounded">
+                    {reason}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Selection indicator */}
+            {index === 0 && candidate.confidenceLevel === 'high' && (
+              <div className="flex-shrink-0 self-center">
+                <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">
+                  Recommended
+                </Badge>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {mediaPickerCandidates.length === 0 && !mediaPickerLoading && (
+          <div className="text-center py-8 text-muted-foreground">
+            <Film className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p>No matches found for this title.</p>
+          </div>
+        )}
+
+        {mediaPickerLoading && (
+          <div className="text-center py-8">
+            <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Searching...</p>
+          </div>
+        )}
+      </div>
+
+      <DialogFooter>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowMediaPickerDialog(false);
+            setMediaPickerEntry(null);
+            setMediaPickerCandidates([]);
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            // Mark as "none of these" - keep as unverified
+            setShowMediaPickerDialog(false);
+            toast({
+              title: "Skipped verification",
+              description: "Entry will remain unverified. You can try again later.",
+            });
+          }}
+        >
+          None of these
         </Button>
       </DialogFooter>
     </DialogContent>

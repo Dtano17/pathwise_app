@@ -39,7 +39,7 @@ const priorities = [
 ];
 
 const timeEstimates = [
-  { value: '', label: 'Not set' },
+  { value: 'none', label: 'Not set' },
   { value: '15 min', label: '15 minutes' },
   { value: '30 min', label: '30 minutes' },
   { value: '1 hour', label: '1 hour' },
@@ -68,7 +68,7 @@ export function EditTaskDialog({ task, open, onOpenChange }: EditTaskDialogProps
   const [priority, setPriority] = useState('medium');
   const [dueDate, setDueDate] = useState('');
   const [dueTime, setDueTime] = useState('');
-  const [timeEstimate, setTimeEstimate] = useState('');
+  const [timeEstimate, setTimeEstimate] = useState('none');
   const [selectedReminders, setSelectedReminders] = useState<string[]>(['30_min']);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -79,7 +79,7 @@ export function EditTaskDialog({ task, open, onOpenChange }: EditTaskDialogProps
       setDescription(task.description || '');
       setCategory(task.category || 'personal');
       setPriority(task.priority || 'medium');
-      setTimeEstimate(task.timeEstimate || '');
+      setTimeEstimate(task.timeEstimate || 'none');
 
       // Parse due date
       if (task.dueDate) {
@@ -131,7 +131,7 @@ export function EditTaskDialog({ task, open, onOpenChange }: EditTaskDialogProps
         category,
         priority,
         dueDate: dueDateISO,
-        timeEstimate: timeEstimate || null,
+        timeEstimate: timeEstimate === 'none' ? null : timeEstimate,
         reminders,
       });
     },
