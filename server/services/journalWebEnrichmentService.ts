@@ -192,6 +192,7 @@ export interface EnrichmentResult {
  */
 export interface StandardizedEntity {
   officialName: string;
+  tmdbSearchName?: string; // TMDB-optimized title for poster search (no subtitles/context that TMDB doesn't index)
   description?: string;
   confidence: number; // 0-1
   // Movie/TV
@@ -451,7 +452,8 @@ class JournalWebEnrichmentService {
 
 Return a JSON object with these fields:
 {
-  "officialName": "the correct official title",
+  "officialName": "the full official title as it appears on TMDB/IMDb (e.g. 'Star Wars: Maul - Shadow Lord', 'Mission: Impossible - Dead Reckoning')",
+  "tmdbSearchName": "the exact title as listed on TMDB for poster search — use the precise TMDB listing name (e.g. 'Star Wars: Maul - Shadow Lord', 'The Pitt'). Check TMDB naming if possible.",
   "releaseYear": "year",
   "mediaType": "movie" or "tv",
   "director": "director name",
@@ -460,8 +462,10 @@ Return a JSON object with these fields:
   "description": "brief 1-2 sentence description",
   "streamingPlatforms": [{"platform": "Netflix/HBO/Disney+/etc", "type": "stream"}],
   "confidence": 0.95
-}`;
-      systemPrompt = 'You are a movie/TV database. Search Google to find the correct, current information about this title. Always return valid JSON. For streaming platforms, list ALL platforms where this is currently available to stream, rent, or buy. Use type "stream" for subscription streaming, "rent" for rental, "buy" for purchase.';
+}
+
+IMPORTANT for tmdbSearchName: This field will be used to search TMDB's API for the poster image. Use the EXACT title as it appears on themoviedb.org (TMDB). Include subtitles after colons or dashes if TMDB lists them (e.g. "Spider-Man: Across the Spider-Verse", not just "Spider-Man"). If unsure, use the same value as officialName.`;
+      systemPrompt = 'You are a movie/TV database expert. Search Google to find the correct, current information about this title. Cross-reference with TMDB (The Movie Database) naming conventions when possible. Always return valid JSON. For streaming platforms, list ALL platforms where this is currently available to stream, rent, or buy. Use type "stream" for subscription streaming, "rent" for rental, "buy" for purchase.';
     } else if (isBook) {
       prompt = `Look up the book: "${name}"${context?.batchContext ? ` (context: ${context.batchContext})` : ''}
 
@@ -1223,8 +1227,8 @@ Respond with ONLY a JSON object in this format:
 
       // Execute enrichment based on AI's recommendation
       if (aiRecommendation.recommendedAPI === 'tmdb' && tmdbService.isAvailable()) {
-        // AI recommends TMDB — use Google-standardized name + year for more accurate poster lookup
-        const searchTitle = standardized?.officialName || aiRecommendation.extractedTitle || standardizedName;
+        // AI recommends TMDB — use TMDB-optimized name from Google, fall back to officialName
+        const searchTitle = standardized?.tmdbSearchName || standardized?.officialName || aiRecommendation.extractedTitle || standardizedName;
 
         // Use Google Search year if available, fall back to batch context
         const batchCtx = this.getBatchContext();
