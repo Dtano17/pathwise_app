@@ -64,16 +64,40 @@ export async function initializePushNotifications(userId: string): Promise<void>
     // Listen for push notifications when app is in foreground
     await PushNotifications.addListener(
       'pushNotificationReceived',
-      (notification: any) => {
+      async (notification: any) => {
         console.log('[PUSH] Received notification (foreground):', notification);
+
+        // Trigger haptic feedback / vibration when notification received
+        try {
+          const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
+          await Haptics.impact({ style: ImpactStyle.Heavy });
+          // Also vibrate for extra feedback
+          await Haptics.vibrate({ duration: 300 });
+          console.log('[PUSH] Haptic feedback triggered');
+        } catch (hapticError) {
+          console.log('[PUSH] Haptics not available:', hapticError);
+          // Fallback to web vibration API if available
+          if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100]);
+          }
+        }
       }
     );
 
     // Listen for notification tap (when app is in background)
     await PushNotifications.addListener(
       'pushNotificationActionPerformed',
-      (notification: any) => {
+      async (notification: any) => {
         console.log('[PUSH] Notification action performed:', notification);
+
+        // Trigger haptic feedback on tap
+        try {
+          const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
+          await Haptics.impact({ style: ImpactStyle.Medium });
+        } catch (e) {
+          // Silent fail if haptics not available
+        }
+
         const data = notification.notification.data;
         if (data?.route) {
           window.location.href = data.route;

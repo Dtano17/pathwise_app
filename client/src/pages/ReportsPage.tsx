@@ -244,10 +244,31 @@ export default function ReportsPage() {
   });
 
   // Fetch comprehensive reports data (activities, achievements, etc.)
-  const { data: reportsData, isLoading: reportsLoading } = useQuery<ReportsApiData>({
+  const { data: reportsData, isLoading: reportsLoading, error: reportsError } = useQuery<ReportsApiData>({
     queryKey: ['/api/reports'],
+    queryFn: async () => {
+      const res = await fetch('/api/reports', { credentials: 'include' });
+      if (!res.ok) {
+        console.error('[REPORTS] Failed to fetch reports:', res.status);
+        throw new Error('Failed to fetch reports data');
+      }
+      const data = await res.json();
+      console.log('[REPORTS] Data received:', {
+        activitiesCount: data.activities?.length,
+        summary: data.summary,
+        achievementsCount: data.achievements?.unlocked?.length
+      });
+      return data;
+    },
     refetchInterval: 30000,
   });
+
+  // Log any errors
+  useEffect(() => {
+    if (reportsError) {
+      console.error('[REPORTS] Query error:', reportsError);
+    }
+  }, [reportsError]);
 
   // Derive achievements and activities from reports data
   const achievementsData = reportsData?.achievements;

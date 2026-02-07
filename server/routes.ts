@@ -11799,31 +11799,24 @@ ${emoji} ${progressLine}
       // Calculate actual streak from consecutive days
       const streakDays = await calculateActualStreak(userId);
 
-      // Activity statistics
-      const completedActivities = userActivities.filter(a => {
-        const activityTasks = tasks.filter(t => t.activityId === a.id);
-        const completedActivityTasks = activityTasks.filter(t => t.completed);
-        return activityTasks.length > 0 && completedActivityTasks.length === activityTasks.length;
-      });
+      // Activity statistics - use the progress data already computed by getUserActivities
+      // userActivities is of type ActivityWithProgress[] which includes totalTasks, completedTasks, progressPercent
+      const completedActivities = userActivities.filter(a =>
+        a.totalTasks > 0 && a.completedTasks === a.totalTasks
+      );
 
-      // Activity breakdown with task counts
-      const activityStats = userActivities.map(activity => {
-        const activityTasks = tasks.filter(t => t.activityId === activity.id);
-        const completedActivityTasks = activityTasks.filter(t => t.completed);
-        return {
-          id: activity.id,
-          title: activity.title,
-          category: activity.category,
-          totalTasks: activityTasks.length,
-          completedTasks: completedActivityTasks.length,
-          progress: activityTasks.length > 0
-            ? Math.round((completedActivityTasks.length / activityTasks.length) * 100)
-            : 0,
-          isComplete: activityTasks.length > 0 && completedActivityTasks.length === activityTasks.length,
-          startDate: activity.startDate,
-          createdAt: activity.createdAt,
-        };
-      });
+      // Activity breakdown with task counts - use pre-computed progress
+      const activityStats = userActivities.map(activity => ({
+        id: activity.id,
+        title: activity.title,
+        category: activity.category,
+        totalTasks: activity.totalTasks,
+        completedTasks: activity.completedTasks,
+        progress: activity.progressPercent,
+        isComplete: activity.totalTasks > 0 && activity.completedTasks === activity.totalTasks,
+        startDate: activity.startDate,
+        createdAt: activity.createdAt,
+      }));
 
       // Category breakdown
       const categoryMap = new Map<string, { completed: number; total: number }>();
@@ -11844,6 +11837,7 @@ ${emoji} ${progressLine}
       // Get achievements
       const badgesWithProgress = await getBadgesWithProgress(storage, userId);
       const unlockedBadges = badgesWithProgress.filter(b => b.unlocked);
+      const lockedBadges = badgesWithProgress.filter(b => !b.unlocked);
 
       // Weekly summary (last 7 days)
       const weekAgo = new Date();
@@ -11882,6 +11876,7 @@ ${emoji} ${progressLine}
         // Achievements
         achievements: {
           unlocked: unlockedBadges,
+          locked: lockedBadges,
           totalUnlocked: unlockedBadges.length,
           totalBadges: Object.keys(BADGES).length,
           recentBadges: unlockedBadges.slice(0, 5),

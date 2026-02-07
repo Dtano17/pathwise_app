@@ -272,8 +272,22 @@ export async function initializePushNotifications() {
       const { PushNotifications } = await import('@capacitor/push-notifications');
 
       // Listen for push notifications when app is in foreground
-      await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      await PushNotifications.addListener('pushNotificationReceived', async (notification) => {
         console.log('[NOTIFICATIONS] Android push notification received (foreground):', notification);
+
+        // Trigger haptic feedback / vibration
+        try {
+          const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
+          await Haptics.impact({ style: ImpactStyle.Heavy });
+          await Haptics.vibrate({ duration: 300 });
+          console.log('[NOTIFICATIONS] Haptic feedback triggered');
+        } catch (e) {
+          // Fallback to web vibration API
+          if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100]);
+          }
+        }
+
         // For foreground notifications, show a web notification as fallback
         // since LocalNotifications doesn't work with remote URLs
         if ('Notification' in window && Notification.permission === 'granted') {
@@ -286,8 +300,17 @@ export async function initializePushNotifications() {
       });
 
       // Listen for notification tap actions (background/killed)
-      await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+      await PushNotifications.addListener('pushNotificationActionPerformed', async (action) => {
         console.log('[NOTIFICATIONS] Android push notification action performed:', action);
+
+        // Trigger haptic feedback on tap
+        try {
+          const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
+          await Haptics.impact({ style: ImpactStyle.Medium });
+        } catch (e) {
+          // Silent fail
+        }
+
         const data = action.notification.data;
         if (data?.route) {
           window.location.href = data.route;
@@ -338,8 +361,20 @@ export async function initializePushNotifications() {
 
     PushNotifications.addListener(
       'pushNotificationReceived',
-      (notification: any) => {
+      async (notification: any) => {
         console.log('Push notification received:', notification);
+
+        // Trigger haptic feedback / vibration
+        try {
+          const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
+          await Haptics.impact({ style: ImpactStyle.Heavy });
+          await Haptics.vibrate({ duration: 300 });
+        } catch (e) {
+          if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100]);
+          }
+        }
+
         showLocalNotification({
           title: notification.title || 'JournalMate',
           body: notification.body || '',
@@ -351,8 +386,17 @@ export async function initializePushNotifications() {
 
     PushNotifications.addListener(
       'pushNotificationActionPerformed',
-      (action: any) => {
+      async (action: any) => {
         console.log('Push notification action performed:', action);
+
+        // Trigger haptic feedback on tap
+        try {
+          const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
+          await Haptics.impact({ style: ImpactStyle.Medium });
+        } catch (e) {
+          // Silent fail
+        }
+
         const data = action.notification.data;
         if (data?.route) {
           window.location.href = data.route;

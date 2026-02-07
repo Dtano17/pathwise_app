@@ -2,19 +2,21 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  ArrowLeft, 
-  Home, 
-  Sparkles, 
-  ImagePlus, 
-  Combine, 
-  Share2, 
+import {
+  ArrowLeft,
+  Home,
+  Sparkles,
+  ImagePlus,
+  Combine,
+  Share2,
   Video,
   Smartphone,
   Globe,
   Star,
   Calendar,
-  Zap
+  Zap,
+  BarChart3,
+  Moon
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -31,6 +33,40 @@ interface UpdateEntry {
 
 const updates: UpdateEntry[] = [
   {
+    id: 'reports-dashboard',
+    date: 'February 2026',
+    title: 'Reports & Progress Dashboard',
+    category: 'feature',
+    description: 'A comprehensive Reports tab with detailed progress tracking, activity insights, badges, and the End of Day Review - all in one place.',
+    highlights: [
+      'Overview with streak, tasks completed, and completion rate',
+      'Activity-level progress tracking with task breakdown',
+      'Badges and achievements with unlock progress',
+      'End of Day Review - swipe through completed tasks',
+      'Time range filtering (7/30/90/365 days)',
+      'Category filtering for focused insights',
+      'Widget sync for home screen stats'
+    ],
+    icon: <BarChart3 className="w-6 h-6 text-indigo-500" />,
+    isNew: true
+  },
+  {
+    id: 'end-of-day-review',
+    date: 'February 2026',
+    title: 'End of Day Review',
+    category: 'feature',
+    description: 'Reflect on your day with a Tinder-style swipe interface. Rate how each task went and automatically generate a daily journal entry.',
+    highlights: [
+      'Swipe right for tasks that went well',
+      'Swipe left for tasks you struggled with',
+      'Swipe up to mark tasks you loved',
+      'Auto-generates daily journal entry',
+      'Celebration confetti on completion'
+    ],
+    icon: <Moon className="w-6 h-6 text-purple-500" />,
+    isNew: true
+  },
+  {
     id: 'social-media-import',
     date: 'November 2025',
     title: 'Social Media Import',
@@ -43,7 +79,7 @@ const updates: UpdateEntry[] = [
       'Track your progress on activities you discover'
     ],
     icon: <ImagePlus className="w-6 h-6 text-pink-500" />,
-    isNew: true
+    isNew: false
   },
   {
     id: 'plan-remix',
