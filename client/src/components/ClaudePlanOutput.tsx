@@ -12,6 +12,7 @@ import { queryClient, apiRequest } from '@/lib/queryClient';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SiInstagram, SiTiktok, SiYoutube, SiX, SiFacebook, SiReddit, SiPinterest } from 'react-icons/si';
 import { invalidateJournalCache } from '@/lib/cacheInvalidation';
+import { parseInlineFormatting } from '@/lib/formatText';
 
 // Helper to get friendly source label and icon from URL
 const getSourceLabel = (url?: string): { name: string; icon: JSX.Element; color: string } | null => {
@@ -817,7 +818,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
                         <h4 className={`font-semibold text-sm sm:text-base text-foreground break-words ${
                           isCompleted ? 'line-through decoration-2 decoration-green-600' : ''
                         }`} data-testid={`text-task-title-${index}`}>
-                          {displayTask.title}
+                          {parseInlineFormatting(displayTask.title, `plan-title-${index}`)}
                         </h4>
                       </div>
                       
@@ -865,7 +866,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
                     <p className={`text-xs sm:text-sm text-muted-foreground leading-relaxed break-words whitespace-pre-wrap ${
                       isCompleted ? 'line-through decoration-1 decoration-gray-400 opacity-70' : ''
                     }`} data-testid={`text-task-description-${index}`}>
-                      {displayTask.description}
+                      {parseInlineFormatting(displayTask.description || '', `plan-desc-${index}`)}
                     </p>
                     
                     {displayTask.context && (

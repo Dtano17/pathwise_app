@@ -16,6 +16,7 @@ import { isNative } from '@/lib/platform';
 import { addTaskToCalendar, getCalendars, requestCalendarPermission } from '@/lib/calendar';
 import { downloadOrShareICS, type ICSEvent } from '@/lib/icsGenerator';
 import { hapticsSuccess, hapticsLight, hapticsCelebrate } from '@/lib/haptics';
+import { parseInlineFormatting } from '@/lib/formatText';
 
 interface DeviceCalendar {
   id: string;
@@ -782,10 +783,10 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-base sm:text-lg text-foreground mb-2 break-words" data-testid={`task-title-${task.id}`}>
-              {task.title}
+              {parseInlineFormatting(task.title, `title-${task.id}`)}
             </h3>
             <p className="text-sm text-muted-foreground mb-3 break-words whitespace-pre-wrap" data-testid={`task-description-${task.id}`}>
-              {task.description}
+              {parseInlineFormatting(task.description || '', `desc-${task.id}`)}
             </p>
           </div>
         </div>

@@ -11,56 +11,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen, FileText, RotateCcw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { invalidateActivitiesCache } from '@/lib/cacheInvalidation';
+import { parseInlineFormatting } from '@/lib/formatText';
 
 // Simple markdown formatter for Claude-style responses
 const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
-  // Parse inline formatting (bold and links) in a text segment
-  const parseInlineFormatting = (text: string, keyPrefix: string): (string | JSX.Element)[] => {
-    const result: (string | JSX.Element)[] = [];
-    // Combined regex for bold (**text**) and links [text](url)
-    const inlineRegex = /\*\*(.*?)\*\*|\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g;
-    let lastIndex = 0;
-    let match;
-
-    while ((match = inlineRegex.exec(text)) !== null) {
-      // Add text before this match
-      if (match.index > lastIndex) {
-        result.push(text.substring(lastIndex, match.index));
-      }
-
-      if (match[1] !== undefined) {
-        // Bold text match
-        result.push(
-          <strong key={`${keyPrefix}-bold-${match.index}`} className="font-semibold">
-            {match[1]}
-          </strong>
-        );
-      } else if (match[2] !== undefined && match[3] !== undefined) {
-        // Link match [text](url)
-        result.push(
-          <a
-            key={`${keyPrefix}-link-${match.index}`}
-            href={match[3]}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline font-medium"
-          >
-            {match[2]}
-          </a>
-        );
-      }
-
-      lastIndex = inlineRegex.lastIndex;
-    }
-
-    // Add remaining text
-    if (lastIndex < text.length) {
-      result.push(text.substring(lastIndex));
-    }
-
-    return result.length > 0 ? result : [text];
-  };
-
   const formatText = (text: string) => {
     const parts: JSX.Element[] = [];
     const lines = text.split('\n');
