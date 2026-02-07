@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { eq, and, desc, isNull, isNotNull, or, lte, gte, inArray, sql } from "drizzle-orm";
+import { eq, and, desc, isNull, isNotNull, or, lte, gte, inArray, sql, count, countDistinct } from "drizzle-orm";
 import crypto from "crypto";
 import { 
   type User, 
@@ -92,6 +92,8 @@ import {
   type InsertMobilePreferences,
   type JournalEnrichmentCache,
   type InsertJournalEnrichmentCache,
+  type Achievement,
+  type InsertAchievement,
   type Verification,
   type InsertVerification,
   users,
@@ -138,7 +140,8 @@ import {
   contentImports,
   mobilePreferences,
   journalEnrichmentCache,
-  verifications
+  verifications,
+  achievements,
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -544,6 +547,21 @@ export interface IStorage {
   createMobilePreferences(prefs: InsertMobilePreferences & { userId: string }): Promise<MobilePreferences>;
   updateMobilePreferences(userId: string, updates: Partial<InsertMobilePreferences>): Promise<MobilePreferences | undefined>;
   getOrCreateMobilePreferences(userId: string): Promise<MobilePreferences>;
+
+  // Achievement & Badge Support
+  getUserAchievements(userId: string): Promise<Achievement[]>;
+  createAchievement(data: { userId: string; achievementType: string; title: string; description: string; badgeIcon: string; level: number; unlockedAt: Date }): Promise<Achievement>;
+  getCompletedTasksCount(userId: string): Promise<number>;
+  getActivitiesCount(userId: string): Promise<number>;
+  getCompletedGoalsCount(userId: string): Promise<number>;
+  getJournalEntriesCount(userId: string): Promise<number>;
+  getGroupsCreatedCount(userId: string): Promise<number>;
+  getSharedActivitiesCount(userId: string): Promise<number>;
+  getUserStreak(userId: string): Promise<{ currentStreak: number; longestStreak: number } | null>;
+  getUniqueCategoriesUsed(userId: string): Promise<number>;
+  getEarlyMorningTasksCount(userId: string): Promise<number>;
+  getLateNightDaysCount(userId: string): Promise<number>;
+  getPlansWithAllTasksComplete(userId: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3220,28 +3238,58 @@ export class DatabaseStorage implements IStorage {
 
   async getProgressStats(userId: string, days: number) {
     try {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
+      // Use getUserActivities which correctly computes completion from task data
+      const activitiesWithProgress = await this.getUserActivities(userId);
 
-      // Get all activities for the user
-      const allActivities = await db.select()
-        .from(activities)
-        .where(eq(activities.userId, userId));
+      // Determine completed activities based on actual task completion (not status field)
+      const completedActivitiesList = activitiesWithProgress.filter(
+        a => a.totalTasks > 0 && a.completedTasks === a.totalTasks
+      );
+      const activeActivitiesList = activitiesWithProgress.filter(
+        a => a.totalTasks === 0 || a.completedTasks < a.totalTasks
+      );
 
-      const completedActivities = allActivities.filter(a => a.status === 'completed');
-      const activeActivities = allActivities.filter(a => a.status === 'active');
-
-      const completionRate = allActivities.length > 0
-        ? Math.round((completedActivities.length / allActivities.length) * 100)
-        : 0;
-
-      // Get all tasks for category stats
+      // Get all tasks for this user (non-archived)
       const allTasks = await db.select()
         .from(tasks)
-        .where(eq(tasks.userId, userId));
+        .where(and(
+          eq(tasks.userId, userId),
+          or(eq(tasks.archived, false), isNull(tasks.archived))
+        ));
 
       const completedTasks = allTasks.filter(t => t.completed);
-      
+
+      // Task-based completion rate
+      const taskCompletionRate = allTasks.length > 0
+        ? Math.round((completedTasks.length / allTasks.length) * 100)
+        : 0;
+
+      // Activity-level completion rate
+      const completionRate = activitiesWithProgress.length > 0
+        ? Math.round((completedActivitiesList.length / activitiesWithProgress.length) * 100)
+        : 0;
+
+      // Today's and this week's completed tasks
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const weekAgoStr = weekAgo.toISOString().split('T')[0];
+
+      const getDateStr = (d: Date | string | null): string | null => {
+        if (!d) return null;
+        if (d instanceof Date) {
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        return d.toString().split('T')[0];
+      };
+
+      const completedToday = completedTasks.filter(t => getDateStr(t.completedAt) === todayStr).length;
+      const completedThisWeek = completedTasks.filter(t => {
+        const dateStr = getDateStr(t.completedAt);
+        return dateStr && dateStr >= weekAgoStr;
+      }).length;
+
       // Category stats based on tasks
       const categoryMap = new Map<string, { completed: number; total: number }>();
       allTasks.forEach(task => {
@@ -3263,25 +3311,20 @@ export class DatabaseStorage implements IStorage {
         percentage: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0
       }));
 
-      // Timeline data (last N days)
+      // Timeline data (last N days) - based on task completions per day
       const timelineData: Array<{ date: string; completed: number; created: number }> = [];
       for (let i = days - 1; i >= 0; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-        const completed = completedActivities.filter(a =>
-          a.completedAt && a.completedAt.toISOString().split('T')[0] === dateStr
-        ).length;
+        const completedOnDay = completedTasks.filter(t => getDateStr(t.completedAt) === dateStr).length;
+        const createdOnDay = allTasks.filter(t => getDateStr(t.createdAt) === dateStr).length;
 
-        const created = allActivities.filter(a =>
-          a.createdAt.toISOString().split('T')[0] === dateStr
-        ).length;
-
-        timelineData.push({ date: dateStr, completed, created });
+        timelineData.push({ date: dateStr, completed: completedOnDay, created: createdOnDay });
       }
 
-      // Calculate streak
+      // Calculate streak from consecutive days with task completions
       let currentStreak = 0;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -3289,11 +3332,9 @@ export class DatabaseStorage implements IStorage {
       for (let i = 0; i < 365; i++) {
         const checkDate = new Date(today);
         checkDate.setDate(checkDate.getDate() - i);
-        const dateStr = checkDate.toISOString().split('T')[0];
+        const dateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
 
-        const hasActivity = completedTasks.some(t =>
-          t.completedAt && t.completedAt.toISOString().split('T')[0] === dateStr
-        );
+        const hasActivity = completedTasks.some(t => getDateStr(t.completedAt) === dateStr);
 
         if (hasActivity) {
           currentStreak++;
@@ -3311,11 +3352,11 @@ export class DatabaseStorage implements IStorage {
         type: string;
       }> = [];
 
-      if (completedActivities.length >= 10) {
+      if (completedActivitiesList.length >= 10) {
         milestones.push({
           id: 'milestone-10-activities',
           title: '10 Activities Completed!',
-          description: `You've completed ${completedActivities.length} activities`,
+          description: `You've completed ${completedActivitiesList.length} activities`,
           achievedAt: new Date().toISOString(),
           type: 'completion'
         });
@@ -3331,9 +3372,9 @@ export class DatabaseStorage implements IStorage {
         });
       }
 
-      // Top rated activities
-      const topRatedActivities = completedActivities
-        .filter(a => a.rating && a.rating >= 4)
+      // Top rated activities (from all activities that have ratings)
+      const ratedActivities = activitiesWithProgress.filter(a => a.rating && a.rating >= 4);
+      const topRatedActivities = ratedActivities
         .sort((a, b) => (b.rating || 0) - (a.rating || 0))
         .slice(0, 5)
         .map(a => ({
@@ -3343,14 +3384,15 @@ export class DatabaseStorage implements IStorage {
           category: a.category || 'uncategorized'
         }));
 
-      const averageRating = completedActivities.filter(a => a.rating).length > 0
-        ? completedActivities.reduce((sum, a) => sum + (a.rating || 0), 0) / completedActivities.filter(a => a.rating).length
+      const activitiesWithRatings = activitiesWithProgress.filter(a => a.rating);
+      const averageRating = activitiesWithRatings.length > 0
+        ? activitiesWithRatings.reduce((sum, a) => sum + (a.rating || 0), 0) / activitiesWithRatings.length
         : 0;
 
       return {
-        totalActivities: allActivities.length,
-        completedActivities: completedActivities.length,
-        activeActivities: activeActivities.length,
+        totalActivities: activitiesWithProgress.length,
+        completedActivities: completedActivitiesList.length,
+        activeActivities: activeActivitiesList.length,
         completionRate,
         currentStreak,
         longestStreak: currentStreak,
@@ -3359,7 +3401,9 @@ export class DatabaseStorage implements IStorage {
         milestones,
         totalTasks: allTasks.length,
         completedTasks: completedTasks.length,
-        taskCompletionRate: allTasks.length > 0 ? Math.round((completedTasks.length / allTasks.length) * 100) : 0,
+        completedToday,
+        completedThisWeek,
+        taskCompletionRate,
         averageRating,
         topRatedActivities
       };
@@ -4677,6 +4721,207 @@ export class DatabaseStorage implements IStorage {
           eq(verifications.userId, userId)
         )
       );
+  }
+
+  // ==================== Achievement & Badge Support ====================
+
+  async getUserAchievements(userId: string): Promise<Achievement[]> {
+    return await db.select().from(achievements)
+      .where(eq(achievements.userId, userId));
+  }
+
+  async createAchievement(data: { userId: string; achievementType: string; title: string; description: string; badgeIcon: string; level: number; unlockedAt: Date }): Promise<Achievement> {
+    const [achievement] = await db.insert(achievements).values({
+      userId: data.userId,
+      achievementType: data.achievementType,
+      title: data.title,
+      description: data.description,
+      badgeIcon: data.badgeIcon,
+      level: data.level,
+      unlockedAt: data.unlockedAt,
+    }).returning();
+    return achievement;
+  }
+
+  async getCompletedTasksCount(userId: string): Promise<number> {
+    const result = await db.select({ value: count() }).from(tasks)
+      .where(and(
+        eq(tasks.userId, userId),
+        eq(tasks.completed, true),
+        or(eq(tasks.archived, false), isNull(tasks.archived))
+      ));
+    return result[0]?.value ?? 0;
+  }
+
+  async getActivitiesCount(userId: string): Promise<number> {
+    const result = await db.select({ value: count() }).from(activities)
+      .where(and(
+        eq(activities.userId, userId),
+        or(eq(activities.archived, false), isNull(activities.archived))
+      ));
+    return result[0]?.value ?? 0;
+  }
+
+  async getCompletedGoalsCount(userId: string): Promise<number> {
+    // Goals don't have a completed field directly.
+    // A goal is considered complete if all its tasks are completed.
+    const userGoals = await db.select().from(goals)
+      .where(eq(goals.userId, userId));
+
+    if (userGoals.length === 0) return 0;
+
+    let completedCount = 0;
+    for (const goal of userGoals) {
+      const goalTasks = await db.select().from(tasks)
+        .where(and(
+          eq(tasks.userId, userId),
+          eq(tasks.goalId, goal.id),
+          or(eq(tasks.archived, false), isNull(tasks.archived))
+        ));
+      if (goalTasks.length > 0 && goalTasks.every(t => t.completed)) {
+        completedCount++;
+      }
+    }
+    return completedCount;
+  }
+
+  async getJournalEntriesCount(userId: string): Promise<number> {
+    const result = await db.select({ value: count() }).from(journalEntries)
+      .where(eq(journalEntries.userId, userId));
+    return result[0]?.value ?? 0;
+  }
+
+  async getGroupsCreatedCount(userId: string): Promise<number> {
+    const result = await db.select({ value: count() }).from(groups)
+      .where(eq(groups.createdBy, userId));
+    return result[0]?.value ?? 0;
+  }
+
+  async getSharedActivitiesCount(userId: string): Promise<number> {
+    const result = await db.select({ value: count() }).from(shareLinks)
+      .where(eq(shareLinks.userId, userId));
+    return result[0]?.value ?? 0;
+  }
+
+  async getUserStreak(userId: string): Promise<{ currentStreak: number; longestStreak: number } | null> {
+    // Compute streak live from completed tasks
+    const completedTasks = await db.select({
+      completedAt: tasks.completedAt,
+    }).from(tasks)
+      .where(and(
+        eq(tasks.userId, userId),
+        eq(tasks.completed, true),
+        isNotNull(tasks.completedAt),
+        or(eq(tasks.archived, false), isNull(tasks.archived))
+      ));
+
+    if (completedTasks.length === 0) return null;
+
+    // Build a set of dates with activity
+    const activeDates = new Set<string>();
+    for (const t of completedTasks) {
+      if (t.completedAt) {
+        const d = t.completedAt instanceof Date ? t.completedAt : new Date(t.completedAt);
+        activeDates.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      }
+    }
+
+    // Calculate current streak
+    let currentStreak = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < 365; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(checkDate.getDate() - i);
+      const dateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+
+      if (activeDates.has(dateStr)) {
+        currentStreak++;
+      } else if (i > 0) {
+        break;
+      }
+    }
+
+    // Calculate longest streak
+    const sortedDates = Array.from(activeDates).sort();
+    let longestStreak = 0;
+    let tempStreak = 1;
+
+    for (let i = 1; i < sortedDates.length; i++) {
+      const prev = new Date(sortedDates[i - 1]);
+      const curr = new Date(sortedDates[i]);
+      const diffDays = (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24);
+
+      if (diffDays === 1) {
+        tempStreak++;
+      } else {
+        longestStreak = Math.max(longestStreak, tempStreak);
+        tempStreak = 1;
+      }
+    }
+    longestStreak = Math.max(longestStreak, tempStreak);
+
+    return { currentStreak, longestStreak: Math.max(currentStreak, longestStreak) };
+  }
+
+  async getUniqueCategoriesUsed(userId: string): Promise<number> {
+    const result = await db.select({ value: countDistinct(activities.category) }).from(activities)
+      .where(and(
+        eq(activities.userId, userId),
+        or(eq(activities.archived, false), isNull(activities.archived))
+      ));
+    return result[0]?.value ?? 0;
+  }
+
+  async getEarlyMorningTasksCount(userId: string): Promise<number> {
+    // Count tasks completed before 9 AM
+    const completedTasks = await db.select({
+      completedAt: tasks.completedAt,
+    }).from(tasks)
+      .where(and(
+        eq(tasks.userId, userId),
+        eq(tasks.completed, true),
+        isNotNull(tasks.completedAt),
+        or(eq(tasks.archived, false), isNull(tasks.archived))
+      ));
+
+    return completedTasks.filter(t => {
+      if (!t.completedAt) return false;
+      const d = t.completedAt instanceof Date ? t.completedAt : new Date(t.completedAt);
+      return d.getHours() < 9;
+    }).length;
+  }
+
+  async getLateNightDaysCount(userId: string): Promise<number> {
+    // Count unique days where tasks were completed after 10 PM
+    const completedTasks = await db.select({
+      completedAt: tasks.completedAt,
+    }).from(tasks)
+      .where(and(
+        eq(tasks.userId, userId),
+        eq(tasks.completed, true),
+        isNotNull(tasks.completedAt),
+        or(eq(tasks.archived, false), isNull(tasks.archived))
+      ));
+
+    const lateNightDates = new Set<string>();
+    for (const t of completedTasks) {
+      if (!t.completedAt) continue;
+      const d = t.completedAt instanceof Date ? t.completedAt : new Date(t.completedAt);
+      if (d.getHours() >= 22) {
+        lateNightDates.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      }
+    }
+    return lateNightDates.size;
+  }
+
+  async getPlansWithAllTasksComplete(userId: string): Promise<number> {
+    // Use getUserActivities which computes task completion per activity
+    const activitiesWithProgress = await this.getUserActivities(userId);
+    return activitiesWithProgress.filter(
+      a => a.totalTasks > 0 && a.completedTasks === a.totalTasks
+    ).length;
   }
 }
 

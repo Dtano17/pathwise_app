@@ -143,7 +143,7 @@ import {
   onJournalEntryCreated,
   onActivityProcessingComplete,
 } from "./services/notificationEventHooks";
-import { getBadgesWithProgress, BADGES } from "./services/achievementService";
+import { getBadgesWithProgress, BADGES, checkAndUnlockBadges } from "./services/achievementService";
 
 // Tavily client is now managed by tavilyProvider.ts with automatic key rotation
 
@@ -5169,6 +5169,11 @@ ${sitemaps
       // Trigger smart notification: cancel pending reminders and update streak
       onTaskCompleted(storage, task, userId).catch((err) =>
         console.error("[NOTIFICATION] Task completed hook error:", err),
+      );
+
+      // Check and unlock badges based on new task completion
+      checkAndUnlockBadges(storage, userId, 'task_completed').catch((err) =>
+        console.error("[ACHIEVEMENT] Badge check error on task complete:", err),
       );
 
       res.json({
@@ -11732,6 +11737,12 @@ ${emoji} ${progressLine}
   app.get("/api/achievements", async (req, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Check and unlock any earned badges (retroactive)
+      await checkAndUnlockBadges(storage, userId, 'achievements_view').catch((err) =>
+        console.error("[ACHIEVEMENT] Badge check error on achievements view:", err),
+      );
+
       const badgesWithProgress = await getBadgesWithProgress(storage, userId);
 
       // Separate unlocked and locked badges
@@ -11834,7 +11845,12 @@ ${emoji} ${progressLine}
         percentage: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0,
       }));
 
-      // Get achievements
+      // Check and unlock any earned badges (retroactive)
+      await checkAndUnlockBadges(storage, userId, 'reports_view').catch((err) =>
+        console.error("[ACHIEVEMENT] Badge check error on reports view:", err),
+      );
+
+      // Get achievements (after badge check so newly unlocked badges show)
       const badgesWithProgress = await getBadgesWithProgress(storage, userId);
       const unlockedBadges = badgesWithProgress.filter(b => b.unlocked);
       const lockedBadges = badgesWithProgress.filter(b => !b.unlocked);
