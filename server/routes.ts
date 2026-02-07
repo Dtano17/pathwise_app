@@ -4993,8 +4993,28 @@ ${sitemaps
       });
       const totalToday = activeTasks.length;
 
-      // Streak - SAME as /api/progress
-      const weeklyStreak = Math.min(completedTasks.length, 7);
+      // Calculate actual consecutive day streak - SAME as /api/progress
+      let weeklyStreak = 0;
+      {
+        const streakToday = new Date();
+        streakToday.setHours(0, 0, 0, 0);
+        const getDateStrForStreak = (d: any): string | null => {
+          if (!d) return null;
+          if (d instanceof Date) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          return d.toString().split('T')[0];
+        };
+        for (let i = 0; i < 365; i++) {
+          const checkDate = new Date(streakToday);
+          checkDate.setDate(checkDate.getDate() - i);
+          const dateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+          const hasActivity = completedTasks.some((t: any) => getDateStrForStreak(t.completedAt) === dateStr);
+          if (hasActivity) {
+            weeklyStreak++;
+          } else if (i > 0) {
+            break;
+          }
+        }
+      }
 
       // Total completed - SAME as /api/progress
       const totalCompleted = completedTasks.length;
@@ -11692,8 +11712,28 @@ ${emoji} ${progressLine}
         }),
       );
 
-      // Calculate streak (simplified - just based on recent activity)
-      const weeklyStreak = Math.min(completedTasks.length, 7); // Simple streak calculation
+      // Calculate actual consecutive day streak from task completions
+      let weeklyStreak = 0;
+      {
+        const streakToday = new Date();
+        streakToday.setHours(0, 0, 0, 0);
+        const getDateStrForStreak = (d: Date | string | null): string | null => {
+          if (!d) return null;
+          if (d instanceof Date) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          return d.toString().split('T')[0];
+        };
+        for (let i = 0; i < 365; i++) {
+          const checkDate = new Date(streakToday);
+          checkDate.setDate(checkDate.getDate() - i);
+          const dateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+          const hasActivity = completedTasks.some((t: any) => getDateStrForStreak(t.completedAt) === dateStr);
+          if (hasActivity) {
+            weeklyStreak++;
+          } else if (i > 0) {
+            break;
+          }
+        }
+      }
 
       const totalCompleted = completedTasks.length;
       const completionRate =
@@ -11704,7 +11744,7 @@ ${emoji} ${progressLine}
       // Generate lifestyle suggestions
       const recentCompletedTasks = completedTasks
         .slice(0, 10)
-        .map((task) => task.title);
+        .map((task: any) => task.title);
 
       const suggestions = await aiService.generateLifestyleSuggestions(
         recentCompletedTasks,
@@ -11902,6 +11942,7 @@ ${emoji} ${progressLine}
           streakCount: streakDays,
           completedToday,
           totalToday: tasks.filter(t => !t.completed).length + completedToday,
+          totalCompleted: completedTasks.length,
           completionRate: tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0,
         },
       });

@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { isNative } from '@/lib/platform';
-import { updateWidgetData } from '@/lib/widgetManager';
+import { updateWidgetData } from '@/lib/backgroundService';
 import EndOfDayReview from '@/components/EndOfDayReview';
 
 // Types
@@ -134,6 +134,7 @@ interface ReportsApiData {
     streakCount: number;
     completedToday: number;
     totalToday: number;
+    totalCompleted: number;
     completionRate: number;
   };
 }
@@ -282,14 +283,12 @@ export default function ReportsPage() {
     const syncToWidget = async () => {
       try {
         await updateWidgetData({
-          streakCount: reportsData.widgetData.streakCount,
-          stats: {
-            completedToday: reportsData.widgetData.completedToday,
-            totalToday: reportsData.widgetData.totalToday,
-            completionRate: reportsData.widgetData.completionRate,
-          },
-          lastUpdated: new Date().toISOString(),
-          version: 1,
+          tasksCompleted: reportsData.widgetData.completedToday,
+          tasksTotal: reportsData.widgetData.totalToday,
+          streak: reportsData.widgetData.streakCount,
+          totalCompleted: reportsData.widgetData.totalCompleted || 0,
+          completionRate: reportsData.widgetData.completionRate,
+          unreadNotifications: 0,
         });
       } catch (err) {
         console.log('[REPORTS] Failed to sync widget:', err);
