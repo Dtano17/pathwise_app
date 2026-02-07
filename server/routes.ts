@@ -610,10 +610,11 @@ async function handleSmartPlanConversation(
         }
 
         // Fetch backdrop image for the activity
-        const activityTitle = generatedPlan.title || "Smart Plan Activity";
+        const rawTitle = generatedPlan.title || "Smart Plan Activity";
+        const activityTitle = generatedPlan.emoji ? `${generatedPlan.emoji} ${rawTitle}` : rawTitle;
         const activityCategory = generatedPlan.category || "personal";
         const backdropUrl = await getActivityImage(
-          activityTitle,
+          rawTitle,
           activityCategory,
           undefined,
           undefined,
@@ -720,10 +721,11 @@ async function handleSmartPlanConversation(
           }
 
           // Fetch backdrop image for the activity
-          const activityTitle2 = generatedPlan.title || "Smart Plan Activity";
+          const rawTitle2 = generatedPlan.title || "Smart Plan Activity";
+          const activityTitle2 = generatedPlan.emoji ? `${generatedPlan.emoji} ${rawTitle2}` : rawTitle2;
           const activityCategory2 = generatedPlan.category || "personal";
           const backdropUrl2 = await getActivityImage(
-            activityTitle2,
+            rawTitle2,
             activityCategory2,
             undefined,
             undefined,
@@ -945,7 +947,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 
       // Create activity from the structured plan
       const activity = await storage.createActivity({
-        title: planData.title,
+        title: planData.emoji ? `${planData.emoji} ${planData.title}` : planData.title,
         description: planData.summary,
         category: planData.category,
         status: "planning",
@@ -1234,10 +1236,12 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       const planData = response.generatedPlan;
 
       // Fetch backdrop image for the activity
-      const activityTitle4 = planData.title || "Smart Plan Activity";
+      const rawTitle4 = planData.title || "Smart Plan Activity";
+      const planEmoji4 = planData.emoji || response.generatedPlan?.emoji;
+      const activityTitle4 = planEmoji4 ? `${planEmoji4} ${rawTitle4}` : rawTitle4;
       const activityCategory4 = planData.category || "personal";
       const backdropUrl4 = await getActivityImage(
-        activityTitle4,
+        rawTitle4,
         activityCategory4,
       );
 
@@ -13771,8 +13775,9 @@ Return ONLY valid JSON, no markdown or explanation.`;
             generatedPlan.activity?.endDate || generatedPlan.endDate,
           );
 
+          const rawLifestyleTitle = generatedPlan.title || "Untitled Plan";
           activity = await storage.createActivity({
-            title: generatedPlan.title || "Untitled Plan",
+            title: generatedPlan.emoji ? `${generatedPlan.emoji} ${rawLifestyleTitle}` : rawLifestyleTitle,
             description: generatedPlan.description || "",
             category:
               generatedPlan.domain || generatedPlan.category || "personal",
@@ -14225,10 +14230,11 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
         if (generatedPlan) {
           // Fetch backdrop image for the activity
-          const quickTitle = generatedPlan.title || "Quick Plan Activity";
+          const rawQuickTitle = generatedPlan.title || "Quick Plan Activity";
+          const quickTitle = generatedPlan.emoji ? `${generatedPlan.emoji} ${rawQuickTitle}` : rawQuickTitle;
           const quickCategory = generatedPlan.category || "personal";
           const quickBackdropUrl = await getActivityImage(
-            quickTitle,
+            rawQuickTitle,
             quickCategory,
           );
 
@@ -14316,10 +14322,11 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
           if (generatedPlan) {
             // Fetch backdrop image for the activity
-            const quickTitle2 = generatedPlan.title || "Quick Plan Activity";
+            const rawQuickTitle2 = generatedPlan.title || "Quick Plan Activity";
+            const quickTitle2 = generatedPlan.emoji ? `${generatedPlan.emoji} ${rawQuickTitle2}` : rawQuickTitle2;
             const quickCategory2 = generatedPlan.category || "personal";
             const quickBackdropUrl2 = await getActivityImage(
-              quickTitle2,
+              rawQuickTitle2,
               quickCategory2,
             );
 
@@ -14539,7 +14546,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 
         // Create activity from the structured plan
         const activity = await storage.createActivity({
-          title: planData.title,
+          title: planData.emoji ? `${planData.emoji} ${planData.title}` : planData.title,
           description: planData.summary,
           category: planData.category,
           status: "planning",
@@ -14995,13 +15002,15 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
               }
 
               // Fetch backdrop image for the activity
-              const streamTitle =
+              const rawStreamTitle =
                 planToUse.title ||
                 `${mode === "quick" ? "Quick" : "Smart"} Plan Activity`;
+              const streamEmoji = planToUse.emoji || response?.plan?.emoji;
+              const streamTitle = streamEmoji ? `${streamEmoji} ${rawStreamTitle}` : rawStreamTitle;
               const streamCategory =
                 planToUse.category || planToUse.domain || "personal";
               const streamBackdropUrl = await getActivityImage(
-                streamTitle,
+                rawStreamTitle,
                 streamCategory,
               );
 
