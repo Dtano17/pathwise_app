@@ -4845,6 +4845,16 @@ ${sitemaps
 
       const stats = await storage.getProgressStats(userId, days);
 
+      console.log('[API /progress/stats] Response summary:', {
+        completedActivities: stats.completedActivities,
+        totalActivities: stats.totalActivities,
+        completedTasks: stats.completedTasks,
+        completedToday: stats.completedToday,
+        completedThisWeek: stats.completedThisWeek,
+        currentStreak: stats.currentStreak,
+        timelineNonZero: stats.timelineData?.filter((d: any) => d.completed > 0).length,
+      });
+
       res.json(stats);
     } catch (error) {
       console.error("Get progress stats error:", error);

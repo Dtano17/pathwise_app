@@ -3249,6 +3249,18 @@ export class DatabaseStorage implements IStorage {
         a => a.totalTasks === 0 || a.completedTasks < a.totalTasks
       );
 
+      console.log('[PROGRESS STATS] Activity computation:', {
+        totalActivities: activitiesWithProgress.length,
+        completedPlans: completedActivitiesList.length,
+        completedPlanTitles: completedActivitiesList.map(a => `${a.title} (${a.completedTasks}/${a.totalTasks})`),
+        activePlans: activeActivitiesList.length,
+        sampleProgress: activitiesWithProgress.slice(0, 5).map(a => ({
+          title: a.title?.substring(0, 30),
+          tasks: `${a.completedTasks}/${a.totalTasks}`,
+          percent: a.progressPercent
+        }))
+      });
+
       // Get all tasks for this user (non-archived)
       const allTasks = await db.select()
         .from(tasks)
