@@ -208,6 +208,8 @@ interface ProgressData {
   weeklyStreak: number;
   totalCompleted: number;
   completionRate: number;
+  plansComplete: number;
+  totalPlans: number;
   categories: { name: string; completed: number; total: number }[];
   recentAchievements: string[];
   lifestyleSuggestions?: string[];
@@ -1600,6 +1602,8 @@ export default function MainApp({
             streak: freshProgress.weeklyStreak,
             totalCompleted: freshProgress.totalCompleted,
             completionRate: freshProgress.completionRate,
+            plansComplete: freshProgress.plansComplete || 0,
+            totalPlans: freshProgress.totalPlans || 0,
             unreadNotifications: 0,
           });
           refreshWidgets().then((r) => console.log("[WIDGET] complete task refresh:", r));
@@ -1659,6 +1663,8 @@ export default function MainApp({
             streak: freshProgress.weeklyStreak,
             totalCompleted: freshProgress.totalCompleted,
             completionRate: freshProgress.completionRate,
+            plansComplete: freshProgress.plansComplete || 0,
+            totalPlans: freshProgress.totalPlans || 0,
             unreadNotifications: 0,
           });
           refreshWidgets().then((r) => console.log("[WIDGET] uncomplete task refresh:", r));
@@ -1715,6 +1721,8 @@ export default function MainApp({
             streak: freshProgress.weeklyStreak,
             totalCompleted: freshProgress.totalCompleted,
             completionRate: freshProgress.completionRate,
+            plansComplete: freshProgress.plansComplete || 0,
+            totalPlans: freshProgress.totalPlans || 0,
             unreadNotifications: 0,
           });
           refreshWidgets().then((r) => console.log("[WIDGET] skip task refresh:", r));
@@ -1785,6 +1793,8 @@ export default function MainApp({
             streak: freshProgress.weeklyStreak,
             totalCompleted: freshProgress.totalCompleted,
             completionRate: freshProgress.completionRate,
+            plansComplete: freshProgress.plansComplete || 0,
+            totalPlans: freshProgress.totalPlans || 0,
             unreadNotifications: 0,
           });
           refreshWidgets().then((r) => console.log("[WIDGET] snooze task refresh:", r));

@@ -5039,18 +5039,25 @@ ${sitemaps
           ? Math.round((totalCompleted / tasks.length) * 100)
           : 0;
 
-      // Response matches Progress Dashboard exactly:
-      // - Tasks: completedToday / totalToday (e.g., 15/185)
-      // - Streak: weeklyStreak (e.g., 7)
-      // - Total: totalCompleted (e.g., 43)
-      // - Rate: completionRate (e.g., 20%)
-      // - Notifications: unreadNotifications (badge count)
+      // Plans complete - SAME as /api/reports
+      const userActivities = await storage.getUserActivities(userId);
+      const plansComplete = userActivities.filter(
+        (a: any) => a.totalTasks > 0 && a.completedTasks === a.totalTasks
+      ).length;
+
+      // Response matches Reports page summary cards exactly:
+      // - Streak: weeklyStreak (Day Streak)
+      // - Total: totalCompleted (Tasks Done)
+      // - Plans: plansComplete (Plans Complete)
+      // - Rate: completionRate (Completion Rate)
       res.json({
         tasksCompleted: completedToday,
         tasksTotal: totalToday,
         streak: weeklyStreak,
         totalCompleted: totalCompleted,
         completionRate: completionRate,
+        plansComplete: plansComplete,
+        totalPlans: userActivities.length,
         unreadNotifications: unreadNotifications,
         timestamp: new Date().toISOString(),
       });
@@ -11763,6 +11770,12 @@ ${emoji} ${progressLine}
           ? Math.round((totalCompleted / tasks.length) * 100)
           : 0;
 
+      // Plans complete - for widget sync
+      const userActivities = await storage.getUserActivities(userId);
+      const plansComplete = userActivities.filter(
+        (a: any) => a.totalTasks > 0 && a.completedTasks === a.totalTasks
+      ).length;
+
       // Generate lifestyle suggestions
       const recentCompletedTasks = completedTasks
         .slice(0, 10)
@@ -11780,6 +11793,8 @@ ${emoji} ${progressLine}
         weeklyStreak,
         totalCompleted,
         completionRate,
+        plansComplete,
+        totalPlans: userActivities.length,
         categories,
         recentAchievements: [
           `${completedToday}-task day`,
@@ -11990,42 +12005,37 @@ ${emoji} ${progressLine}
   });
 
   // Helper function to calculate actual consecutive day streak
+  // Uses live task completedAt dates (same algorithm as /api/progress and /api/tasks/widget)
   async function calculateActualStreak(userId: string): Promise<number> {
     try {
-      // Get progress stats for last 100 days
-      const progressHistory = await storage.getUserProgressHistory(userId, 100);
+      const completedTasks = await db.select()
+        .from(tasksTable)
+        .where(and(
+          eq(tasksTable.userId, userId),
+          eq(tasksTable.completed, true),
+          or(eq(tasksTable.archived, false), isNull(tasksTable.archived))
+        ));
 
-      if (progressHistory.length === 0) return 0;
-
-      // Sort by date descending
-      const sortedDays = progressHistory
-        .filter(p => (p.completedCount || 0) > 0)
-        .map(p => p.date)
-        .sort()
-        .reverse();
-
-      if (sortedDays.length === 0) return 0;
+      if (completedTasks.length === 0) return 0;
 
       let streak = 0;
       const today = new Date();
-      let checkDate = new Date(today);
+      today.setHours(0, 0, 0, 0);
 
-      // Start from today or yesterday
-      const todayStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, "0")}-${String(checkDate.getDate()).padStart(2, "0")}`;
+      const getDateStr = (d: any): string | null => {
+        if (!d) return null;
+        if (d instanceof Date) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return d.toString().split('T')[0];
+      };
 
-      // If no activity today, start checking from yesterday
-      if (!sortedDays.includes(todayStr)) {
-        checkDate.setDate(checkDate.getDate() - 1);
-      }
-
-      // Count consecutive days
-      for (let i = 0; i < 100; i++) {
-        const dateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, "0")}-${String(checkDate.getDate()).padStart(2, "0")}`;
-
-        if (sortedDays.includes(dateStr)) {
+      for (let i = 0; i < 365; i++) {
+        const checkDate = new Date(today);
+        checkDate.setDate(checkDate.getDate() - i);
+        const dateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+        const hasActivity = completedTasks.some((t: any) => getDateStr(t.completedAt) === dateStr);
+        if (hasActivity) {
           streak++;
-          checkDate.setDate(checkDate.getDate() - 1);
-        } else {
+        } else if (i > 0) {
           break;
         }
       }

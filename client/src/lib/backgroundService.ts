@@ -34,6 +34,8 @@ interface BackgroundServicePlugin {
     streak: number;
     totalCompleted: number;
     completionRate: number;
+    plansComplete: number;
+    totalPlans: number;
     unreadNotifications: number;
   }): Promise<{ success: boolean }>;
   refreshWidgets(): Promise<{ success: boolean }>;
@@ -241,6 +243,8 @@ export async function updateWidgetData(data: {
   streak: number;
   totalCompleted: number;
   completionRate: number;
+  plansComplete: number;
+  totalPlans: number;
   unreadNotifications: number;
 }): Promise<boolean> {
   console.log('[BACKGROUND] updateWidgetData called:', data);

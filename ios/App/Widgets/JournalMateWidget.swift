@@ -1,13 +1,13 @@
 import WidgetKit
 import SwiftUI
 
-// MARK: - Brand Colors (Match Android)
+// MARK: - Brand Colors (Match Android widget & Reports page)
 
 extension Color {
-    static let taskBlue = Color(red: 59/255, green: 130/255, blue: 246/255)       // #3b82f6
-    static let streakGreen = Color(red: 16/255, green: 185/255, blue: 129/255)    // #10b981
-    static let totalPink = Color(red: 244/255, green: 114/255, blue: 182/255)     // #f472b6
-    static let notificationOrange = Color(red: 245/255, green: 158/255, blue: 11/255) // #f59e0b
+    static let streakOrange = Color(red: 249/255, green: 115/255, blue: 22/255)   // #f97316 - Day Streak
+    static let tasksGreen = Color(red: 16/255, green: 185/255, blue: 129/255)     // #10b981 - Tasks Done
+    static let plansBlue = Color(red: 59/255, green: 130/255, blue: 246/255)      // #3b82f6 - Plans Complete
+    static let ratePurple = Color(red: 168/255, green: 85/255, blue: 247/255)     // #a855f7 - Completion Rate
     static let backgroundNavy = Color(red: 11/255, green: 15/255, blue: 26/255)   // #0B0F1A
     static let brandPurple = Color(red: 108/255, green: 92/255, blue: 231/255)    // #6C5CE7
 }
@@ -26,6 +26,8 @@ struct JournalMateWidgetProvider: TimelineProvider {
             tasksTotal: 5,
             streakCount: 7,
             totalCompleted: 42,
+            plansComplete: 3,
+            completionRate: 24,
             unreadNotifications: 2
         )
     }
@@ -56,6 +58,8 @@ struct JournalMateWidgetProvider: TimelineProvider {
                 let tasksCompleted = json["tasksCompleted"] as? Int ?? 0
                 let tasksTotal = json["tasksTotal"] as? Int ?? 0
                 let totalCompleted = json["totalCompleted"] as? Int ?? 0
+                let plansComplete = json["plansComplete"] as? Int ?? 0
+                let completionRate = json["completionRate"] as? Int ?? 0
                 let unreadNotifications = json["unreadNotifications"] as? Int ?? 0
                 let tasksArray = json["tasks"] as? [[String: Any]] ?? []
 
@@ -74,6 +78,8 @@ struct JournalMateWidgetProvider: TimelineProvider {
                     tasksTotal: tasksTotal,
                     streakCount: streakCount,
                     totalCompleted: totalCompleted,
+                    plansComplete: plansComplete,
+                    completionRate: completionRate,
                     unreadNotifications: unreadNotifications
                 )
             }
@@ -86,6 +92,8 @@ struct JournalMateWidgetProvider: TimelineProvider {
             tasksTotal: 0,
             streakCount: 0,
             totalCompleted: 0,
+            plansComplete: 0,
+            completionRate: 0,
             unreadNotifications: 0
         )
     }
@@ -100,6 +108,8 @@ struct WidgetEntry: TimelineEntry {
     let tasksTotal: Int
     let streakCount: Int
     let totalCompleted: Int
+    let plansComplete: Int
+    let completionRate: Int
     let unreadNotifications: Int
 }
 
@@ -166,37 +176,37 @@ struct SmallWidgetView: View {
                 Spacer()
             }
 
-            // 2x2 Stats Grid
+            // 2x2 Stats Grid - Matches Reports page summary cards
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                StatCard(
-                    icon: "checkmark.circle.fill",
-                    value: "\(entry.tasksCompleted)/\(entry.tasksTotal)",
-                    label: "Tasks",
-                    color: .taskBlue,
-                    compact: true
-                )
-
                 StatCard(
                     icon: "flame.fill",
                     value: "\(entry.streakCount)",
                     label: "Streak",
-                    color: .streakGreen,
+                    color: .streakOrange,
                     compact: true
                 )
 
                 StatCard(
-                    icon: "star.fill",
+                    icon: "checkmark.circle.fill",
                     value: "\(entry.totalCompleted)",
-                    label: "Total",
-                    color: .totalPink,
+                    label: "Tasks",
+                    color: .tasksGreen,
                     compact: true
                 )
 
                 StatCard(
-                    icon: "bell.fill",
-                    value: "\(entry.unreadNotifications)",
-                    label: "Alerts",
-                    color: .notificationOrange,
+                    icon: "target",
+                    value: "\(entry.plansComplete)",
+                    label: "Plans",
+                    color: .plansBlue,
+                    compact: true
+                )
+
+                StatCard(
+                    icon: "bolt.fill",
+                    value: "\(entry.completionRate)%",
+                    label: "Rate",
+                    color: .ratePurple,
                     compact: true
                 )
             }
@@ -225,37 +235,37 @@ struct MediumWidgetView: View {
                     Spacer()
                 }
 
-                // Horizontal stats row
+                // Horizontal stats row - Matches Reports page summary cards
                 HStack(spacing: 12) {
-                    StatCard(
-                        icon: "checkmark.circle.fill",
-                        value: "\(entry.tasksCompleted)/\(entry.tasksTotal)",
-                        label: "Tasks",
-                        color: .taskBlue,
-                        compact: true
-                    )
-
                     StatCard(
                         icon: "flame.fill",
                         value: "\(entry.streakCount)",
                         label: "Streak",
-                        color: .streakGreen,
+                        color: .streakOrange,
                         compact: true
                     )
 
                     StatCard(
-                        icon: "star.fill",
+                        icon: "checkmark.circle.fill",
                         value: "\(entry.totalCompleted)",
-                        label: "Total",
-                        color: .totalPink,
+                        label: "Tasks",
+                        color: .tasksGreen,
                         compact: true
                     )
 
                     StatCard(
-                        icon: "bell.fill",
-                        value: "\(entry.unreadNotifications)",
-                        label: "Alerts",
-                        color: .notificationOrange,
+                        icon: "target",
+                        value: "\(entry.plansComplete)",
+                        label: "Plans",
+                        color: .plansBlue,
+                        compact: true
+                    )
+
+                    StatCard(
+                        icon: "bolt.fill",
+                        value: "\(entry.completionRate)%",
+                        label: "Rate",
+                        color: .ratePurple,
                         compact: true
                     )
                 }
@@ -300,7 +310,7 @@ struct MediumWidgetView: View {
                         HStack(spacing: 6) {
                             Image(systemName: task.completed ? "checkmark.circle.fill" : "circle")
                                 .font(.system(size: 10))
-                                .foregroundColor(task.completed ? .streakGreen : .gray)
+                                .foregroundColor(task.completed ? .tasksGreen : .gray)
 
                             Text(task.title)
                                 .font(.system(size: 10))
@@ -325,9 +335,8 @@ struct MediumWidgetView: View {
 struct LargeWidgetView: View {
     var entry: WidgetEntry
 
-    var completionRate: Double {
-        guard entry.tasksTotal > 0 else { return 0 }
-        return Double(entry.tasksCompleted) / Double(entry.tasksTotal)
+    var completionRateDecimal: Double {
+        return Double(entry.completionRate) / 100.0
     }
 
     var body: some View {
@@ -349,14 +358,14 @@ struct LargeWidgetView: View {
                     Text("\(entry.streakCount) day streak")
                         .font(.system(size: 11, weight: .medium))
                 }
-                .foregroundColor(.streakGreen)
+                .foregroundColor(.streakOrange)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.streakGreen.opacity(0.2))
+                .background(Color.streakOrange.opacity(0.2))
                 .cornerRadius(12)
             }
 
-            // Progress Ring + Stats
+            // Progress Ring + Stats - Matches Reports page summary cards
             HStack(spacing: 20) {
                 // Progress Ring
                 ZStack {
@@ -364,10 +373,10 @@ struct LargeWidgetView: View {
                         .stroke(Color.white.opacity(0.1), lineWidth: 8)
 
                     Circle()
-                        .trim(from: 0, to: completionRate)
+                        .trim(from: 0, to: completionRateDecimal)
                         .stroke(
                             LinearGradient(
-                                colors: [.brandPurple, .taskBlue],
+                                colors: [.brandPurple, .plansBlue],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
@@ -376,7 +385,7 @@ struct LargeWidgetView: View {
                         .rotationEffect(.degrees(-90))
 
                     VStack(spacing: 2) {
-                        Text("\(Int(completionRate * 100))%")
+                        Text("\(entry.completionRate)%")
                             .font(.system(size: 20, weight: .bold))
                             .foregroundColor(.white)
                         Text("complete")
@@ -391,23 +400,23 @@ struct LargeWidgetView: View {
                     HStack(spacing: 16) {
                         StatCard(
                             icon: "checkmark.circle.fill",
-                            value: "\(entry.tasksCompleted)/\(entry.tasksTotal)",
-                            label: "Tasks",
-                            color: .taskBlue
-                        )
-
-                        StatCard(
-                            icon: "star.fill",
                             value: "\(entry.totalCompleted)",
-                            label: "Total",
-                            color: .totalPink
+                            label: "Tasks",
+                            color: .tasksGreen
                         )
 
                         StatCard(
-                            icon: "bell.fill",
-                            value: "\(entry.unreadNotifications)",
-                            label: "Alerts",
-                            color: .notificationOrange
+                            icon: "target",
+                            value: "\(entry.plansComplete)",
+                            label: "Plans",
+                            color: .plansBlue
+                        )
+
+                        StatCard(
+                            icon: "bolt.fill",
+                            value: "\(entry.completionRate)%",
+                            label: "Rate",
+                            color: .ratePurple
                         )
                     }
                 }
@@ -429,7 +438,7 @@ struct LargeWidgetView: View {
                         VStack(spacing: 4) {
                             Image(systemName: "checkmark.seal.fill")
                                 .font(.system(size: 24))
-                                .foregroundColor(.streakGreen)
+                                .foregroundColor(.tasksGreen)
                             Text("All caught up!")
                                 .font(.system(size: 12))
                                 .foregroundColor(.gray)
@@ -442,7 +451,7 @@ struct LargeWidgetView: View {
                         HStack(spacing: 8) {
                             Image(systemName: task.completed ? "checkmark.circle.fill" : "circle")
                                 .font(.system(size: 14))
-                                .foregroundColor(task.completed ? .streakGreen : .gray)
+                                .foregroundColor(task.completed ? .tasksGreen : .gray)
 
                             Text(task.title)
                                 .font(.system(size: 12))
@@ -507,10 +516,13 @@ struct AccessoryRectangularView: View {
                     .font(.system(size: 12, weight: .semibold))
 
                 HStack(spacing: 8) {
-                    Label("\(entry.tasksCompleted)/\(entry.tasksTotal)", systemImage: "checkmark.circle")
+                    Label("\(entry.streakCount)d", systemImage: "flame")
                         .font(.system(size: 10))
 
-                    Label("\(entry.streakCount)d", systemImage: "flame")
+                    Label("\(entry.totalCompleted)", systemImage: "checkmark.circle")
+                        .font(.system(size: 10))
+
+                    Label("\(entry.completionRate)%", systemImage: "bolt")
                         .font(.system(size: 10))
                 }
             }
@@ -523,11 +535,6 @@ struct AccessoryRectangularView: View {
 @available(iOS 16.0, *)
 struct AccessoryCircularView: View {
     var entry: WidgetEntry
-
-    var completionRate: Double {
-        guard entry.tasksTotal > 0 else { return 0 }
-        return Double(entry.tasksCompleted) / Double(entry.tasksTotal)
-    }
 
     var body: some View {
         ZStack {
@@ -549,7 +556,7 @@ struct AccessoryInlineView: View {
     var entry: WidgetEntry
 
     var body: some View {
-        Label("\(entry.tasksCompleted)/\(entry.tasksTotal) tasks • \(entry.streakCount)d streak", systemImage: "book.closed.fill")
+        Label("\(entry.streakCount)d streak • \(entry.totalCompleted) tasks • \(entry.completionRate)%", systemImage: "book.closed.fill")
     }
 }
 
@@ -636,6 +643,8 @@ struct JournalMateWidget: Widget {
         tasksTotal: 5,
         streakCount: 7,
         totalCompleted: 42,
+        plansComplete: 3,
+        completionRate: 24,
         unreadNotifications: 2
     )
 }
@@ -655,6 +664,8 @@ struct JournalMateWidget: Widget {
         tasksTotal: 8,
         streakCount: 14,
         totalCompleted: 156,
+        plansComplete: 8,
+        completionRate: 42,
         unreadNotifications: 5
     )
 }
@@ -675,6 +686,8 @@ struct JournalMateWidget: Widget {
         tasksTotal: 8,
         streakCount: 21,
         totalCompleted: 312,
+        plansComplete: 15,
+        completionRate: 65,
         unreadNotifications: 3
     )
 }

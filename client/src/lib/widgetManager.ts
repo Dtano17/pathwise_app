@@ -46,6 +46,9 @@ export interface WidgetStats {
 
 export interface WidgetData {
   streakCount: number;
+  totalCompleted: number;
+  plansComplete: number;
+  completionRate: number;
   tasks: WidgetTask[];
   quote?: WidgetQuote;
   stats?: WidgetStats;
@@ -65,7 +68,8 @@ export async function updateWidgetData(
   streakCount: number,
   tasks: WidgetTask[],
   quote?: WidgetQuote,
-  stats?: WidgetStats
+  stats?: WidgetStats,
+  extraData?: { totalCompleted?: number; plansComplete?: number; completionRate?: number }
 ): Promise<boolean> {
   if (!isNative()) {
     console.log('[WIDGET] Widgets only available on native platforms');
@@ -74,6 +78,9 @@ export async function updateWidgetData(
 
   const data: WidgetData = {
     streakCount,
+    totalCompleted: extraData?.totalCompleted ?? 0,
+    plansComplete: extraData?.plansComplete ?? 0,
+    completionRate: extraData?.completionRate ?? stats?.completionRate ?? 0,
     tasks: tasks.slice(0, MAX_WIDGET_TASKS), // Widgets only show limited tasks
     quote,
     stats,
@@ -201,7 +208,8 @@ export async function syncWidgetWithApp(
   streakCount: number,
   allTasks: any[],
   quote?: WidgetQuote,
-  stats?: WidgetStats
+  stats?: WidgetStats,
+  extraData?: { totalCompleted?: number; plansComplete?: number; completionRate?: number }
 ): Promise<boolean> {
   // Filter to incomplete, non-skipped tasks
   const incompleteTasks: WidgetTask[] = allTasks
@@ -214,7 +222,7 @@ export async function syncWidgetWithApp(
       dueDate: task.dueDate,
     }));
 
-  return await updateWidgetData(streakCount, incompleteTasks, quote, stats);
+  return await updateWidgetData(streakCount, incompleteTasks, quote, stats, extraData);
 }
 
 /**

@@ -13,6 +13,8 @@ interface ProgressData {
   weeklyStreak: number;
   totalCompleted: number;
   completionRate: number;
+  plansComplete: number;
+  totalPlans: number;
   categories: { name: string; completed: number; total: number; }[];
   recentAchievements: string[];
   pendingTasks?: Array<{
@@ -34,23 +36,28 @@ export default function ProgressDashboard({ data }: ProgressDashboardProps) {
       if (!isNative()) return;
 
       try {
-        // Update widget with progress data
-        await updateWidgetData({
-          streakCount: data.weeklyStreak,
-          stats: {
+        // Update widget with progress data — matches Reports page summary cards
+        const tasks = (data.pendingTasks || []).slice(0, 5).map(task => ({
+          id: task.id,
+          title: task.title,
+          completed: false,
+          dueDate: task.dueDate,
+        }));
+        await updateWidgetData(
+          data.weeklyStreak,
+          tasks,
+          undefined,
+          {
+            totalActivities: data.totalPlans || 0,
             completedToday: data.completedToday,
-            totalToday: data.totalToday,
             completionRate: data.completionRate,
           },
-          tasks: (data.pendingTasks || []).slice(0, 5).map(task => ({
-            id: task.id,
-            title: task.title,
-            dueDate: task.dueDate,
-            priority: task.priority as 'low' | 'medium' | 'high' | undefined,
-          })),
-          lastUpdated: new Date().toISOString(),
-          version: 1,
-        });
+          {
+            totalCompleted: data.totalCompleted,
+            plansComplete: data.plansComplete || 0,
+            completionRate: data.completionRate,
+          }
+        );
         console.log('[WIDGET] Progress dashboard synced to widget');
       } catch (error) {
         console.log('[WIDGET] Failed to sync progress to widget:', error);

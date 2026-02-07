@@ -347,9 +347,11 @@ public class BackgroundServicePlugin extends Plugin {
         int totalCompleted = call.getInt("totalCompleted", 0);
         int completionRate = call.getInt("completionRate", 0);
         int unreadNotifications = call.getInt("unreadNotifications", 0);
+        int plansComplete = call.getInt("plansComplete", 0);
+        int totalPlans = call.getInt("totalPlans", 0);
 
-        Log.d(TAG, "Updating widget data cache: tasks=" + tasksCompleted + "/" + tasksTotal +
-              ", streak=" + streak + ", total=" + totalCompleted + ", notifications=" + unreadNotifications);
+        Log.d(TAG, "Updating widget data cache: streak=" + streak + ", tasks=" + totalCompleted +
+              ", plans=" + plansComplete + ", rate=" + completionRate + "%");
 
         try {
             // Write directly to widget cache (same prefs the widget reads from)
@@ -362,6 +364,8 @@ public class BackgroundServicePlugin extends Plugin {
                 .putInt("totalCompleted", totalCompleted)
                 .putInt("completionRate", completionRate)
                 .putInt("unreadNotifications", unreadNotifications)
+                .putInt("plansComplete", plansComplete)
+                .putInt("totalPlans", totalPlans)
                 .putLong("lastFetchTime", System.currentTimeMillis())
                 .apply();
 

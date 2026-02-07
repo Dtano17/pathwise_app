@@ -62,14 +62,13 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
         int streak = prefs.getInt("streak", 0);
         int totalCompleted = prefs.getInt("totalCompleted", 0);
         int completionRate = prefs.getInt("completionRate", 0);
-        int unreadNotifications = prefs.getInt("unreadNotifications", 0);
+        int plansComplete = prefs.getInt("plansComplete", 0);
         long lastFetchTime = prefs.getLong("lastFetchTime", 0);
 
-        // Update views with cached data
+        // Update views with cached data — matches Reports page summary cards
         updateWidgetViews(context, views,
-            tasksCompleted, tasksTotal,
             streak, totalCompleted,
-            completionRate, unreadNotifications);
+            plansComplete, completionRate);
 
         // Set click listener to open app at Progress Dashboard
         Intent intent = new Intent(context, MainActivity.class);
@@ -98,16 +97,15 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
     }
 
     protected void updateWidgetViews(Context context, RemoteViews views,
-            int tasksCompleted, int tasksTotal,
             int streak, int totalCompleted,
-            int completionRate, int unreadNotifications) {
-        // Update 4 metrics in 2x2 grid matching Progress Dashboard
-        // Row 1: Tasks (blue), Streak (green)
-        // Row 2: Total (pink), Notifications (orange)
-        views.setTextViewText(R.id.widget_tasks_count, tasksCompleted + "/" + tasksTotal);
-        views.setTextViewText(R.id.widget_streak_count, String.valueOf(streak));
-        views.setTextViewText(R.id.widget_total_count, String.valueOf(totalCompleted));
-        views.setTextViewText(R.id.widget_notifications_count, String.valueOf(unreadNotifications));
+            int plansComplete, int completionRate) {
+        // Update 4 metrics matching Reports page summary cards exactly:
+        // Row 1: Day Streak (orange), Tasks Done (green)
+        // Row 2: Plans Complete (blue), Completion Rate (purple)
+        views.setTextViewText(R.id.widget_tasks_count, String.valueOf(streak));
+        views.setTextViewText(R.id.widget_streak_count, String.valueOf(totalCompleted));
+        views.setTextViewText(R.id.widget_total_count, String.valueOf(plansComplete));
+        views.setTextViewText(R.id.widget_notifications_count, completionRate + "%");
     }
 
     protected void fetchWidgetData(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
@@ -163,13 +161,14 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
 
                     JSONObject json = new JSONObject(response.toString());
 
-                    // Parse API response - matches Progress Dashboard exactly
+                    // Parse API response - matches Reports page summary cards
                     int tasksCompleted = json.optInt("tasksCompleted", 0);
                     int tasksTotal = json.optInt("tasksTotal", 0);
                     int streak = json.optInt("streak", 0);
                     int totalCompleted = json.optInt("totalCompleted", 0);
                     int completionRate = json.optInt("completionRate", 0);
-                    int unreadNotifications = json.optInt("unreadNotifications", 0);
+                    int plansComplete = json.optInt("plansComplete", 0);
+                    int totalPlans = json.optInt("totalPlans", 0);
 
                     // Cache the data
                     SharedPreferences widgetPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -179,7 +178,8 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
                         .putInt("streak", streak)
                         .putInt("totalCompleted", totalCompleted)
                         .putInt("completionRate", completionRate)
-                        .putInt("unreadNotifications", unreadNotifications)
+                        .putInt("plansComplete", plansComplete)
+                        .putInt("totalPlans", totalPlans)
                         .putLong("lastFetchTime", System.currentTimeMillis())
                         .apply();
 
@@ -187,9 +187,8 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
                     mainHandler.post(() -> {
                         RemoteViews views = new RemoteViews(context.getPackageName(), getLayoutId());
                         updateWidgetViews(context, views,
-                            tasksCompleted, tasksTotal,
                             streak, totalCompleted,
-                            completionRate, unreadNotifications);
+                            plansComplete, completionRate);
 
                         // Re-set click listener to open Progress Dashboard
                         Intent intent = new Intent(context, MainActivity.class);
@@ -202,9 +201,9 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
                         views.setOnClickPendingIntent(R.id.widget_container, pendingIntent);
 
                         appWidgetManager.updateAppWidget(appWidgetId, views);
-                        Log.d(TAG, "Widget updated with fresh data: tasks=" + tasksCompleted + "/" + tasksTotal +
-                              ", streak=" + streak + ", total=" + totalCompleted +
-                              ", rate=" + completionRate + "%, notifications=" + unreadNotifications);
+                        Log.d(TAG, "Widget updated with fresh data: streak=" + streak +
+                              ", tasks=" + totalCompleted + ", plans=" + plansComplete +
+                              ", rate=" + completionRate + "%");
                     });
                 } else {
                     Log.e(TAG, "API returned error: " + responseCode);

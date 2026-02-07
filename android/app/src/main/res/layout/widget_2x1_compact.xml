@@ -33,7 +33,7 @@
             android:contentDescription="JournalMate" />
     </FrameLayout>
 
-    <!-- Data Row: Goals, Tasks, Activities, Groups -->
+    <!-- Data Row: Streak, Tasks Done, Plans, Rate -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_weight="1"
@@ -41,32 +41,7 @@
         android:orientation="horizontal"
         android:gravity="center">
 
-        <!-- Goals -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
-
-            <ImageView
-                android:layout_width="14dp"
-                android:layout_height="14dp"
-                android:src="@drawable/ic_widget_goals"
-                android:contentDescription="Goals" />
-
-            <TextView
-                android:id="@+id/widget_goals_count"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="3dp"
-                android:text="0"
-                android:textColor="#10b981"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- Tasks -->
+        <!-- Day Streak -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_weight="1"
@@ -78,7 +53,7 @@
                 android:layout_width="14dp"
                 android:layout_height="14dp"
                 android:src="@drawable/ic_widget_tasks"
-                android:contentDescription="Tasks" />
+                android:contentDescription="Streak" />
 
             <TextView
                 android:id="@+id/widget_tasks_count"
@@ -86,12 +61,37 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="3dp"
                 android:text="0"
-                android:textColor="#3b82f6"
+                android:textColor="#f97316"
                 android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Activities -->
+        <!-- Tasks Done -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:src="@drawable/ic_widget_goals"
+                android:contentDescription="Tasks Done" />
+
+            <TextView
+                android:id="@+id/widget_streak_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="3dp"
+                android:text="0"
+                android:textColor="#10b981"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Plans Complete -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_weight="1"
@@ -103,20 +103,20 @@
                 android:layout_width="14dp"
                 android:layout_height="14dp"
                 android:src="@drawable/ic_widget_activities"
-                android:contentDescription="Activities" />
+                android:contentDescription="Plans" />
 
             <TextView
-                android:id="@+id/widget_activities_count"
+                android:id="@+id/widget_total_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="3dp"
                 android:text="0"
-                android:textColor="#f472b6"
+                android:textColor="#3b82f6"
                 android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Groups -->
+        <!-- Completion Rate -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_weight="1"
@@ -128,15 +128,15 @@
                 android:layout_width="14dp"
                 android:layout_height="14dp"
                 android:src="@drawable/ic_widget_groups"
-                android:contentDescription="Groups" />
+                android:contentDescription="Rate" />
 
             <TextView
-                android:id="@+id/widget_groups_count"
+                android:id="@+id/widget_notifications_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="3dp"
-                android:text="0"
-                android:textColor="#f59e0b"
+                android:text="0%"
+                android:textColor="#a855f7"
                 android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>

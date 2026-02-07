@@ -30,8 +30,9 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { isNative } from '@/lib/platform';
+import { isNative, isIOS } from '@/lib/platform';
 import { updateWidgetData } from '@/lib/backgroundService';
+import { updateWidgetData as updateIOSWidgetData } from '@/lib/widgetManager';
 import EndOfDayReview from '@/components/EndOfDayReview';
 
 // Types
@@ -286,14 +287,36 @@ export default function ReportsPage() {
 
     const syncToWidget = async () => {
       try {
+        // Android widget sync via BackgroundServicePlugin
         await updateWidgetData({
           tasksCompleted: reportsData.widgetData.completedToday,
           tasksTotal: reportsData.widgetData.totalToday,
           streak: reportsData.widgetData.streakCount,
           totalCompleted: reportsData.widgetData.totalCompleted || 0,
           completionRate: reportsData.widgetData.completionRate,
+          plansComplete: reportsData.summary?.completedActivities || 0,
+          totalPlans: reportsData.summary?.totalActivities || 0,
           unreadNotifications: 0,
         });
+
+        // iOS widget sync via WidgetDataPlugin (App Group)
+        if (isIOS()) {
+          await updateIOSWidgetData(
+            reportsData.widgetData.streakCount,
+            [],
+            undefined,
+            {
+              totalActivities: reportsData.summary?.totalActivities || 0,
+              completedToday: reportsData.widgetData.completedToday,
+              completionRate: reportsData.widgetData.completionRate,
+            },
+            {
+              totalCompleted: reportsData.widgetData.totalCompleted || 0,
+              plansComplete: reportsData.summary?.completedActivities || 0,
+              completionRate: reportsData.widgetData.completionRate,
+            }
+          );
+        }
       } catch (err) {
         console.log('[REPORTS] Failed to sync widget:', err);
       }
