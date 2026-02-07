@@ -2279,6 +2279,8 @@ export const journalEnrichmentCache = pgTable("journal_enrichment_cache", {
   verified: boolean("verified").default(false), // Whether the source was authoritative (TMDB, Spotify, etc.)
   enrichmentSource: varchar("enrichment_source", { length: 50 }), // 'tmdb' | 'tavily' | 'spotify' | 'google_books' | 'placeholder'
   isComingSoon: boolean("is_coming_soon").default(false), // True if using placeholder for unreleased content
+  tmdbId: integer("tmdb_id"), // TMDB ID for deduplication and verified entry tracking
+  mediaType: varchar("media_type", { length: 10 }), // 'movie' | 'tv'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({

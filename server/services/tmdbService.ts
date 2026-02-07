@@ -752,7 +752,7 @@ Respond ONLY with valid JSON (no explanation):
    * @param yearHint - Optional year hint from batch context (e.g., "2024 movies" batch)
    *                   This helps filter results when the same title exists across multiple years
    */
-  async searchMovie(query: string, yearHint?: number | null): Promise<TMDBSearchResult | null> {
+  async searchMovie(query: string, yearHint?: number | null, skipCleaning: boolean = false): Promise<TMDBSearchResult | null> {
     if (!this.apiKey) {
       console.warn('[TMDB] Cannot search - no API key configured');
       return null;
@@ -760,13 +760,13 @@ Respond ONLY with valid JSON (no explanation):
 
     try {
       // CRITICAL: If query looks like a TV show, skip movie search entirely
-      if (this.isTVShowQuery(query)) {
+      if (!skipCleaning && this.isTVShowQuery(query)) {
         console.log(`[TMDB] Query "${query}" looks like a TV show - skipping movie search`);
         const coreName = this.extractCoreName(query);
         return await this.searchTV(coreName, null);
       }
 
-      const cleanQuery = this.extractMovieTitle(query);
+      const cleanQuery = skipCleaning ? query : this.extractMovieTitle(query);
 
       // Extract year from query for more accurate matching
       const { title: titleWithoutYear, year: extractedYear } = this.extractYearFromQuery(cleanQuery);
@@ -1029,11 +1029,11 @@ Respond ONLY with valid JSON (no explanation):
     }
   }
 
-  async searchTV(query: string, targetYear: number | null = null): Promise<TMDBSearchResult | null> {
+  async searchTV(query: string, targetYear: number | null = null, skipCleaning: boolean = false): Promise<TMDBSearchResult | null> {
     if (!this.apiKey) return null;
 
     try {
-      const cleanQuery = this.extractMovieTitle(query);
+      const cleanQuery = skipCleaning ? query : this.extractMovieTitle(query);
 
       // Extract year if not provided
       let searchYear = targetYear;

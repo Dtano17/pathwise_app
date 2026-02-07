@@ -330,23 +330,23 @@ export default function ReportsPage() {
   const isLoading = progressLoading;
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="space-y-4 sm:space-y-6 px-2 py-3 sm:p-4 md:p-6">
       {/* Header with Time Range Filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <BarChart3 className="w-6 h-6 text-primary" />
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg shrink-0">
+            <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
           </div>
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">Reports & Progress</h2>
-            <p className="text-sm text-muted-foreground">Track your achievements and activity</p>
+          <div className="min-w-0">
+            <h2 className="text-lg sm:text-2xl font-bold text-foreground truncate">Reports & Progress</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">Track your achievements and activity</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-[140px]">
-              <Calendar className="w-4 h-4 mr-2" />
+            <SelectTrigger className="w-[110px] sm:w-[140px] h-8 sm:h-9 text-xs sm:text-sm">
+              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               <SelectValue placeholder="Time range" />
             </SelectTrigger>
             <SelectContent>
@@ -361,38 +361,38 @@ export default function ReportsPage() {
             variant="outline"
             size="sm"
             onClick={() => setShowEndOfDayReview(true)}
-            className="gap-2"
+            className="gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3"
           >
-            <Moon className="w-4 h-4" />
+            <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Daily Review</span>
           </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
-          <TabsTrigger value="overview" className="gap-2">
-            <TrendingUp className="w-4 h-4" />
+      <Tabs defaultValue="overview" className="space-y-4 sm:space-y-6">
+        <TabsList className="grid w-full grid-cols-4 h-9 sm:h-10">
+          <TabsTrigger value="overview" className="gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+            <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Overview</span>
           </TabsTrigger>
-          <TabsTrigger value="activities" className="gap-2">
-            <Target className="w-4 h-4" />
+          <TabsTrigger value="activities" className="gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+            <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Activities</span>
           </TabsTrigger>
-          <TabsTrigger value="achievements" className="gap-2">
-            <Trophy className="w-4 h-4" />
+          <TabsTrigger value="achievements" className="gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+            <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Badges</span>
           </TabsTrigger>
-          <TabsTrigger value="insights" className="gap-2">
-            <Sparkles className="w-4 h-4" />
+          <TabsTrigger value="insights" className="gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Insights</span>
           </TabsTrigger>
         </TabsList>
 
         {/* ==================== OVERVIEW TAB ==================== */}
-        <TabsContent value="overview" className="space-y-6">
+        <TabsContent value="overview" className="space-y-4 sm:space-y-6">
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
             {isLoading ? (
               <>
                 <SummaryCardSkeleton />
@@ -408,11 +408,11 @@ export default function ReportsPage() {
                   transition={{ duration: 0.3 }}
                 >
                   <Card className="hover-elevate overflow-hidden">
-                    <CardContent className="p-4 text-center relative">
+                    <CardContent className="p-3 sm:p-4 text-center relative">
                       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 to-red-500" />
-                      <Flame className="w-8 h-8 text-orange-500 mx-auto mb-2" />
-                      <div className="text-3xl font-bold text-orange-500">{progressData?.currentStreak || 0}</div>
-                      <div className="text-xs text-muted-foreground">Day Streak</div>
+                      <Flame className="w-6 h-6 sm:w-8 sm:h-8 text-orange-500 mx-auto mb-1 sm:mb-2" />
+                      <div className="text-2xl sm:text-3xl font-bold text-orange-500">{progressData?.currentStreak || 0}</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">Day Streak</div>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -423,11 +423,11 @@ export default function ReportsPage() {
                   transition={{ duration: 0.3, delay: 0.1 }}
                 >
                   <Card className="hover-elevate overflow-hidden">
-                    <CardContent className="p-4 text-center relative">
+                    <CardContent className="p-3 sm:p-4 text-center relative">
                       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-400 to-emerald-500" />
-                      <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                      <div className="text-3xl font-bold text-green-500">{progressData?.completedTasks || 0}</div>
-                      <div className="text-xs text-muted-foreground">Tasks Done</div>
+                      <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-500 mx-auto mb-1 sm:mb-2" />
+                      <div className="text-2xl sm:text-3xl font-bold text-green-500">{progressData?.completedTasks || 0}</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">Tasks Done</div>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -438,11 +438,11 @@ export default function ReportsPage() {
                   transition={{ duration: 0.3, delay: 0.2 }}
                 >
                   <Card className="hover-elevate overflow-hidden">
-                    <CardContent className="p-4 text-center relative">
+                    <CardContent className="p-3 sm:p-4 text-center relative">
                       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-indigo-500" />
-                      <Target className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                      <div className="text-3xl font-bold text-blue-500">{progressData?.completedActivities || 0}</div>
-                      <div className="text-xs text-muted-foreground">Plans Complete</div>
+                      <Target className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500 mx-auto mb-1 sm:mb-2" />
+                      <div className="text-2xl sm:text-3xl font-bold text-blue-500">{progressData?.completedActivities || 0}</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">Plans Complete</div>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -453,11 +453,11 @@ export default function ReportsPage() {
                   transition={{ duration: 0.3, delay: 0.3 }}
                 >
                   <Card className="hover-elevate overflow-hidden">
-                    <CardContent className="p-4 text-center relative">
+                    <CardContent className="p-3 sm:p-4 text-center relative">
                       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-400 to-pink-500" />
-                      <Zap className="w-8 h-8 text-primary mx-auto mb-2" />
-                      <div className="text-3xl font-bold text-primary">{progressData?.taskCompletionRate || 0}%</div>
-                      <div className="text-xs text-muted-foreground">Completion Rate</div>
+                      <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-primary mx-auto mb-1 sm:mb-2" />
+                      <div className="text-2xl sm:text-3xl font-bold text-primary">{progressData?.taskCompletionRate || 0}%</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">Completion Rate</div>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -554,10 +554,10 @@ export default function ReportsPage() {
           {/* Category Breakdown with Filter */}
           <Card>
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                    <BarChart3 className="w-5 h-5 text-primary" />
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
+                    <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0" />
                     Progress by Category
                   </CardTitle>
                   <CardDescription className="text-xs sm:text-sm">
@@ -566,7 +566,7 @@ export default function ReportsPage() {
                 </div>
                 {categories.length > 0 && (
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="w-[130px]">
+                    <SelectTrigger className="w-[100px] sm:w-[130px] h-8 sm:h-9 text-xs sm:text-sm shrink-0">
                       <Filter className="w-3 h-3 mr-1" />
                       <SelectValue placeholder="Filter" />
                     </SelectTrigger>
@@ -584,18 +584,18 @@ export default function ReportsPage() {
               {isLoading ? (
                 <CategorySkeleton />
               ) : filteredCategoryStats.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {filteredCategoryStats.map((cat, idx) => (
                     <motion.div
                       key={cat.name}
-                      className="space-y-2"
+                      className="space-y-1.5 sm:space-y-2"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: idx * 0.05 }}
                     >
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium capitalize">{cat.name}</span>
-                        <span className="text-muted-foreground">
+                      <div className="flex items-center justify-between text-xs sm:text-sm">
+                        <span className="font-medium capitalize truncate mr-2">{cat.name}</span>
+                        <span className="text-muted-foreground whitespace-nowrap">
                           {cat.completed}/{cat.total} ({cat.percentage}%)
                         </span>
                       </div>
@@ -653,10 +653,10 @@ export default function ReportsPage() {
         <TabsContent value="activities" className="space-y-4">
           <Card>
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                    <Target className="w-5 h-5 text-primary" />
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <CardTitle className="flex items-center gap-2 text-sm sm:text-lg">
+                    <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0" />
                     Activity Progress
                   </CardTitle>
                   <CardDescription className="text-xs sm:text-sm">
@@ -665,7 +665,7 @@ export default function ReportsPage() {
                 </div>
                 {categories.length > 0 && (
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="w-[130px]">
+                    <SelectTrigger className="w-[100px] sm:w-[130px] h-8 sm:h-9 text-xs sm:text-sm shrink-0">
                       <Filter className="w-3 h-3 mr-1" />
                       <SelectValue placeholder="Filter" />
                     </SelectTrigger>
@@ -680,7 +680,7 @@ export default function ReportsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[450px] pr-4">
+              <ScrollArea className="h-[350px] sm:h-[450px] pr-2 sm:pr-4">
                 {activitiesLoading ? (
                   <ActivitySkeleton />
                 ) : filteredActivities.length === 0 ? (
@@ -692,23 +692,23 @@ export default function ReportsPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {filteredActivities.map((activity, idx) => (
                       <motion.div
                         key={activity.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.03 }}
-                        className={`p-4 rounded-lg border transition-all hover:shadow-md ${
+                        className={`p-3 sm:p-4 rounded-lg border transition-all hover:shadow-md ${
                           activity.isComplete
                             ? 'bg-green-500/5 border-green-500/30'
                             : 'bg-card border-border hover:border-primary/30'
                         }`}
                       >
-                        <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-semibold truncate">{activity.title}</h4>
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                              <h4 className="font-semibold text-sm sm:text-base truncate">{activity.title}</h4>
                               {activity.isComplete && (
                                 <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
                               )}
@@ -757,21 +757,21 @@ export default function ReportsPage() {
         </TabsContent>
 
         {/* ==================== ACHIEVEMENTS TAB ==================== */}
-        <TabsContent value="achievements" className="space-y-6">
+        <TabsContent value="achievements" className="space-y-4 sm:space-y-6">
           {/* Achievement Stats */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
               <Card className="hover-elevate overflow-hidden">
-                <CardContent className="p-4 text-center relative">
+                <CardContent className="p-3 sm:p-4 text-center relative">
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 to-amber-500" />
-                  <Trophy className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-                  <div className="text-3xl font-bold text-yellow-500">
+                  <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500 mx-auto mb-1 sm:mb-2" />
+                  <div className="text-2xl sm:text-3xl font-bold text-yellow-500">
                     {achievementsData?.totalUnlocked || 0}
                   </div>
-                  <div className="text-xs text-muted-foreground">Badges Earned</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground">Badges Earned</div>
                 </CardContent>
               </Card>
             </motion.div>
@@ -781,13 +781,13 @@ export default function ReportsPage() {
               transition={{ delay: 0.1 }}
             >
               <Card className="hover-elevate overflow-hidden">
-                <CardContent className="p-4 text-center relative">
+                <CardContent className="p-3 sm:p-4 text-center relative">
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-gray-400 to-gray-500" />
-                  <Medal className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <div className="text-3xl font-bold text-gray-400">
+                  <Medal className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mx-auto mb-1 sm:mb-2" />
+                  <div className="text-2xl sm:text-3xl font-bold text-gray-400">
                     {(achievementsData?.totalBadges || 0) - (achievementsData?.totalUnlocked || 0)}
                   </div>
-                  <div className="text-xs text-muted-foreground">To Unlock</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground">To Unlock</div>
                 </CardContent>
               </Card>
             </motion.div>
@@ -891,7 +891,7 @@ export default function ReportsPage() {
         </TabsContent>
 
         {/* ==================== INSIGHTS TAB ==================== */}
-        <TabsContent value="insights" className="space-y-6">
+        <TabsContent value="insights" className="space-y-4 sm:space-y-6">
           {/* Milestones */}
           <Card>
             <CardHeader className="pb-2">
@@ -993,22 +993,22 @@ export default function ReportsPage() {
 
           {/* Daily Review CTA */}
           <Card className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border-purple-500/30">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-purple-500/20 rounded-full">
-                    <Moon className="w-6 h-6 text-purple-500" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                  <div className="p-2.5 sm:p-3 bg-purple-500/20 rounded-full shrink-0">
+                    <Moon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-500" />
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">End of Day Review</h3>
-                    <p className="text-sm text-muted-foreground">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-base sm:text-lg">End of Day Review</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Reflect on your completed tasks with a quick swipe review
                     </p>
                   </div>
                 </div>
                 <Button
                   onClick={() => setShowEndOfDayReview(true)}
-                  className="gap-2"
+                  className="gap-2 w-full sm:w-auto shrink-0"
                 >
                   Start Review
                   <ChevronRight className="w-4 h-4" />

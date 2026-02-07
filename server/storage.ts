@@ -4730,6 +4730,8 @@ export class DatabaseStorage implements IStorage {
           verified: data.verified,
           enrichmentSource: data.enrichmentSource,
           isComingSoon: data.isComingSoon,
+          tmdbId: data.tmdbId,
+          mediaType: data.mediaType,
           updatedAt: new Date(),
         },
       })

@@ -1098,12 +1098,22 @@ Respond with ONLY a JSON object in this format:
             await storage.deleteJournalEnrichmentCache(cacheKey);
             console.log(`[JOURNAL_WEB_ENRICH] REVALIDATE: Clearing verified entry for re-check: "${venueName}" (was tmdbId: ${dbCached.tmdbId})`);
           } else if (forceRefresh) {
-            if (dbCached.verified && dbCached.enrichmentSource === 'tmdb' && !dbCached.isComingSoon) {
-              // This is a verified TMDB entry - keep it, don't re-fetch (unless forceRevalidate)
-              const enrichedData = dbCached.enrichedData as WebEnrichedData;
+            const enrichedData = dbCached.enrichedData as WebEnrichedData;
+            const hasValidImage = enrichedData.primaryImageUrl &&
+              !enrichedData.primaryImageUrl.includes('coming-soon') &&
+              !enrichedData.primaryImageUrl.includes('placeholder');
+            const hasTmdbId = !!dbCached.tmdbId;
+
+            if (dbCached.verified && dbCached.enrichmentSource === 'tmdb' && !dbCached.isComingSoon && hasTmdbId && hasValidImage) {
+              // Fully-populated verified TMDB entry — keep it
               this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
               console.log(`[JOURNAL_WEB_ENRICH] SKIP refresh for verified TMDB entry: "${venueName}" (tmdbId: ${dbCached.tmdbId})`);
               return { entryId: entry.id, success: true, enrichedData };
+            } else if (dbCached.verified && dbCached.enrichmentSource === 'tmdb' && !dbCached.isComingSoon) {
+              // Stale verified entry — missing tmdbId or image, re-enrich
+              this.cache.delete(cacheKey);
+              await storage.deleteJournalEnrichmentCache(cacheKey);
+              console.log(`[JOURNAL_WEB_ENRICH] Clearing STALE verified TMDB entry for refresh: "${venueName}" (tmdbId: ${dbCached.tmdbId}, hasImage: ${hasValidImage})`);
             } else {
               // Unverified or Coming Soon - clear cache and re-enrich
               this.cache.delete(cacheKey);
@@ -1113,9 +1123,21 @@ Respond with ONLY a JSON object in this format:
           } else {
             // Normal cache hit (no force refresh)
             const enrichedData = dbCached.enrichedData as WebEnrichedData;
-            this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
-            console.log(`[JOURNAL_WEB_ENRICH] DB cache hit for "${venueName}" (source: ${dbCached.enrichmentSource}, verified: ${dbCached.verified})`);
-            return { entryId: entry.id, success: true, enrichedData };
+            const hasValidImage = enrichedData.primaryImageUrl &&
+              !enrichedData.primaryImageUrl.includes('coming-soon') &&
+              !enrichedData.primaryImageUrl.includes('placeholder');
+
+            if (dbCached.enrichmentSource === 'tmdb' && !hasValidImage) {
+              // TMDB entry without a poster — stale, re-enrich
+              console.log(`[JOURNAL_WEB_ENRICH] DB cache hit but missing poster for "${venueName}", re-enriching...`);
+              this.cache.delete(cacheKey);
+              await storage.deleteJournalEnrichmentCache(cacheKey);
+              // Fall through to fresh enrichment
+            } else {
+              this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+              console.log(`[JOURNAL_WEB_ENRICH] DB cache hit for "${venueName}" (source: ${dbCached.enrichmentSource}, verified: ${dbCached.verified})`);
+              return { entryId: entry.id, success: true, enrichedData };
+            }
           }
         }
       } catch (dbError) {
@@ -1215,20 +1237,21 @@ Respond with ONLY a JSON object in this format:
 
         // Use Google's mediaType hint to search the right type first
         const googleMediaType = standardized?.mediaType;
+        const isGoogleStandardized = !!standardized?.officialName;
         let tmdbResult: TMDBSearchResult | null = null;
 
         if (googleMediaType === 'tv') {
           // Google says it's a TV show — search TV first, fall back to movie
-          tmdbResult = validation.tmdbResult || await tmdbService.searchTV(searchTitle, yearHint);
+          tmdbResult = validation.tmdbResult || await tmdbService.searchTV(searchTitle, yearHint, isGoogleStandardized);
           if (!tmdbResult) {
-            tmdbResult = await tmdbService.searchMovie(searchTitle, yearHint);
+            tmdbResult = await tmdbService.searchMovie(searchTitle, yearHint, isGoogleStandardized);
           }
         } else {
           // Default: search movie first, fall back to TV
-          tmdbResult = validation.tmdbResult || await tmdbService.searchMovie(searchTitle, yearHint);
+          tmdbResult = validation.tmdbResult || await tmdbService.searchMovie(searchTitle, yearHint, isGoogleStandardized);
           if (!tmdbResult) {
             console.log(`[JOURNAL_WEB_ENRICH] Movie search failed for "${searchTitle}", trying TV search...`);
-            tmdbResult = await tmdbService.searchTV(searchTitle, yearHint);
+            tmdbResult = await tmdbService.searchTV(searchTitle, yearHint, isGoogleStandardized);
           }
         }
 
@@ -1237,8 +1260,21 @@ Respond with ONLY a JSON object in this format:
           const tvSignals = /\b(series|season|episode|tv\s*show|netflix|hbo|amazon|hulu|apple\s*tv|streaming|miniseries)\b/i;
           if (tvSignals.test(entry.text) || tvSignals.test(aiRecommendation.searchQuery || '')) {
             console.log(`[JOURNAL_WEB_ENRICH] TV signals detected in text, trying TV search for "${searchTitle}"...`);
-            tmdbResult = await tmdbService.searchTV(searchTitle, yearHint);
+            tmdbResult = await tmdbService.searchTV(searchTitle, yearHint, isGoogleStandardized);
           }
+        }
+
+        // FALLBACK: Try original raw venue name if Google-standardized name failed TMDB
+        if (!tmdbResult && isGoogleStandardized && standardized.officialName !== venueName) {
+          console.log(`[JOURNAL_WEB_ENRICH] Google name failed TMDB, trying raw: "${venueName}"`);
+          if (googleMediaType === 'tv') {
+            tmdbResult = await tmdbService.searchTV(venueName, yearHint);
+            if (!tmdbResult) tmdbResult = await tmdbService.searchMovie(venueName, yearHint);
+          } else {
+            tmdbResult = await tmdbService.searchMovie(venueName, yearHint);
+            if (!tmdbResult) tmdbResult = await tmdbService.searchTV(venueName, yearHint);
+          }
+          if (tmdbResult) console.log(`[JOURNAL_WEB_ENRICH] Raw name fallback succeeded: "${venueName}" → "${tmdbResult.title}"`);
         }
 
         // YEAR VALIDATION: If batch context has yearRange, validate the result year
