@@ -241,6 +241,8 @@ export default function ReportsPage() {
       if (!res.ok) throw new Error('Failed to fetch progress data');
       return res.json();
     },
+    staleTime: 0,
+    refetchOnMount: "always",
     refetchInterval: 30000,
   });
 
@@ -261,6 +263,8 @@ export default function ReportsPage() {
       });
       return data;
     },
+    staleTime: 0,
+    refetchOnMount: "always",
     refetchInterval: 30000,
   });
 

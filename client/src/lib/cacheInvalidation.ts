@@ -20,6 +20,8 @@ export async function invalidateActivitiesCache() {
     queryClient.invalidateQueries({ queryKey: CACHE_KEYS.ACTIVITIES_RECENT }),
     queryClient.invalidateQueries({ queryKey: CACHE_KEYS.TASKS }),
     queryClient.invalidateQueries({ queryKey: CACHE_KEYS.PROGRESS }),
+    queryClient.invalidateQueries({ queryKey: CACHE_KEYS.PROGRESS_STATS }),
+    queryClient.invalidateQueries({ queryKey: CACHE_KEYS.REPORTS }),
   ]);
 }
 

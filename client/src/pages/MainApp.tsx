@@ -880,6 +880,8 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
     },
     onError: (error: any) => {
       toast({
@@ -1343,6 +1345,8 @@ export default function MainApp({
     onSuccess: async (data: any, variables: string) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
 
       // Add the new user input to conversation history
@@ -1584,6 +1588,8 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
       // Update Android widget cache with fresh progress, then refresh display
       try {
         const freshProgress = await queryClient.fetchQuery<ProgressData>({ queryKey: ["/api/progress"] });
@@ -1641,6 +1647,8 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
       // Update Android widget cache with fresh progress, then refresh display
       try {
         const freshProgress = await queryClient.fetchQuery<ProgressData>({ queryKey: ["/api/progress"] });
@@ -1695,6 +1703,8 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
       // Update Android widget cache with fresh progress, then refresh display
       try {
         const freshProgress = await queryClient.fetchQuery<ProgressData>({ queryKey: ["/api/progress"] });
@@ -1763,6 +1773,8 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
       // Update Android widget cache with fresh progress, then refresh display
       try {
         const freshProgress = await queryClient.fetchQuery<ProgressData>({ queryKey: ["/api/progress"] });
@@ -1803,6 +1815,8 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/chat/imports"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
       toast({
         title: "Chat Imported Successfully!",
         description:
@@ -2031,6 +2045,8 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
 
       if (data.mode === "update") {
         console.log("✅ Activity updated with ID:", data.id);

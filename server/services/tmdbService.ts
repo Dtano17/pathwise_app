@@ -1731,4 +1731,56 @@ Respond ONLY with valid JSON (no explanation):
   }
 }
 
+  /**
+   * Get streaming/watch providers for a movie or TV show from TMDB.
+   * Returns where a title can be streamed, rented, or purchased.
+   * Data powered by JustWatch - free TMDB API call.
+   */
+  async getWatchProviders(tmdbId: number, mediaType: 'movie' | 'tv', region: string = 'US'): Promise<WatchProvidersResult | null> {
+    if (!this.apiKey) return null;
+
+    try {
+      const url = `${TMDB_BASE_URL}/${mediaType}/${tmdbId}/watch/providers?api_key=${this.apiKey}`;
+      const response = await fetch(url);
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      const regionData = data.results?.[region];
+      if (!regionData) return null;
+
+      const mapProviders = (providers: any[] | undefined, type: 'stream' | 'rent' | 'buy'): WatchProvider[] => {
+        if (!providers) return [];
+        return providers.map((p: any) => ({
+          providerName: p.provider_name,
+          logoUrl: p.logo_path ? `${TMDB_IMAGE_BASE_URL}/w92${p.logo_path}` : undefined,
+          type,
+        }));
+      };
+
+      return {
+        link: regionData.link || null, // JustWatch deep link
+        stream: mapProviders(regionData.flatrate, 'stream'),
+        rent: mapProviders(regionData.rent, 'rent'),
+        buy: mapProviders(regionData.buy, 'buy'),
+      };
+    } catch (error) {
+      console.error('[TMDB] Watch providers error:', error);
+      return null;
+    }
+  }
+}
+
+export interface WatchProvider {
+  providerName: string;
+  logoUrl?: string;
+  type: 'stream' | 'rent' | 'buy';
+}
+
+export interface WatchProvidersResult {
+  link: string | null; // JustWatch deep link for this title
+  stream: WatchProvider[];
+  rent: WatchProvider[];
+  buy: WatchProvider[];
+}
+
 export const tmdbService = new TMDBService();

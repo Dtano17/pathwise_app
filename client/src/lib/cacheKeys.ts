@@ -11,6 +11,8 @@ export const CACHE_KEYS = {
   ACTIVITIES_RECENT: ['/api/activities/recent'] as const,
   TASKS: ['/api/tasks'] as const,
   PROGRESS: ['/api/progress'] as const,
+  PROGRESS_STATS: ['/api/progress/stats'] as const,
+  REPORTS: ['/api/reports'] as const,
 
   // Journal
   JOURNAL_ENTRIES: ['/api/journal/entries'] as const,

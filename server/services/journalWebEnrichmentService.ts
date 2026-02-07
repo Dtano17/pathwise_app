@@ -15,7 +15,8 @@
 
 import { tavilySearch, isTavilyConfigured } from './tavilyProvider';
 import Anthropic from '@anthropic-ai/sdk';
-import { tmdbService, TMDBSearchResult } from './tmdbService';
+import { tmdbService, TMDBSearchResult, WatchProvidersResult } from './tmdbService';
+import { generateWithGrounding, isGeminiConfigured } from './geminiProvider';
 import { spotifyEnrichmentService } from './spotifyEnrichmentService';
 import { generateSmartImageQueryCached } from './journalAIQueryService';
 import {
@@ -94,6 +95,8 @@ export interface WebEnrichedData {
   streamingLinks?: Array<{
     platform: string; // "Netflix", "Amazon Prime", "Hulu", etc.
     url: string;
+    type?: 'stream' | 'rent' | 'buy'; // From TMDB Watch Providers
+    logoUrl?: string; // Provider logo from TMDB
   }>;
   
   // Content-specific fields for Fitness
@@ -180,6 +183,47 @@ export interface EnrichmentResult {
   success: boolean;
   enrichedData?: WebEnrichedData;
   error?: string;
+}
+
+/**
+ * Standardized entity data from Google Search grounding (Gemini).
+ * This is the first step in the enrichment pipeline — provides authoritative
+ * name resolution and metadata before domain-specific APIs fetch images.
+ */
+export interface StandardizedEntity {
+  officialName: string;
+  description?: string;
+  confidence: number; // 0-1
+  // Movie/TV
+  releaseYear?: string;
+  director?: string;
+  cast?: string[];
+  genre?: string;
+  streamingPlatforms?: Array<{ platform: string; type: 'stream' | 'rent' | 'buy' }>;
+  mediaType?: 'movie' | 'tv';
+  // Restaurant/venue
+  address?: string;
+  city?: string;
+  cuisineType?: string;
+  priceRange?: string;
+  rating?: number;
+  hours?: string;
+  // Book
+  author?: string;
+  publisher?: string;
+  isbn?: string;
+  // Music
+  artist?: string;
+  albumTitle?: string;
+  recordLabel?: string;
+  // Event
+  eventDate?: string;
+  eventVenue?: string;
+  ticketUrl?: string;
+  // Fitness
+  muscleGroups?: string[];
+  difficulty?: string;
+  equipment?: string[];
 }
 
 // ============================================================================
@@ -289,6 +333,261 @@ class JournalWebEnrichmentService {
 
   // Current batch context for collective inference across all categories
   private currentBatchContext: UniversalBatchContext | null = null;
+
+  // ==========================================================================
+  // STREAMING LINKS BUILDER
+  // Combines Google Search platforms + TMDB Watch Providers into unified links
+  // ==========================================================================
+
+  /**
+   * Build streaming/watch links from Google Search standardization + TMDB Watch Providers.
+   * Falls back to JustWatch/IMDB search URLs if neither source has data.
+   */
+  private buildStreamingLinks(
+    standardized: StandardizedEntity | null,
+    watchProviders: WatchProvidersResult | null,
+    tmdbResult: TMDBSearchResult | null,
+  ): Array<{ platform: string; url: string; type?: 'stream' | 'rent' | 'buy'; logoUrl?: string }> {
+    const links: Array<{ platform: string; url: string; type?: 'stream' | 'rent' | 'buy'; logoUrl?: string }> = [];
+    const seenPlatforms = new Set<string>();
+
+    // 1. TMDB Watch Providers (most authoritative — real streaming data from JustWatch)
+    if (watchProviders) {
+      const watchUrl = watchProviders.link || '';
+
+      for (const p of watchProviders.stream) {
+        const key = p.providerName.toLowerCase();
+        if (!seenPlatforms.has(key)) {
+          seenPlatforms.add(key);
+          links.push({ platform: p.providerName, url: watchUrl, type: 'stream', logoUrl: p.logoUrl });
+        }
+      }
+      for (const p of watchProviders.rent) {
+        const key = p.providerName.toLowerCase();
+        if (!seenPlatforms.has(key)) {
+          seenPlatforms.add(key);
+          links.push({ platform: p.providerName, url: watchUrl, type: 'rent', logoUrl: p.logoUrl });
+        }
+      }
+      for (const p of watchProviders.buy) {
+        const key = p.providerName.toLowerCase();
+        if (!seenPlatforms.has(key)) {
+          seenPlatforms.add(key);
+          links.push({ platform: p.providerName, url: watchUrl, type: 'buy', logoUrl: p.logoUrl });
+        }
+      }
+    }
+
+    // 2. Google Search streaming platforms (supplement if TMDB didn't have them)
+    if (standardized?.streamingPlatforms) {
+      for (const sp of standardized.streamingPlatforms) {
+        const key = sp.platform.toLowerCase();
+        if (!seenPlatforms.has(key)) {
+          seenPlatforms.add(key);
+          const title = standardized.officialName || '';
+          const searchTerm = encodeURIComponent(title);
+          links.push({
+            platform: sp.platform,
+            url: `https://www.justwatch.com/us/search?q=${searchTerm}`,
+            type: sp.type,
+          });
+        }
+      }
+    }
+
+    // 3. Fallback: always include JustWatch + IMDB search links
+    const fallbackName = standardized?.officialName || tmdbResult?.title || '';
+    if (fallbackName) {
+      const searchTerm = encodeURIComponent(fallbackName);
+      if (!seenPlatforms.has('justwatch')) {
+        links.push({ platform: 'JustWatch', url: `https://www.justwatch.com/us/search?q=${searchTerm}` });
+      }
+      if (!seenPlatforms.has('imdb')) {
+        links.push({ platform: 'IMDB', url: `https://www.imdb.com/find?q=${searchTerm}&s=tt` });
+      }
+    }
+
+    return links;
+  }
+
+  // ==========================================================================
+  // GOOGLE SEARCH STANDARDIZATION (Step 1 of enrichment pipeline)
+  // Uses Gemini + Google Search grounding to resolve names authoritatively
+  // ==========================================================================
+
+  /**
+   * Standardize an entity name using Gemini + Google Search grounding.
+   * This is the FIRST step in enrichment — provides authoritative name resolution
+   * and rich metadata before domain-specific APIs fetch images/posters.
+   */
+  private async standardizeWithGoogleSearch(
+    name: string,
+    category: string,
+    context?: { city?: string; batchContext?: string }
+  ): Promise<StandardizedEntity | null> {
+    if (!isGeminiConfigured()) {
+      console.log('[GOOGLE_STANDARDIZE] Gemini not configured, skipping standardization');
+      return null;
+    }
+
+    const startTime = Date.now();
+
+    // Detect content type from category for prompt selection
+    const categoryLower = (category || '').toLowerCase();
+    const isMovie = categoryLower.includes('movie') || categoryLower.includes('entertainment') || categoryLower.includes('tv');
+    const isBook = categoryLower.includes('book') || categoryLower.includes('reading');
+    const isMusic = categoryLower.includes('music') || categoryLower.includes('artist');
+    const isRestaurant = categoryLower.includes('restaurant') || categoryLower.includes('food') || categoryLower.includes('dining');
+    const isFitness = categoryLower.includes('fitness') || categoryLower.includes('health') || categoryLower.includes('exercise') || categoryLower.includes('workout');
+    const isTravel = categoryLower.includes('travel') || categoryLower.includes('hotel') || categoryLower.includes('destination');
+    const isEvent = categoryLower.includes('event') || categoryLower.includes('concert') || categoryLower.includes('festival');
+
+    // Build category-specific prompt
+    let prompt: string;
+    let systemPrompt: string;
+
+    if (isMovie) {
+      prompt = `Look up: "${name}"${context?.batchContext ? ` (context: ${context.batchContext})` : ''}
+
+Return a JSON object with these fields:
+{
+  "officialName": "the correct official title",
+  "releaseYear": "year",
+  "mediaType": "movie" or "tv",
+  "director": "director name",
+  "cast": ["actor1", "actor2", "actor3"],
+  "genre": "genre(s)",
+  "description": "brief 1-2 sentence description",
+  "streamingPlatforms": [{"platform": "Netflix/HBO/Disney+/etc", "type": "stream"}],
+  "confidence": 0.95
+}`;
+      systemPrompt = 'You are a movie/TV database. Search Google to find the correct, current information about this title. Always return valid JSON. For streaming platforms, list ALL platforms where this is currently available to stream, rent, or buy. Use type "stream" for subscription streaming, "rent" for rental, "buy" for purchase.';
+    } else if (isBook) {
+      prompt = `Look up the book: "${name}"${context?.batchContext ? ` (context: ${context.batchContext})` : ''}
+
+Return a JSON object:
+{
+  "officialName": "correct full title",
+  "author": "author name",
+  "publisher": "publisher",
+  "publicationYear": "year",
+  "isbn": "ISBN if found",
+  "genre": "genre",
+  "description": "brief description",
+  "confidence": 0.95
+}`;
+      systemPrompt = 'You are a book database. Search Google to find the correct, current information about this book. Always return valid JSON.';
+    } else if (isMusic) {
+      prompt = `Look up the music: "${name}"${context?.batchContext ? ` (context: ${context.batchContext})` : ''}
+
+Return a JSON object:
+{
+  "officialName": "correct song/album title",
+  "artist": "artist/band name",
+  "albumTitle": "album name if applicable",
+  "releaseYear": "year",
+  "genre": "genre",
+  "recordLabel": "label",
+  "description": "brief description",
+  "streamingPlatforms": [{"platform": "Spotify/Apple Music/etc", "type": "stream"}],
+  "confidence": 0.95
+}`;
+      systemPrompt = 'You are a music database. Search Google to find the correct, current information about this music. Always return valid JSON.';
+    } else if (isRestaurant) {
+      prompt = `Look up the restaurant/venue: "${name}"${context?.city ? ` in ${context.city}` : ''}${context?.batchContext ? ` (context: ${context.batchContext})` : ''}
+
+Return a JSON object:
+{
+  "officialName": "correct full name",
+  "address": "full address",
+  "city": "city",
+  "cuisineType": "cuisine type(s)",
+  "priceRange": "$/$$/$$$/$$$$",
+  "rating": 4.5,
+  "hours": "business hours if found",
+  "description": "brief description",
+  "confidence": 0.95
+}`;
+      systemPrompt = 'You are a restaurant/venue guide. Search Google to find the correct, current information about this place. Always return valid JSON.';
+    } else if (isFitness) {
+      prompt = `Look up the exercise/workout: "${name}"${context?.batchContext ? ` (context: ${context.batchContext})` : ''}
+
+Return a JSON object:
+{
+  "officialName": "correct exercise name",
+  "muscleGroups": ["primary", "secondary muscles"],
+  "difficulty": "beginner/intermediate/advanced",
+  "equipment": ["equipment needed"],
+  "description": "brief description of proper form",
+  "confidence": 0.95
+}`;
+      systemPrompt = 'You are a fitness expert. Search Google to find the correct information about this exercise. Always return valid JSON.';
+    } else if (isEvent) {
+      prompt = `Look up the event: "${name}"${context?.city ? ` in ${context.city}` : ''}${context?.batchContext ? ` (context: ${context.batchContext})` : ''}
+
+Return a JSON object:
+{
+  "officialName": "correct event name",
+  "eventDate": "date or date range",
+  "eventVenue": "venue name and location",
+  "ticketUrl": "official ticket URL if found",
+  "description": "brief description",
+  "confidence": 0.95
+}`;
+      systemPrompt = 'You are an event guide. Search Google to find the correct, current information about this event. Always return valid JSON.';
+    } else if (isTravel) {
+      prompt = `Look up the travel destination/hotel: "${name}"${context?.city ? ` in ${context.city}` : ''}${context?.batchContext ? ` (context: ${context.batchContext})` : ''}
+
+Return a JSON object:
+{
+  "officialName": "correct name",
+  "address": "location/address",
+  "city": "city",
+  "priceRange": "$/$$/$$$/$$$$",
+  "rating": 4.5,
+  "description": "brief description with highlights",
+  "confidence": 0.95
+}`;
+      systemPrompt = 'You are a travel guide. Search Google to find the correct, current information about this destination or hotel. Always return valid JSON.';
+    } else {
+      // Generic fallback
+      prompt = `Look up: "${name}"${context?.city ? ` in ${context.city}` : ''}${context?.batchContext ? ` (context: ${context.batchContext})` : ''}
+
+Return a JSON object:
+{
+  "officialName": "correct official name",
+  "description": "brief description",
+  "confidence": 0.9
+}`;
+      systemPrompt = 'You are a general knowledge assistant. Search Google to find the correct information. Always return valid JSON.';
+    }
+
+    try {
+      const response = await generateWithGrounding(
+        [{ role: 'user', content: prompt }],
+        systemPrompt,
+        { enableGoogleSearch: true }
+      );
+
+      // Parse the JSON from Gemini's response
+      const text = response.content.trim();
+      // Extract JSON from potential markdown code blocks
+      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || text.match(/(\{[\s\S]*\})/);
+      if (!jsonMatch) {
+        console.warn(`[GOOGLE_STANDARDIZE] No JSON found in response for "${name}"`);
+        return null;
+      }
+
+      const parsed = JSON.parse(jsonMatch[1].trim());
+      const elapsed = Date.now() - startTime;
+      console.log(`[GOOGLE_STANDARDIZE] Resolved "${name}" → "${parsed.officialName}" in ${elapsed}ms (confidence: ${parsed.confidence})`);
+
+      return parsed as StandardizedEntity;
+    } catch (error: any) {
+      console.warn(`[GOOGLE_STANDARDIZE] Error standardizing "${name}":`, error.message);
+      return null;
+    }
+  }
 
   // ==========================================================================
   // UNIVERSAL BATCH CONTEXT INFERENCE
@@ -845,9 +1144,29 @@ Respond with ONLY a JSON object in this format:
         };
       }
 
+      // ★ GOOGLE SEARCH STANDARDIZATION (Step 1 of enrichment)
+      // Use Gemini + Google Search grounding to resolve the name authoritatively
+      // before any domain-specific API calls. This fixes misidentification issues
+      // and provides metadata (streaming platforms, author, cuisine, etc.)
+      let standardized: StandardizedEntity | null = null;
+      let standardizedName = venueName;
+      try {
+        const batchCtxDesc = this.currentBatchContext?.collectionDescription || undefined;
+        standardized = await this.standardizeWithGoogleSearch(venueName, entry.category, {
+          city,
+          batchContext: batchCtxDesc || undefined,
+        });
+        if (standardized?.officialName) {
+          console.log(`[JOURNAL_WEB_ENRICH] Google standardized: "${venueName}" → "${standardized.officialName}"`);
+          standardizedName = standardized.officialName;
+        }
+      } catch (stdError: any) {
+        console.warn(`[JOURNAL_WEB_ENRICH] Google standardization failed for "${venueName}", continuing with original name:`, stdError.message);
+      }
+
       // AI CATEGORY VALIDATION & CORRECTION
       // NOTE: validation.tmdbResult may contain TMDB data if movie was detected (avoids duplicate API call)
-      const validation = await this.validateAndCorrectCategory(entry.text, entry.category, venueName);
+      const validation = await this.validateAndCorrectCategory(entry.text, entry.category, standardizedName);
       const effectiveCategory = validation.category;
 
       console.log(`[JOURNAL_WEB_ENRICH] Category validation: original="${entry.category}", validated="${effectiveCategory}", confidence=${validation.confidence}${validation.tmdbResult ? ' (TMDB cached)' : ''}`);
@@ -882,29 +1201,38 @@ Respond with ONLY a JSON object in this format:
 
       // Execute enrichment based on AI's recommendation
       if (aiRecommendation.recommendedAPI === 'tmdb' && tmdbService.isAvailable()) {
-        // AI recommends TMDB (movies/TV)
-        const searchTitle = aiRecommendation.extractedTitle || venueName;
+        // AI recommends TMDB — use Google-standardized name + year for more accurate poster lookup
+        const searchTitle = standardized?.officialName || aiRecommendation.extractedTitle || standardizedName;
 
-        // Get batch context for year-aware searching
-        // This prevents returning "The Secret Agent (1943)" when batch is "best 2024 movies"
+        // Use Google Search year if available, fall back to batch context
         const batchCtx = this.getBatchContext();
-        const yearHint = batchCtx?.yearRange?.min || null;
+        const googleYear = standardized?.releaseYear ? parseInt(standardized.releaseYear) : null;
+        const yearHint = googleYear || batchCtx?.yearRange?.min || null;
 
         if (yearHint) {
-          console.log(`[JOURNAL_WEB_ENRICH] Using batch context year hint: ${yearHint} for "${searchTitle}"`);
+          console.log(`[JOURNAL_WEB_ENRICH] Using ${googleYear ? 'Google Search' : 'batch context'} year hint: ${yearHint} for "${searchTitle}"`);
         }
 
-        let tmdbResult = validation.tmdbResult || await tmdbService.searchMovie(searchTitle, yearHint);
+        // Use Google's mediaType hint to search the right type first
+        const googleMediaType = standardized?.mediaType;
+        let tmdbResult: TMDBSearchResult | null = null;
 
-        // CRITICAL: If movie search fails, try TV search as fallback
-        // Many shows like "12 Monkeys", "Counterpart", "The OA" are TV series not movies
-        if (!tmdbResult) {
-          console.log(`[JOURNAL_WEB_ENRICH] Movie search failed for "${searchTitle}", trying TV search...`);
-          tmdbResult = await tmdbService.searchTV(searchTitle, yearHint);
+        if (googleMediaType === 'tv') {
+          // Google says it's a TV show — search TV first, fall back to movie
+          tmdbResult = validation.tmdbResult || await tmdbService.searchTV(searchTitle, yearHint);
+          if (!tmdbResult) {
+            tmdbResult = await tmdbService.searchMovie(searchTitle, yearHint);
+          }
+        } else {
+          // Default: search movie first, fall back to TV
+          tmdbResult = validation.tmdbResult || await tmdbService.searchMovie(searchTitle, yearHint);
+          if (!tmdbResult) {
+            console.log(`[JOURNAL_WEB_ENRICH] Movie search failed for "${searchTitle}", trying TV search...`);
+            tmdbResult = await tmdbService.searchTV(searchTitle, yearHint);
+          }
         }
 
-        // Also try TV if movie search returned null AND entry text suggests TV content
-        // (e.g., "Counterpart TV series" or entry mentions "season", "episode", "series")
+        // Also try TV if still no result AND entry text suggests TV content
         if (!tmdbResult) {
           const tvSignals = /\b(series|season|episode|tv\s*show|netflix|hbo|amazon|hulu|apple\s*tv|streaming|miniseries)\b/i;
           if (tvSignals.test(entry.text) || tvSignals.test(aiRecommendation.searchQuery || '')) {
@@ -914,21 +1242,15 @@ Respond with ONLY a JSON object in this format:
         }
 
         // YEAR VALIDATION: If batch context has yearRange, validate the result year
-        // Reject results that are way off from expected year (e.g., 1943 when expecting 2024)
-        // BUT skip this for well-known classics with high vote counts
         if (tmdbResult && batchCtx?.yearRange && tmdbResult.releaseYear) {
           const resultYear = parseInt(tmdbResult.releaseYear);
           const { min, max } = batchCtx.yearRange;
-
-          // Check if this is a well-known classic (high vote count from older years)
-          // Classics like "12 Monkeys" (1995), "Blade Runner" (1982) should pass
           const isWellKnownClassic = resultYear < 2010 && (tmdbResult.ratingCount || 0) > 500;
 
           if (!isWellKnownClassic) {
-            // Allow 2-year tolerance (e.g., 2024 batch could match 2022-2026)
             if (resultYear < min - 2 || resultYear > max + 2) {
               console.log(`[JOURNAL_WEB_ENRICH] TMDB result year ${resultYear} outside expected range ${min}-${max}, rejecting match`);
-              tmdbResult = null; // Reject this match, will trigger Coming Soon placeholder
+              tmdbResult = null;
             }
           } else {
             console.log(`[JOURNAL_WEB_ENRICH] TMDB result "${tmdbResult.title}" (${resultYear}) is well-known classic with ${tmdbResult.ratingCount} votes, bypassing year filter`);
@@ -936,11 +1258,22 @@ Respond with ONLY a JSON object in this format:
         }
 
         if (tmdbResult) {
+          // Fetch real streaming/watch providers from TMDB (free API call)
+          let watchProviders: WatchProvidersResult | null = null;
+          try {
+            watchProviders = await tmdbService.getWatchProviders(tmdbResult.tmdbId, tmdbResult.mediaType);
+          } catch (wpError) {
+            console.warn(`[JOURNAL_WEB_ENRICH] Watch providers fetch failed:`, wpError);
+          }
+
+          // Build streaming links from Google Search + TMDB Watch Providers
+          const streamingLinks = this.buildStreamingLinks(standardized, watchProviders, tmdbResult);
+
           const enrichedData: WebEnrichedData = {
             venueVerified: true,
             venueType: tmdbResult.mediaType === 'tv' ? 'tv_show' : 'movie',
-            venueName: tmdbResult.title,
-            venueDescription: tmdbResult.overview?.substring(0, 300),
+            venueName: standardized?.officialName || tmdbResult.title,
+            venueDescription: standardized?.description || tmdbResult.overview?.substring(0, 300),
             primaryImageUrl: tmdbResult.posterUrl || undefined,
             mediaUrls: tmdbResult.posterUrl ? [{
               url: tmdbResult.posterUrl,
@@ -949,20 +1282,17 @@ Respond with ONLY a JSON object in this format:
             }] : undefined,
             rating: tmdbResult.rating ? tmdbResult.rating / 2 : undefined,
             reviewCount: tmdbResult.ratingCount,
-            director: tmdbResult.director,
-            cast: tmdbResult.cast,
-            releaseYear: tmdbResult.releaseYear,
+            // Prefer Google Search metadata, fall back to TMDB
+            director: standardized?.director || tmdbResult.director,
+            cast: standardized?.cast || tmdbResult.cast,
+            releaseYear: standardized?.releaseYear || tmdbResult.releaseYear,
             runtime: tmdbResult.runtime,
-            genre: tmdbResult.genres?.join(', '),
+            genre: standardized?.genre || tmdbResult.genres?.join(', '),
             suggestedCategory: 'Movies & TV Shows',
             categoryConfidence: aiRecommendation.confidence,
             enrichedAt: new Date().toISOString(),
             enrichmentSource: 'tmdb',
-            streamingLinks: [
-              { platform: 'TMDB', url: `https://www.themoviedb.org/${tmdbResult.mediaType}/${tmdbResult.tmdbId}` },
-              { platform: 'JustWatch', url: `https://www.justwatch.com/us/search?q=${encodeURIComponent(tmdbResult.title)}` },
-              { platform: 'IMDB', url: `https://www.imdb.com/find?q=${encodeURIComponent(tmdbResult.title)}` }
-            ]
+            streamingLinks,
           };
 
           // Save to both in-memory and persistent DB cache
@@ -990,30 +1320,38 @@ Respond with ONLY a JSON object in this format:
           return { entryId: entry.id, success: true, enrichedData };
         }
 
-        // TMDB FAILED - Use "Coming Soon" placeholder for movies/TV instead of falling back to Tavily
-        // This prevents wrong images from news articles (e.g., "Blade Runner 2099" showing "GMA3" image)
-        console.log(`[JOURNAL_WEB_ENRICH] TMDB search failed for "${venueName}" - using Coming Soon placeholder`);
+        // TMDB FAILED - Use "Coming Soon" placeholder enhanced with Google Search data
+        // If Google standardized the name, we still have useful metadata
+        const displayName = standardized?.officialName || standardizedName;
+        const platformInfo = standardized?.streamingPlatforms?.[0]?.platform;
+        const comingSoonDesc = platformInfo
+          ? `"${displayName}" - Coming to ${platformInfo}${standardized?.releaseYear ? ` (${standardized.releaseYear})` : ''}. Not yet in our media database.`
+          : `"${displayName}" - Coming Soon. This title may be unreleased or not yet in our database.`;
+
+        console.log(`[JOURNAL_WEB_ENRICH] TMDB search failed for "${standardizedName}" - using Coming Soon placeholder${platformInfo ? ` (Google says: ${platformInfo})` : ''}`);
 
         const comingSoonData: WebEnrichedData = {
-          venueVerified: false, // NOT verified - it's a placeholder
-          venueType: 'movie',
-          venueName: venueName,
-          venueDescription: `"${venueName}" - Coming Soon. This title may be unreleased or not yet in our database.`,
+          venueVerified: false,
+          venueType: standardized?.mediaType === 'tv' ? 'tv_show' : 'movie',
+          venueName: displayName,
+          venueDescription: standardized?.description || comingSoonDesc,
           primaryImageUrl: '/images/coming-soon-movie.svg',
           mediaUrls: [{
             url: '/images/coming-soon-movie.svg',
             type: 'image' as const,
             source: 'placeholder'
           }],
+          // Include Google Search metadata even for Coming Soon
+          director: standardized?.director,
+          cast: standardized?.cast,
+          releaseYear: standardized?.releaseYear,
+          genre: standardized?.genre,
           suggestedCategory: 'Movies & TV Shows',
-          categoryConfidence: 0.5,
+          categoryConfidence: standardized ? 0.7 : 0.5,
           enrichedAt: new Date().toISOString(),
           enrichmentSource: 'placeholder',
           isComingSoon: true,
-          streamingLinks: [
-            { platform: 'JustWatch', url: `https://www.justwatch.com/us/search?q=${encodeURIComponent(venueName)}` },
-            { platform: 'IMDB', url: `https://www.imdb.com/find?q=${encodeURIComponent(venueName)}` }
-          ]
+          streamingLinks: this.buildStreamingLinks(standardized, null, null),
         };
 
         // Save Coming Soon placeholder to both caches
@@ -1040,31 +1378,36 @@ Respond with ONLY a JSON object in this format:
       }
 
       else if (aiRecommendation.recommendedAPI === 'google_books') {
-        // AI recommends Google Books
-        const searchTitle = aiRecommendation.extractedTitle || venueName;
-        const extractedAuthor = aiRecommendation.extractedDetails || (extractedInfo as any).author;
+        // AI recommends Google Books — use standardized name + author for better cover lookup
+        const searchTitle = standardized?.officialName || aiRecommendation.extractedTitle || standardizedName;
+        const extractedAuthor = standardized?.author || aiRecommendation.extractedDetails || (extractedInfo as any).author;
         const googleBooksResult = await this.searchGoogleBooks(searchTitle, extractedAuthor);
 
         if (googleBooksResult) {
+          // Use ISBN from Google Search or Google Books API
+          const isbn = standardized?.isbn || googleBooksResult.isbn;
+          const bookAuthor = standardized?.author || googleBooksResult.author;
           const enrichedData: WebEnrichedData = {
             venueVerified: true,
             venueType: 'book',
-            venueName: searchTitle,
-            venueDescription: googleBooksResult.description,
+            venueName: standardized?.officialName || searchTitle,
+            venueDescription: standardized?.description || googleBooksResult.description,
             primaryImageUrl: googleBooksResult.coverUrl,
-            author: googleBooksResult.author,
-            publisher: googleBooksResult.publisher,
-            publicationYear: googleBooksResult.publishedDate?.substring(0, 4),
+            author: bookAuthor,
+            publisher: standardized?.publisher || googleBooksResult.publisher,
+            publicationYear: standardized?.isbn ? undefined : (googleBooksResult.publishedDate?.substring(0, 4)),
+            isbn,
             suggestedCategory: 'Books & Reading',
             categoryConfidence: aiRecommendation.confidence,
             enrichedAt: new Date().toISOString(),
             enrichmentSource: 'google',
-            purchaseLinks: googleBooksResult.isbn ? [
-              { platform: 'Amazon', url: `https://www.amazon.com/s?k=${googleBooksResult.isbn}&i=stripbooks` },
-              { platform: 'Goodreads', url: `https://www.goodreads.com/search?q=${googleBooksResult.isbn}` },
-              { platform: 'Google Books', url: googleBooksResult.infoLink || `https://books.google.com/books?isbn=${googleBooksResult.isbn}` }
+            genre: standardized?.genre,
+            purchaseLinks: isbn ? [
+              { platform: 'Amazon', url: `https://www.amazon.com/s?k=${isbn}&i=stripbooks` },
+              { platform: 'Goodreads', url: `https://www.goodreads.com/search?q=${isbn}` },
+              { platform: 'Google Books', url: googleBooksResult.infoLink || `https://books.google.com/books?isbn=${isbn}` }
             ] : [
-              { platform: 'Amazon', url: `https://www.amazon.com/s?k=${encodeURIComponent(searchTitle + (googleBooksResult.author ? ' ' + googleBooksResult.author : ''))}&i=stripbooks` },
+              { platform: 'Amazon', url: `https://www.amazon.com/s?k=${encodeURIComponent(searchTitle + (bookAuthor ? ' ' + bookAuthor : ''))}&i=stripbooks` },
               { platform: 'Goodreads', url: `https://www.goodreads.com/search?q=${encodeURIComponent(searchTitle)}` }
             ]
           };
@@ -1093,20 +1436,43 @@ Respond with ONLY a JSON object in this format:
       }
 
       else if (aiRecommendation.recommendedAPI === 'spotify') {
-        // AI recommends Spotify
+        // AI recommends Spotify — use standardized name for better search
         const spotifyAvailable = await spotifyEnrichmentService.isAvailable();
         if (spotifyAvailable) {
-          const searchTitle = aiRecommendation.extractedTitle || venueName;
+          const searchTitle = standardized?.officialName || aiRecommendation.extractedTitle || standardizedName;
           const spotifyResult = await spotifyEnrichmentService.searchMusic(searchTitle);
 
           if (spotifyResult) {
+            // Build streaming links from Google Search + Spotify
+            const musicStreamingLinks: Array<{ platform: string; url: string }> = [
+              { platform: 'Spotify', url: spotifyResult.spotifyUrl },
+            ];
+            // Add platforms from Google Search if available
+            if (standardized?.streamingPlatforms) {
+              for (const sp of standardized.streamingPlatforms) {
+                if (sp.platform.toLowerCase() !== 'spotify') {
+                  const searchTerm = encodeURIComponent(spotifyResult.name);
+                  if (sp.platform.toLowerCase().includes('apple')) {
+                    musicStreamingLinks.push({ platform: 'Apple Music', url: `https://music.apple.com/search?term=${searchTerm}` });
+                  } else if (sp.platform.toLowerCase().includes('youtube')) {
+                    musicStreamingLinks.push({ platform: 'YouTube Music', url: `https://music.youtube.com/search?q=${searchTerm}` });
+                  } else {
+                    musicStreamingLinks.push({ platform: sp.platform, url: `https://www.google.com/search?q=${searchTerm}+${encodeURIComponent(sp.platform)}` });
+                  }
+                }
+              }
+            }
+            if (!musicStreamingLinks.some(l => l.platform === 'Apple Music')) {
+              musicStreamingLinks.push({ platform: 'Apple Music', url: `https://music.apple.com/search?term=${encodeURIComponent(spotifyResult.name)}` });
+            }
+
             const enrichedData: WebEnrichedData = {
               venueVerified: true,
               venueType: spotifyResult.type === 'artist' ? 'artist' : 'music',
-              venueName: spotifyResult.name,
-              venueDescription: spotifyResult.albumName
+              venueName: standardized?.officialName || spotifyResult.name,
+              venueDescription: standardized?.description || (spotifyResult.albumName
                 ? `${spotifyResult.type === 'track' ? 'Track' : 'Album'} by ${spotifyResult.artistName || 'Unknown Artist'}`
-                : `Artist on Spotify`,
+                : `Artist on Spotify`),
               primaryImageUrl: spotifyResult.imageUrl || undefined,
               mediaUrls: spotifyResult.imageUrl ? [{
                 url: spotifyResult.imageUrl,
@@ -1114,14 +1480,13 @@ Respond with ONLY a JSON object in this format:
                 source: 'spotify'
               }] : undefined,
               website: spotifyResult.spotifyUrl,
+              genre: standardized?.genre,
+              releaseYear: standardized?.releaseYear,
               suggestedCategory: 'music',
               categoryConfidence: aiRecommendation.confidence,
               enrichedAt: new Date().toISOString(),
               enrichmentSource: 'spotify',
-              streamingLinks: [
-                { platform: 'Spotify', url: spotifyResult.spotifyUrl },
-                { platform: 'Apple Music', url: `https://music.apple.com/search?term=${encodeURIComponent(spotifyResult.name)}` }
-              ]
+              streamingLinks: musicStreamingLinks,
             };
 
             // Save to both in-memory and persistent DB cache
@@ -1158,12 +1523,12 @@ Respond with ONLY a JSON object in this format:
                 effectiveCategory.toLowerCase().includes('cafe'))) {
 
         if (isGooglePlacesConfigured()) {
-          console.log(`[JOURNAL_WEB_ENRICH] Using Google Places for restaurant/venue: "${venueName}"`);
-
-          const searchTitle = aiRecommendation.extractedTitle || venueName;
-          // Add location context if available
-          const locationContext = city || (extractedInfo as any).city || (extractedInfo as any).location;
+          // Use standardized name + city from Google Search for more accurate place lookup
+          const searchTitle = standardized?.officialName || aiRecommendation.extractedTitle || standardizedName;
+          const locationContext = standardized?.city || city || (extractedInfo as any).city || (extractedInfo as any).location;
           const searchQuery = locationContext ? `${searchTitle} ${locationContext}` : searchTitle;
+
+          console.log(`[JOURNAL_WEB_ENRICH] Using Google Places for restaurant/venue: "${searchQuery}"`);
 
           const placeResult = await searchPlaceWithPhotos(searchQuery, {
             type: effectiveCategory.toLowerCase().includes('bar') ? 'bar' :
@@ -1174,8 +1539,8 @@ Respond with ONLY a JSON object in this format:
             const enrichedData: WebEnrichedData = {
               venueVerified: true,
               venueType: effectiveCategory.toLowerCase().includes('bar') ? 'bar' : 'restaurant',
-              venueName: placeResult.name,
-              venueDescription: placeResult.address || `${placeResult.name} - ${priceLevelToSymbol(placeResult.priceLevel)} - ${placeResult.rating ? `${placeResult.rating}⭐` : ''}`,
+              venueName: standardized?.officialName || placeResult.name,
+              venueDescription: standardized?.description || placeResult.address || `${placeResult.name} - ${priceLevelToSymbol(placeResult.priceLevel)} - ${placeResult.rating ? `${placeResult.rating}⭐` : ''}`,
               primaryImageUrl: placeResult.photos[0].url,
               mediaUrls: placeResult.photos.map(photo => ({
                 url: photo.url,
@@ -1183,12 +1548,15 @@ Respond with ONLY a JSON object in this format:
                 source: 'google_places'
               })),
               location: {
-                address: placeResult.address,
+                address: standardized?.address || placeResult.address,
+                city: standardized?.city || locationContext,
                 directionsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeResult.name + (placeResult.address ? ' ' + placeResult.address : ''))}`,
               },
-              rating: placeResult.rating,
+              // Prefer Google Search metadata, fall back to Places API
+              rating: placeResult.rating || standardized?.rating,
               reviewCount: placeResult.userRatingsTotal,
-              priceRange: priceLevelToSymbol(placeResult.priceLevel) || undefined,
+              priceRange: priceLevelToSymbol(placeResult.priceLevel) || (standardized?.priceRange as any) || undefined,
+              businessHours: standardized?.hours,
               website: placeResult.website,
               phoneNumber: placeResult.phoneNumber,
               suggestedCategory: effectiveCategory.toLowerCase().includes('bar') ? 'Bars & Nightlife' : 'Restaurants & Food',
@@ -1224,7 +1592,7 @@ Respond with ONLY a JSON object in this format:
 
             return { entryId: entry.id, success: true, enrichedData };
           }
-          console.log(`[JOURNAL_WEB_ENRICH] Google Places search failed for "${venueName}", falling back to Tavily`);
+          console.log(`[JOURNAL_WEB_ENRICH] Google Places search failed for "${standardizedName}", falling back to Tavily`);
         } else {
           console.log(`[JOURNAL_WEB_ENRICH] Google Places not configured, using Tavily for restaurant`);
         }
