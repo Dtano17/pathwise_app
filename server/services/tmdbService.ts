@@ -1729,7 +1729,6 @@ Respond ONLY with valid JSON (no explanation):
       return null;
     }
   }
-}
 
   /**
    * Get streaming/watch providers for a movie or TV show from TMDB.
