@@ -13913,6 +13913,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
           activityUrl,
           createdTasks,
           planComplete: true,
+          createdActivity: { id: activity.id, title: activity.title },
         });
       }
 
@@ -13944,6 +13945,22 @@ Return ONLY valid JSON, no markdown or explanation.`;
         console.warn("[SIMPLE PLAN] Failed to fetch daily theme:", err);
       }
 
+      // Resolve effective location: live GPS > stored device GPS > profile location
+      let effectiveLocation = location;
+      if (!effectiveLocation) {
+        const locationUser = await storage.getUser(userId);
+        if (locationUser?.deviceLatitude && locationUser?.deviceLongitude) {
+          effectiveLocation = {
+            latitude: locationUser.deviceLatitude,
+            longitude: locationUser.deviceLongitude,
+            city: locationUser.deviceCity || locationUser.location || undefined,
+          };
+          console.log(
+            `[SIMPLE PLAN] 📍 Using stored device location: ${effectiveLocation.city || "coordinates"}`,
+          );
+        }
+      }
+
       // Process message with simple planner (Gemini with grounding by default)
       const plannerResponse = await simpleConversationalPlanner.processMessage(
         userId,
@@ -13953,7 +13970,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
         mode,
         {
           todaysTheme,
-          userLocation: location, // Pass GPS for Gemini Maps grounding
+          userLocation: effectiveLocation, // Pass GPS for Gemini Maps grounding
         },
       );
 
@@ -15202,7 +15219,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
   // Real-time chat conversation endpoint with task creation
   app.post("/api/chat/conversation", async (req, res) => {
     try {
-      const { message, conversationHistory = [], mode } = req.body;
+      const { message, conversationHistory = [], mode, location } = req.body;
 
       if (!message || typeof message !== "string") {
         return res
@@ -15222,6 +15239,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           conversationHistory,
           userId,
           "smart",
+          location,
         );
       }
 
@@ -15234,6 +15252,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           conversationHistory,
           userId,
           "quick",
+          location,
         );
       }
 

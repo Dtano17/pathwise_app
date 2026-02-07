@@ -332,13 +332,13 @@ export default function ReportsPage() {
   return (
     <div className="space-y-4 sm:space-y-6 px-2 py-3 sm:p-4 md:p-6">
       {/* Header with Time Range Filter */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg shrink-0">
             <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
           </div>
-          <div className="min-w-0">
-            <h2 className="text-lg sm:text-2xl font-bold text-foreground truncate">Reports & Progress</h2>
+          <div>
+            <h2 className="text-lg sm:text-2xl font-bold text-foreground">Reports & Progress</h2>
             <p className="text-xs sm:text-sm text-muted-foreground">Track your achievements and activity</p>
           </div>
         </div>
@@ -680,7 +680,7 @@ export default function ReportsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[350px] sm:h-[450px] pr-2 sm:pr-4">
+              <ScrollArea className="h-auto max-h-[500px] sm:max-h-[550px] pr-2 sm:pr-4">
                 {activitiesLoading ? (
                   <ActivitySkeleton />
                 ) : filteredActivities.length === 0 ? (
@@ -699,16 +699,16 @@ export default function ReportsPage() {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.03 }}
-                        className={`p-3 sm:p-4 rounded-lg border transition-all hover:shadow-md ${
+                        className={`p-2.5 sm:p-4 rounded-lg border transition-all hover:shadow-md ${
                           activity.isComplete
                             ? 'bg-green-500/5 border-green-500/30'
                             : 'bg-card border-border hover:border-primary/30'
                         }`}
                       >
-                        <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
+                        <div className="flex items-start justify-between mb-1.5 sm:mb-3 gap-2">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 sm:gap-2">
-                              <h4 className="font-semibold text-sm sm:text-base truncate">{activity.title}</h4>
+                            <div className="flex items-start gap-1.5 sm:gap-2">
+                              <h4 className="font-semibold text-sm sm:text-base leading-snug">{activity.title}</h4>
                               {activity.isComplete && (
                                 <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
                               )}

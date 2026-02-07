@@ -12,6 +12,7 @@ import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { invalidateActivitiesCache } from '@/lib/cacheInvalidation';
 import { parseInlineFormatting } from '@/lib/formatText';
+import { useDeviceLocation } from '@/hooks/useDeviceLocation';
 
 // Simple markdown formatter for Claude-style responses
 const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
@@ -20,6 +21,25 @@ const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
     const lines = text.split('\n');
 
     lines.forEach((line, lineIndex) => {
+      // Check for markdown headers (### before ## before # to avoid false matches)
+      const h3Match = line.trim().match(/^###\s+(.+)/);
+      const h2Match = !h3Match && line.trim().match(/^##\s+(.+)/);
+      const h1Match = !h3Match && !h2Match && line.trim().match(/^#\s+(.+)/);
+
+      if (h1Match) {
+        const segments = parseInlineFormatting(h1Match[1], `line-${lineIndex}`);
+        parts.push(<div key={lineIndex} className="text-lg font-bold mt-3 mb-1">{segments}</div>);
+        return;
+      } else if (h2Match) {
+        const segments = parseInlineFormatting(h2Match[1], `line-${lineIndex}`);
+        parts.push(<div key={lineIndex} className="text-base font-semibold mt-2 mb-1">{segments}</div>);
+        return;
+      } else if (h3Match) {
+        const segments = parseInlineFormatting(h3Match[1], `line-${lineIndex}`);
+        parts.push(<div key={lineIndex} className="text-sm font-semibold mt-2 mb-0.5">{segments}</div>);
+        return;
+      }
+
       // Check for bullet points and numbered lists first, then strip markers
       const bulletMatch = line.trim().match(/^[•\-\*]\s(.+)/);
       const numberMatch = line.trim().match(/^(\d+)\.\s(.+)/);
@@ -103,6 +123,10 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const [curatedQuestionsMode, setCuratedQuestionsMode] = useState<'quick' | 'smart'>('quick');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [isInCuratedFlow, setIsInCuratedFlow] = useState(false);
+  const [conversationHints, setConversationHints] = useState<string[]>([]);
+
+  // Device location for Gemini Maps grounding
+  const { location: deviceLocation } = useDeviceLocation();
 
   const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -223,7 +247,12 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       const response = await apiRequest('POST', '/api/chat/conversation', {
         message,
         conversationHistory,
-        mode
+        mode,
+        location: deviceLocation ? {
+          latitude: deviceLocation.latitude,
+          longitude: deviceLocation.longitude,
+          city: deviceLocation.city
+        } : undefined
       });
       return response.json();
     },
@@ -260,6 +289,13 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
         setShowCreatePlanButton(true);
       }
       
+      // Store conversation hints for suggestion chips
+      if (data.conversationHints && data.conversationHints.length > 0) {
+        setConversationHints(data.conversationHints);
+      } else {
+        setConversationHints([]);
+      }
+
       // Invalidate queries if activity was created
       if (data.createdActivity) {
         queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
@@ -1005,6 +1041,27 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           </div>
         )}
 
+        {/* Conversation Hint Chips */}
+        {conversationHints.length > 0 && (
+          <div className="border-t border-border/30 px-4 py-2 bg-background/80">
+            <div className="max-w-3xl mx-auto flex flex-wrap gap-2">
+              {conversationHints.map((hint, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    chatMutation.mutate({ message: hint, mode: currentMode });
+                    setConversationHints([]);
+                  }}
+                  disabled={chatMutation.isPending}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors border border-primary/20 disabled:opacity-50"
+                >
+                  {hint}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Minimal Input - Claude Style */}
         <div className="border-t border-border/50 px-4 py-4 bg-background pb-[env(safe-area-inset-bottom)]">
           <div className="max-w-3xl mx-auto">
@@ -1031,6 +1088,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                     } else {
                       chatMutation.mutate({ message: text.trim(), mode: currentMode });
                       setText('');
+                      setConversationHints([]);
                     }
                   }
                 }}

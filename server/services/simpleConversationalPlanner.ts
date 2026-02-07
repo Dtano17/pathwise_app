@@ -323,6 +323,25 @@ function validateBudgetBreakdown(plan: GeneratedPlan): void {
 }
 
 /**
+ * Strip internal AI error apology text from user-facing planner messages.
+ * Prevents tool call errors and internal debugging text from leaking to users.
+ */
+function sanitizePlannerMessage(message: string): string {
+  const errorPatterns = [
+    /I apologize for the error[!.].*\n?/gi,
+    /I (?:made a mistake|had an issue) (?:in|with) the tool call.*\n?/gi,
+    /(?:It seems|There was) (?:an? )?(?:error|issue|problem) (?:in|with) (?:the|my) (?:tool|function) call.*\n?/gi,
+    /Let me (?:try|correct|fix) (?:that|this|the tool call).*\n?/gi,
+  ];
+  let cleaned = message;
+  for (const pattern of errorPatterns) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  return cleaned || message;
+}
+
+/**
  * Detect planning domain from user's message using keyword patterns
  * Used for early domain detection to enable journal-based personalization
  */
@@ -2828,6 +2847,11 @@ export class SimpleConversationalPlanner {
         context,
         mode
       );
+
+      // Sanitize AI error messages - strip internal error apologies from user-facing text
+      if (response.message) {
+        response.message = sanitizePlannerMessage(response.message);
+      }
 
       // Add title with AI-determined emoji to response message if a plan was generated
       // Note: No link here because activity doesn't exist yet - link is added after confirmation in routes.ts
