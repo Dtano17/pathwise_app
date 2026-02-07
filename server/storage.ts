@@ -3355,7 +3355,7 @@ export class DatabaseStorage implements IStorage {
         }
       }
 
-      // Milestones
+      // Milestones - progressive thresholds so users see progress early
       const milestones: Array<{
         id: string;
         title: string;
@@ -3364,16 +3364,92 @@ export class DatabaseStorage implements IStorage {
         type: string;
       }> = [];
 
-      if (completedActivitiesList.length >= 10) {
+      // Task completion milestones
+      if (completedTasks.length >= 1) {
         milestones.push({
-          id: 'milestone-10-activities',
-          title: '10 Activities Completed!',
-          description: `You've completed ${completedActivitiesList.length} activities`,
+          id: 'milestone-first-task',
+          title: 'First Task Done!',
+          description: `You completed your first task`,
+          achievedAt: new Date().toISOString(),
+          type: 'completion'
+        });
+      }
+      if (completedTasks.length >= 10) {
+        milestones.push({
+          id: 'milestone-10-tasks',
+          title: '10 Tasks Completed!',
+          description: `You've completed ${completedTasks.length} tasks`,
+          achievedAt: new Date().toISOString(),
+          type: 'completion'
+        });
+      }
+      if (completedTasks.length >= 50) {
+        milestones.push({
+          id: 'milestone-50-tasks',
+          title: '50 Tasks Completed!',
+          description: `You've completed ${completedTasks.length} tasks`,
+          achievedAt: new Date().toISOString(),
+          type: 'completion'
+        });
+      }
+      if (completedTasks.length >= 100) {
+        milestones.push({
+          id: 'milestone-100-tasks',
+          title: 'Century Club!',
+          description: `You've completed ${completedTasks.length} tasks`,
           achievedAt: new Date().toISOString(),
           type: 'completion'
         });
       }
 
+      // Activity completion milestones
+      if (completedActivitiesList.length >= 1) {
+        milestones.push({
+          id: 'milestone-first-activity',
+          title: 'First Plan Complete!',
+          description: `You completed your first activity plan`,
+          achievedAt: new Date().toISOString(),
+          type: 'completion'
+        });
+      }
+      if (completedActivitiesList.length >= 3) {
+        milestones.push({
+          id: 'milestone-3-activities',
+          title: '3 Plans Completed!',
+          description: `You've completed ${completedActivitiesList.length} activity plans`,
+          achievedAt: new Date().toISOString(),
+          type: 'completion'
+        });
+      }
+      if (completedActivitiesList.length >= 10) {
+        milestones.push({
+          id: 'milestone-10-activities',
+          title: '10 Plans Completed!',
+          description: `You've completed ${completedActivitiesList.length} activity plans`,
+          achievedAt: new Date().toISOString(),
+          type: 'completion'
+        });
+      }
+
+      // Streak milestones
+      if (currentStreak >= 2) {
+        milestones.push({
+          id: 'milestone-2-day-streak',
+          title: '2-Day Streak!',
+          description: `You've been active for ${currentStreak} days in a row`,
+          achievedAt: new Date().toISOString(),
+          type: 'streak'
+        });
+      }
+      if (currentStreak >= 3) {
+        milestones.push({
+          id: 'milestone-3-day-streak',
+          title: '3-Day Streak!',
+          description: `You've been active for ${currentStreak} days in a row`,
+          achievedAt: new Date().toISOString(),
+          type: 'streak'
+        });
+      }
       if (currentStreak >= 7) {
         milestones.push({
           id: 'milestone-7-day-streak',
@@ -3381,6 +3457,17 @@ export class DatabaseStorage implements IStorage {
           description: `You've been active for ${currentStreak} days in a row`,
           achievedAt: new Date().toISOString(),
           type: 'streak'
+        });
+      }
+
+      // Category diversity milestone
+      if (categoryStats.length >= 3) {
+        milestones.push({
+          id: 'milestone-3-categories',
+          title: 'Explorer!',
+          description: `You've worked across ${categoryStats.length} different categories`,
+          achievedAt: new Date().toISOString(),
+          type: 'category'
         });
       }
 

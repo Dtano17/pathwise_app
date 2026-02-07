@@ -506,7 +506,7 @@ export default function ReportsPage() {
                 <TimelineSkeleton />
               ) : progressData?.timelineData && progressData.timelineData.length > 0 ? (
                 <div className="space-y-2">
-                  <div className="flex justify-between items-end h-32 sm:h-40 gap-1 sm:gap-2">
+                  <div className="flex justify-between h-32 sm:h-40 gap-1 sm:gap-2">
                     {progressData.timelineData.slice(-7).map((point, idx) => {
                       const maxTotal = Math.max(...progressData.timelineData.map(p => p.completed + p.created), 1);
                       const totalHeight = ((point.completed + point.created) / maxTotal) * 100;
@@ -518,8 +518,9 @@ export default function ReportsPage() {
                           initial={{ opacity: 0, scaleY: 0 }}
                           animate={{ opacity: 1, scaleY: 1 }}
                           transition={{ delay: idx * 0.05, duration: 0.3 }}
+                          style={{ transformOrigin: 'bottom' }}
                         >
-                          <div className="relative w-full flex flex-col justify-end" style={{ height: '100%' }}>
+                          <div className="relative w-full flex-1 flex flex-col justify-end min-h-0">
                             <div
                               className="w-full bg-gradient-to-t from-green-500 to-green-400 rounded-t transition-all duration-500 hover:opacity-80 cursor-pointer"
                               style={{ height: `${Math.max(totalHeight, 5)}%` }}

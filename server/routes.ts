@@ -5554,19 +5554,27 @@ ${sitemaps
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
 
-      // Get all tasks for the user
-      const allTasks = await storage.getUserTasks(userId);
+      // Query completed tasks directly (getUserTasks filters OUT completed tasks)
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-      // Filter tasks completed today
-      const today = new Date().toISOString().split("T")[0];
+      const allTasks = await db.select().from(tasksTable)
+        .where(and(
+          eq(tasksTable.userId, userId),
+          eq(tasksTable.completed, true),
+          isNotNull(tasksTable.completedAt),
+          or(eq(tasksTable.archived, false), isNull(tasksTable.archived))
+        ));
+
+      // Filter to tasks completed today
       const completedToday = allTasks.filter((task) => {
-        if (!task.completed || !task.completedAt) return false;
-        const completedDate = new Date(task.completedAt)
-          .toISOString()
-          .split("T")[0];
-        return completedDate === today;
+        if (!task.completedAt) return false;
+        const d = task.completedAt instanceof Date ? task.completedAt : new Date(task.completedAt);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        return dateStr === todayStr;
       });
 
+      console.log(`[COMPLETED-TODAY] User ${userId}: ${completedToday.length} tasks completed today`);
       res.json({ tasks: completedToday });
     } catch (error) {
       console.error("Get completed tasks error:", error);
@@ -11896,14 +11904,29 @@ ${emoji} ${progressLine}
       }));
 
       // Check and unlock any earned badges (retroactive)
-      await checkAndUnlockBadges(storage, userId, 'reports_view').catch((err) =>
-        console.error("[ACHIEVEMENT] Badge check error on reports view:", err),
-      );
+      try {
+        const newlyUnlocked = await checkAndUnlockBadges(storage, userId, 'reports_view');
+        if (newlyUnlocked.length > 0) {
+          console.log('[REPORTS] Newly unlocked badges:', newlyUnlocked);
+        }
+      } catch (err) {
+        console.error("[ACHIEVEMENT] Badge check error on reports view:", err);
+      }
 
       // Get achievements (after badge check so newly unlocked badges show)
-      const badgesWithProgress = await getBadgesWithProgress(storage, userId);
-      const unlockedBadges = badgesWithProgress.filter(b => b.unlocked);
-      const lockedBadges = badgesWithProgress.filter(b => !b.unlocked);
+      let unlockedBadges: any[] = [];
+      let lockedBadges: any[] = [];
+      let totalBadgeCount = 0;
+      try {
+        const badgesWithProgress = await getBadgesWithProgress(storage, userId);
+        unlockedBadges = badgesWithProgress.filter(b => b.unlocked);
+        lockedBadges = badgesWithProgress.filter(b => !b.unlocked);
+        totalBadgeCount = badgesWithProgress.length;
+        console.log('[REPORTS] Badges:', { unlocked: unlockedBadges.length, locked: lockedBadges.length, total: totalBadgeCount });
+      } catch (err) {
+        console.error("[ACHIEVEMENT] getBadgesWithProgress error:", err);
+        totalBadgeCount = Object.keys(BADGES).length;
+      }
 
       // Weekly summary (last 7 days)
       const weekAgo = new Date();
@@ -11944,7 +11967,7 @@ ${emoji} ${progressLine}
           unlocked: unlockedBadges,
           locked: lockedBadges,
           totalUnlocked: unlockedBadges.length,
-          totalBadges: Object.keys(BADGES).length,
+          totalBadges: totalBadgeCount || Object.keys(BADGES).length,
           recentBadges: unlockedBadges.slice(0, 5),
         },
         // For widget sync
