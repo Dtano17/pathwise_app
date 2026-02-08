@@ -45,7 +45,6 @@ import {
   stopForegroundService,
   getBackgroundServiceStatus,
   isBackgroundServiceAvailable,
-  showAlertNotification
 } from '@/lib/backgroundService';
 import {
   checkBiometricAvailability,
@@ -55,9 +54,9 @@ import {
   disableBiometricLogin,
   isBiometricLoginEnabled
 } from '@/lib/biometric';
-import { triggerHaptic, hapticsCelebrate, hapticsToggle } from '@/lib/haptics';
+import { hapticsCelebrate, hapticsToggle } from '@/lib/haptics';
 import { setupDefaultShortcuts, isShortcutsSupported, getShortcuts } from '@/lib/appShortcuts';
-import { checkSpeechAvailability, startSpeechRecognition, requestSpeechPermission } from '@/lib/speech';
+import { checkSpeechAvailability } from '@/lib/speech';
 import {
   Bell,
   Calendar,
@@ -79,7 +78,6 @@ import {
   Vibrate,
   Mic,
   Command,
-  PartyPopper,
   ScanFace
 } from 'lucide-react';
 
@@ -146,8 +144,6 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
   const [shortcutsCount, setShortcutsCount] = useState(0);
   const [shortcutsLoading, setShortcutsLoading] = useState(false);
   const [speechAvailable, setSpeechAvailable] = useState(false);
-  const [speechLoading, setSpeechLoading] = useState(false);
-  const [speechText, setSpeechText] = useState('');
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [calendarSyncLoading, setCalendarSyncLoading] = useState(false);
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
@@ -533,103 +529,6 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
     }
   };
 
-  const handleTestNotification = async () => {
-    try {
-      // Use showAlertNotification from BackgroundService for reliable notifications
-      // This uses the same method as the working foreground service notification
-      const result = await showAlertNotification({
-        title: 'Test Notification',
-        body: 'Push notifications are working! 🎉',
-        id: Date.now()
-      });
-
-      if (result.success) {
-        toast({ title: 'Local Notification Sent', description: 'Check your notification shade' });
-      } else {
-        toast({
-          title: 'Failed',
-          description: result.error || 'Could not send test notification',
-          variant: 'destructive'
-        });
-      }
-    } catch (error: any) {
-      console.error('[SETTINGS] Test notification error:', error);
-      toast({
-        title: 'Failed',
-        description: error?.message || 'Could not send test notification',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  // Test FCM server push notifications (the kind used for scheduled reminders)
-  const handleTestFCMNotification = async () => {
-    try {
-      const response = await fetch('/api/notifications/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ notificationType: 'default' }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        toast({
-          title: 'FCM Push Sent',
-          description: 'Server sent push via Firebase. If not received, check diagnostics.',
-        });
-      } else {
-        toast({
-          title: 'FCM Test Failed',
-          description: data.error || 'Server could not send push notification',
-          variant: 'destructive'
-        });
-      }
-    } catch (error: any) {
-      console.error('[SETTINGS] FCM test error:', error);
-      toast({
-        title: 'FCM Test Failed',
-        description: error?.message || 'Network error testing FCM',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  // Run notification diagnostics to identify issues
-  const handleNotificationDiagnostics = async () => {
-    try {
-      const response = await fetch('/api/notifications/diagnose', {
-        credentials: 'include',
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: 'Notifications Working',
-          description: `FCM ready! ${data.diagnostics.deviceTokens.count} device(s) registered.`,
-        });
-      } else {
-        toast({
-          title: 'Issues Found',
-          description: data.issues.join('; ') || 'Check console for details',
-          variant: 'destructive'
-        });
-      }
-
-      // Log full diagnostics for debugging
-      console.log('[SETTINGS] Notification diagnostics:', data);
-    } catch (error: any) {
-      console.error('[SETTINGS] Diagnostics error:', error);
-      toast({
-        title: 'Diagnostics Failed',
-        description: error?.message || 'Could not run diagnostics',
-        variant: 'destructive'
-      });
-    }
-  };
-
   // Invite a friend by picking from contacts
   // Note: pickContact() can hang forever on Android when user cancels without selecting
   // We use Promise.race with a timeout to handle this case
@@ -724,116 +623,6 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       });
     } finally {
       setContactsLoading(false);
-    }
-  };
-
-  const handleTestCalendar = async () => {
-    setCalendarLoading(true);
-    try {
-      console.log('[SETTINGS] Testing calendar - trying Google Calendar API first...');
-
-      // Try Google Calendar API backend first (uses existing Google auth)
-      try {
-        const statusResponse = await apiRequest('GET', '/api/calendar/status');
-        const statusData = await statusResponse.json();
-        console.log('[SETTINGS] Google Calendar status:', statusData);
-
-        if (statusData.hasAccess) {
-          // User has Google Calendar access via their Google login
-          console.log('[SETTINGS] Using Google Calendar API...');
-          const listResponse = await apiRequest('GET', '/api/calendar/list');
-          const listData = await listResponse.json();
-
-          if (listData.calendars && listData.calendars.length > 0) {
-            console.log('[SETTINGS] Found Google calendars:', listData.calendars.length);
-
-            // Convert Google calendars to our format for the picker
-            const googleCalendars: DeviceCalendar[] = listData.calendars.map((cal: any) => ({
-              id: cal.id,
-              title: cal.summary || cal.id,
-              color: cal.backgroundColor || '#4285F4',
-              isDefault: cal.primary || false,
-              isReadOnly: cal.accessRole === 'reader',
-              source: 'google'
-            }));
-
-            setPendingCalendarEvent({
-              title: 'JournalMate Test Event',
-              startDate: new Date(),
-              endDate: new Date(Date.now() + 60 * 60 * 1000),
-              notes: 'This is a test event from JournalMate'
-            });
-            setAvailableCalendars(googleCalendars);
-            setShowCalendarPicker(true);
-            setCalendarLoading(false);
-            return;
-          }
-        } else if (statusData.configured) {
-          // Google Calendar is configured but user doesn't have access
-          // This means they need to re-login with Google to get calendar permission
-          console.log('[SETTINGS] Google Calendar configured but no access - user needs to reconnect');
-          toast({
-            title: 'Calendar Access Required',
-            description: 'Please log out and sign in again with Google to grant calendar access.',
-            variant: 'destructive',
-            duration: 8000,
-          });
-          setCalendarLoading(false);
-          return;
-        }
-      } catch (apiError: any) {
-        console.log('[SETTINGS] Google Calendar API not available, falling back to native:', apiError.message);
-      }
-
-      // Fall back to Capacitor native calendar
-      console.log('[SETTINGS] Falling back to native calendar - requesting permission...');
-      const permission = await requestCalendarPermission();
-      console.log('[SETTINGS] Permission result:', permission);
-
-      if (!permission.granted) {
-        toast({
-          title: 'Permission Required',
-          description: 'Please grant calendar access in your device settings',
-          variant: 'destructive'
-        });
-        setCalendarLoading(false);
-        return;
-      }
-
-      // After permission granted, fetch available calendars and show picker
-      console.log('[SETTINGS] Permission granted, fetching native calendars...');
-      const calendars = await getCalendars();
-      console.log('[SETTINGS] Found calendars:', calendars.length);
-
-      if (calendars.length === 0) {
-        toast({
-          title: 'No Calendars Found',
-          description: 'To use calendar features: 1) Log out of JournalMate, 2) Sign back in with Google, 3) Grant calendar access when prompted.',
-          variant: 'destructive',
-          duration: 10000,
-        });
-        setCalendarLoading(false);
-        return;
-      }
-
-      // Store the pending event and show calendar picker
-      setPendingCalendarEvent({
-        title: 'JournalMate Test Event',
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 60 * 60 * 1000), // 1 hour from now
-        notes: 'This is a test event from JournalMate'
-      });
-      setAvailableCalendars(calendars);
-      setShowCalendarPicker(true);
-      setCalendarLoading(false);
-    } catch (error: any) {
-      console.error('[SETTINGS] Calendar error:', error);
-      toast({
-        title: 'Calendar Error',
-        description: error.message || 'Failed to access calendar',
-        variant: 'destructive'
-      });
-      setCalendarLoading(false);
     }
   };
 
@@ -939,39 +728,6 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       });
     } finally {
       setForegroundServiceLoading(false);
-    }
-  };
-
-  // Test biometric authentication
-  const handleTestBiometric = async () => {
-    setBiometricLoading(true);
-    try {
-      const result = await authenticateWithBiometric({
-        title: 'Test Biometric',
-        reason: 'Testing biometric authentication',
-      });
-
-      if (result.success) {
-        await hapticsCelebrate();
-        toast({
-          title: 'Authentication Successful',
-          description: `${getBiometryTypeName(biometryType)} verified!`,
-        });
-      } else {
-        toast({
-          title: 'Authentication Failed',
-          description: result.error || 'Could not verify identity',
-          variant: 'destructive'
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Biometric test failed',
-        variant: 'destructive'
-      });
-    } finally {
-      setBiometricLoading(false);
     }
   };
 
@@ -1133,17 +889,6 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
     await updateMobilePrefsMutation.mutateAsync({ [key]: value });
   };
 
-  // Test haptic feedback
-  const handleTestHaptics = async (type: 'light' | 'medium' | 'heavy' | 'celebrate') => {
-    if (type === 'celebrate') {
-      await hapticsCelebrate();
-      toast({ title: 'Celebration!', description: 'Did you feel the celebration pattern?' });
-    } else {
-      await triggerHaptic(type);
-      toast({ title: `${type.charAt(0).toUpperCase() + type.slice(1)} Impact`, description: 'Haptic feedback triggered' });
-    }
-  };
-
   // Setup app shortcuts
   const handleSetupShortcuts = async () => {
     setShortcutsLoading(true);
@@ -1171,58 +916,6 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       });
     } finally {
       setShortcutsLoading(false);
-    }
-  };
-
-  // Test speech recognition
-  const handleTestSpeech = async () => {
-    setSpeechLoading(true);
-    setSpeechText('');
-    try {
-      // Request permission first
-      const hasPermission = await requestSpeechPermission();
-      if (!hasPermission) {
-        toast({
-          title: 'Permission Required',
-          description: 'Please grant microphone access',
-          variant: 'destructive'
-        });
-        setSpeechLoading(false);
-        return;
-      }
-
-      toast({ title: 'Listening...', description: 'Speak now!' });
-
-      const result = await startSpeechRecognition({
-        language: 'en-US',
-        partialResults: true,
-        onPartialResult: (text) => setSpeechText(text),
-      });
-
-      if (result.success && result.transcript) {
-        setSpeechText(result.transcript);
-        await triggerHaptic('medium');
-        toast({
-          title: 'Speech Recognized',
-          description: result.transcript,
-        });
-      } else if (result.cancelled) {
-        toast({ title: 'Cancelled', description: 'Speech recognition was cancelled' });
-      } else {
-        toast({
-          title: 'No Speech Detected',
-          description: result.error || 'Please try again',
-          variant: 'destructive'
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Speech recognition failed',
-        variant: 'destructive'
-      });
-    } finally {
-      setSpeechLoading(false);
     }
   };
 
@@ -1556,34 +1249,6 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
                   disabled={notificationLoading}
                 />
                 {notificationLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                {notificationStatus === 'granted' && (
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleTestNotification}
-                      title="Test local notification (device-side)"
-                    >
-                      Local
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleTestFCMNotification}
-                      title="Test FCM push (server-side)"
-                    >
-                      FCM
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={handleNotificationDiagnostics}
-                      title="Run notification diagnostics"
-                    >
-                      ?
-                    </Button>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -1662,14 +1327,6 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
                         {calendarSyncLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Import Events'}
                       </Button>
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleTestCalendar}
-                      disabled={calendarLoading}
-                    >
-                      {calendarLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Test Event'}
-                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -1767,18 +1424,6 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
                   {biometricLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 </div>
               </div>
-              {mobilePrefs?.enableBiometric && biometricAvailable && (
-                <div className="pl-6">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleTestBiometric}
-                    disabled={biometricLoading}
-                  >
-                    Test {getBiometryTypeName(biometryType)}
-                  </Button>
-                </div>
-              )}
             </div>
 
             <Separator />
@@ -1824,41 +1469,6 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
                     />
                   </div>
 
-                  {/* Test Haptics */}
-                  <div className="flex gap-1 pt-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleTestHaptics('light')}
-                      className="px-2"
-                    >
-                      Light
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleTestHaptics('medium')}
-                      className="px-2"
-                    >
-                      Med
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleTestHaptics('heavy')}
-                      className="px-2"
-                    >
-                      Heavy
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={() => handleTestHaptics('celebrate')}
-                      className="px-2"
-                    >
-                      <PartyPopper className="w-4 h-4" />
-                    </Button>
-                  </div>
                 </div>
               )}
             </div>
@@ -1907,27 +1517,7 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
                     {speechAvailable ? 'Voice-to-text available' : 'Not available'}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant={speechLoading ? 'destructive' : 'outline'}
-                  onClick={handleTestSpeech}
-                  disabled={!speechAvailable}
-                >
-                  {speechLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                      Listening...
-                    </>
-                  ) : (
-                    'Test'
-                  )}
-                </Button>
               </div>
-              {speechText && (
-                <div className="p-2 bg-muted rounded-md text-sm">
-                  "{speechText}"
-                </div>
-              )}
             </div>
 
           </CardContent>

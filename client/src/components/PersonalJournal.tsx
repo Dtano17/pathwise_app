@@ -1349,10 +1349,10 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     const entries = journalData[activeCategory] || [];
     entries.forEach(item => {
       if (typeof item === 'object' && item !== null && item.webEnrichment?.genre) {
-        // Parse comma-separated genres
-        const genreList = item.webEnrichment.genre.split(',').map((g: string) => g.trim());
-        genreList.forEach((genre: string) => {
-          if (genre) genres.add(genre);
+        const genre = item.webEnrichment.genre;
+        const genreList = Array.isArray(genre) ? genre : typeof genre === 'string' ? genre.split(',').map((g: string) => g.trim()) : [];
+        genreList.forEach((g: string) => {
+          if (g) genres.add(g);
         });
       }
     });
