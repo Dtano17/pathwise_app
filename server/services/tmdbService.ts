@@ -739,9 +739,10 @@ Respond ONLY with valid JSON (no explanation):
       .replace(/\s*S\d{1,2}E?\d*.*$/i, '')         // Remove "S04E01" and after
       .replace(/\s*episode\s*\d+.*$/i, '')         // Remove "Episode X" and after
       .replace(/\s*\(.*\)\s*$/i, '')               // Remove parenthetical info
-      .replace(/\s*(HBO|Netflix|Disney\+?|Paramount\+?|Apple\s*TV\+?|Amazon|Hulu|Max)\s*/gi, '') // Remove service names
+      .replace(/\s*(HBO|Netflix|Disney\+?|Paramount\+?|Apple\s*TV\+?|Amazon|Hulu|Max|ABC|NBC|CBS|Fox|BBC|Peacock)\s*/gi, '') // Remove service/network names
       .replace(/\s*(series|show|TV)\s*/gi, '')     // Remove generic terms
       .replace(/\s*(premiering|premiere|TBA)\s*/gi, '') // Remove premiere info
+      .replace(/\s*\bon\b\s*$/i, '')               // Remove trailing "on" from "His&Hers on Netflix"
       .replace(/\s+/g, ' ')                        // Collapse whitespace
       .trim();
   }
@@ -760,7 +761,8 @@ Respond ONLY with valid JSON (no explanation):
 
     try {
       // CRITICAL: If query looks like a TV show, skip movie search entirely
-      if (!skipCleaning && this.isTVShowQuery(query)) {
+      // Always apply extractCoreName even with skipCleaning to strip season/network metadata
+      if (this.isTVShowQuery(query)) {
         console.log(`[TMDB] Query "${query}" looks like a TV show - skipping movie search`);
         const coreName = this.extractCoreName(query);
         return await this.searchTV(coreName, null);
@@ -1033,7 +1035,9 @@ Respond ONLY with valid JSON (no explanation):
     if (!this.apiKey) return null;
 
     try {
-      const cleanQuery = skipCleaning ? query : this.extractMovieTitle(query);
+      // Always apply extractCoreName to strip season/network/premiere metadata,
+      // even with skipCleaning (Google-standardized). Only skip extractMovieTitle.
+      const cleanQuery = this.extractCoreName(skipCleaning ? query : this.extractMovieTitle(query));
 
       // Extract year if not provided
       let searchYear = targetYear;
@@ -1568,8 +1572,10 @@ Respond ONLY with valid JSON (no explanation):
 
     try {
       const { title: cleanTitle, director, actor } = this.extractCreatorFromQuery(query);
-      const { title: titleWithoutYear, year: extractedYear } = this.extractYearFromQuery(cleanTitle);
-      const searchTitle = titleWithoutYear || cleanTitle;
+      // Strip season/network/premiere metadata before searching
+      const coreName = this.extractCoreName(cleanTitle);
+      const { title: titleWithoutYear, year: extractedYear } = this.extractYearFromQuery(coreName);
+      const searchTitle = titleWithoutYear || coreName;
 
       console.log(`[TMDB] Searching with candidates: "${searchTitle}"${extractedYear ? ` (${extractedYear})` : ''}${director ? ` by ${director}` : ''}${actor ? ` with ${actor}` : ''}`);
 

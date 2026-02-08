@@ -453,7 +453,7 @@ class JournalWebEnrichmentService {
 Return a JSON object with these fields:
 {
   "officialName": "the full official title as it appears on TMDB/IMDb (e.g. 'Star Wars: Maul - Shadow Lord', 'Mission: Impossible - Dead Reckoning')",
-  "tmdbSearchName": "the exact title as listed on TMDB for poster search — use the precise TMDB listing name (e.g. 'Star Wars: Maul - Shadow Lord', 'The Pitt'). Check TMDB naming if possible.",
+  "tmdbSearchName": "the CORE title only as listed on TMDB for poster search. IMPORTANT: Strip season numbers (e.g. 'Season 4'), episode info, network/platform names (Netflix, HBO, ABC, etc.), premiere dates, and any broadcast metadata. Examples: 'Bridgerton Season 4 - Netflix series' → 'Bridgerton', 'Scrubs Season 10 - ABC series premiering 2/25' → 'Scrubs', 'His&Hers on Netflix' → 'His & Hers'. BUT keep subtitles that are part of the official TMDB title (e.g. 'Spider-Man: Across the Spider-Verse' stays as-is, 'Star Wars: Maul - Shadow Lord' stays as-is).",
   "releaseYear": "year",
   "mediaType": "movie" or "tv",
   "director": "director name",
@@ -464,7 +464,7 @@ Return a JSON object with these fields:
   "confidence": 0.95
 }
 
-IMPORTANT for tmdbSearchName: This field will be used to search TMDB's API for the poster image. Use the EXACT title as it appears on themoviedb.org (TMDB). Include subtitles after colons or dashes if TMDB lists them (e.g. "Spider-Man: Across the Spider-Verse", not just "Spider-Man"). If unsure, use the same value as officialName.`;
+IMPORTANT for tmdbSearchName: This field will be used to search TMDB's API for the poster image. Return ONLY the core show/movie title — strip any season numbers, episode info, network names (Netflix, HBO, ABC, CBS, etc.), premiere dates, and broadcast metadata. Include subtitles after colons if they are part of the official TMDB title (e.g. "Spider-Man: Across the Spider-Verse", not just "Spider-Man"). If unsure, use the base show/movie name without season or network info.`;
       systemPrompt = 'You are a movie/TV database expert. Search Google to find the correct, current information about this title. Cross-reference with TMDB (The Movie Database) naming conventions when possible. Always return valid JSON. For streaming platforms, list ALL platforms where this is currently available to stream, rent, or buy. Use type "stream" for subscription streaming, "rent" for rental, "buy" for purchase.';
     } else if (isBook) {
       prompt = `Look up the book: "${name}"${context?.batchContext ? ` (context: ${context.batchContext})` : ''}
@@ -1281,6 +1281,31 @@ Respond with ONLY a JSON object in this format:
           if (tmdbResult) console.log(`[JOURNAL_WEB_ENRICH] Raw name fallback succeeded: "${venueName}" → "${tmdbResult.title}"`);
         }
 
+        // FALLBACK 2: Try extracting core name (strip season/network/premiere metadata)
+        if (!tmdbResult) {
+          const coreTitle = (searchTitle || venueName)
+            .replace(/\s+[-–—]\s+.*$/i, '')
+            .replace(/\s*season\s*\d+.*$/i, '')
+            .replace(/\s*S\d{1,2}E?\d*.*$/i, '')
+            .replace(/\s*(HBO|Netflix|Disney\+?|Paramount\+?|Apple\s*TV\+?|Amazon|Hulu|Max|ABC|NBC|CBS|Fox|BBC|Peacock)\s*/gi, '')
+            .replace(/\s*(series|show|TV)\s*/gi, '')
+            .replace(/\s*(premiering|premiere|TBA)\s*/gi, '')
+            .replace(/\s*\bon\b\s*$/i, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+          if (coreTitle && coreTitle !== searchTitle && coreTitle !== venueName) {
+            console.log(`[JOURNAL_WEB_ENRICH] Trying core name extraction: "${coreTitle}"`);
+            if (googleMediaType === 'tv') {
+              tmdbResult = await tmdbService.searchTV(coreTitle, yearHint);
+              if (!tmdbResult) tmdbResult = await tmdbService.searchMovie(coreTitle, yearHint);
+            } else {
+              tmdbResult = await tmdbService.searchMovie(coreTitle, yearHint);
+              if (!tmdbResult) tmdbResult = await tmdbService.searchTV(coreTitle, yearHint);
+            }
+            if (tmdbResult) console.log(`[JOURNAL_WEB_ENRICH] Core name fallback succeeded: "${coreTitle}" → "${tmdbResult.title}"`);
+          }
+        }
+
         // YEAR VALIDATION: If batch context has yearRange, validate the result year
         if (tmdbResult && batchCtx?.yearRange && tmdbResult.releaseYear) {
           const resultYear = parseInt(tmdbResult.releaseYear);
@@ -1360,7 +1385,83 @@ Respond with ONLY a JSON object in this format:
           return { entryId: entry.id, success: true, enrichedData };
         }
 
-        // TMDB FAILED - Use "Coming Soon" placeholder enhanced with Google Search data
+        // TMDB strict search failed - try looser multi-search with candidates
+        // This may find results that the strict tiered validation rejected
+        const candidateQuery = standardized?.tmdbSearchName || standardized?.officialName || aiRecommendation.extractedTitle || standardizedName;
+        let candidateResult: TMDBSearchResult | null = null;
+        try {
+          const { bestMatch, candidates } = await tmdbService.searchWithCandidates(candidateQuery, 3);
+          if (bestMatch) {
+            candidateResult = bestMatch;
+            console.log(`[JOURNAL_WEB_ENRICH] Candidate search found best match: "${bestMatch.title}" (tmdbId: ${bestMatch.tmdbId})`);
+          } else if (candidates.length > 0) {
+            // Use top candidate even if not "high" confidence — user can verify via UI
+            candidateResult = candidates[0].result;
+            console.log(`[JOURNAL_WEB_ENRICH] Using top candidate (${candidates[0].confidenceLevel}): "${candidateResult.title}" (confidence: ${(candidates[0].confidence * 100).toFixed(0)}%)`);
+          }
+        } catch (candidateError) {
+          console.warn(`[JOURNAL_WEB_ENRICH] Candidate search failed:`, candidateError);
+        }
+
+        if (candidateResult && candidateResult.posterUrl) {
+          // Got a candidate — use it but mark as unverified so user sees "Verify" button
+          let watchProviders: WatchProvidersResult | null = null;
+          try {
+            watchProviders = await tmdbService.getWatchProviders(candidateResult.tmdbId, candidateResult.mediaType);
+          } catch (wpError) {
+            console.warn(`[JOURNAL_WEB_ENRICH] Watch providers fetch failed:`, wpError);
+          }
+
+          const streamingLinks = this.buildStreamingLinks(standardized, watchProviders, candidateResult);
+
+          const enrichedData: WebEnrichedData = {
+            venueVerified: false,  // NOT verified — user can verify via media picker
+            venueType: candidateResult.mediaType === 'tv' ? 'tv_show' : 'movie',
+            venueName: standardized?.officialName || candidateResult.title,
+            venueDescription: standardized?.description || candidateResult.overview?.substring(0, 300),
+            primaryImageUrl: candidateResult.posterUrl || undefined,
+            mediaUrls: candidateResult.posterUrl ? [{
+              url: candidateResult.posterUrl,
+              type: 'image' as const,
+              source: 'tmdb'
+            }] : undefined,
+            rating: candidateResult.rating ? candidateResult.rating / 2 : undefined,
+            reviewCount: candidateResult.ratingCount,
+            director: standardized?.director || candidateResult.director,
+            cast: standardized?.cast || candidateResult.cast,
+            releaseYear: standardized?.releaseYear || candidateResult.releaseYear,
+            runtime: candidateResult.runtime,
+            genre: standardized?.genre || candidateResult.genres?.join(', '),
+            suggestedCategory: 'Movies & TV Shows',
+            categoryConfidence: aiRecommendation.confidence,
+            enrichedAt: new Date().toISOString(),
+            enrichmentSource: 'tmdb',
+            streamingLinks,
+          };
+
+          this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+          try {
+            await storage.saveJournalEnrichmentCache({
+              cacheKey,
+              enrichedData: enrichedData as any,
+              imageUrl: enrichedData.primaryImageUrl,
+              verified: false, // Unverified — user can pick from candidates
+              enrichmentSource: 'tmdb',
+              isComingSoon: false,
+              tmdbId: candidateResult.tmdbId,
+              mediaType: candidateResult.mediaType,
+            });
+          } catch (saveError) {
+            console.warn(`[JOURNAL_WEB_ENRICH] Failed to save candidate result to DB cache:`, saveError);
+          }
+
+          const elapsed = Date.now() - startTime;
+          console.log(`[JOURNAL_WEB_ENRICH] Candidate-based TMDB enrichment in ${elapsed}ms: "${candidateResult.title}" (unverified — user can verify)`);
+
+          return { entryId: entry.id, success: true, enrichedData };
+        }
+
+        // ALL TMDB searches failed - Use "Coming Soon" placeholder enhanced with Google Search data
         // If Google standardized the name, we still have useful metadata
         const displayName = standardized?.officialName || standardizedName;
         const platformInfo = standardized?.streamingPlatforms?.[0]?.platform;

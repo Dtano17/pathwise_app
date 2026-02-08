@@ -1163,7 +1163,10 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     setEditingEntryCategory(currentCategory);
     setEditEntryText(entry.text || '');
     setEditEntryDescription(entry.manualDescription || entry.webEnrichment?.venueDescription || '');
-    setEditEntryBackdrop(entry.manualBackdrop || entry.webEnrichment?.primaryImageUrl || '');
+    // Don't pre-fill with placeholder SVGs — only show real image URLs
+    const existingImage = entry.manualBackdrop || entry.webEnrichment?.primaryImageUrl || '';
+    const isPlaceholder = existingImage.includes('coming-soon') || existingImage.startsWith('/images/');
+    setEditEntryBackdrop(isPlaceholder ? '' : existingImage);
     setEditEntryCategory(currentCategory);
     setEditEntrySubcategory(entry.manualSubcategory || entry.subcategory || '');
     setShowEditEntryDialog(true);
@@ -3149,7 +3152,32 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
 
         {/* Custom Image URL */}
         <div className="space-y-2">
-          <label className="text-sm font-medium">Image URL (optional)</label>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium">Image URL (optional)</label>
+            {editingEntry && (editEntryCategory === 'Movies & TV Shows' || editEntryCategory === 'movies & tv shows') && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                disabled={verifyMediaMutation.isPending}
+                onClick={() => {
+                  if (editingEntry) {
+                    // Close edit dialog first, then open media picker
+                    setShowEditEntryDialog(false);
+                    openMediaPicker(editingEntry);
+                  }
+                }}
+              >
+                {verifyMediaMutation.isPending ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Film className="w-3 h-3" />
+                )}
+                Find Poster
+              </Button>
+            )}
+          </div>
           <Input
             placeholder="https://example.com/image.jpg"
             value={editEntryBackdrop}
@@ -3169,7 +3197,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
             </div>
           )}
           <p className="text-xs text-muted-foreground">
-            Paste a direct image URL to use as the entry's backdrop. This overrides any AI-fetched image.
+            Paste any web image URL, or use "Find Poster" to search our movie database.
           </p>
         </div>
       </div>
