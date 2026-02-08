@@ -384,49 +384,86 @@ function extractTimeFromDescription(
 
   const lowerText = text.toLowerCase();
 
-  // Pattern: "before X AM/PM" or "by X AM/PM" - use 1-2 hours before as reasonable start
+  // Helper to convert 12h to 24h format
+  function to24h(hour: number, minutes: number, period: string): string {
+    if (period === "pm" && hour !== 12) hour += 12;
+    if (period === "am" && hour === 12) hour = 0;
+    return `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+  }
+
+  // Pattern 1: "before X AM/PM" or "by X AM/PM" - use 2 hours before as buffer
   const beforeByMatch = lowerText.match(
-    /(?:before|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
+    /(?:before|by|no\s+later\s+than)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
   );
   if (beforeByMatch) {
     let hour = parseInt(beforeByMatch[1], 10);
     const minutes = beforeByMatch[2] ? parseInt(beforeByMatch[2], 10) : 0;
     const period = beforeByMatch[3].toLowerCase();
-
-    // Convert to 24-hour
     if (period === "pm" && hour !== 12) hour += 12;
     if (period === "am" && hour === 12) hour = 0;
-
-    // Start 2 hours before the deadline (reasonable buffer)
     hour = Math.max(0, hour - 2);
     return `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
   }
 
-  // Pattern: explicit time "at X AM/PM" or just "X AM/PM" or "X:XX AM/PM"
-  const explicitTimeMatch = lowerText.match(
-    /(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
+  // Pattern 2: "at X AM/PM", "around X AM/PM", "approximately X AM/PM", "~X AM/PM"
+  const atAroundMatch = lowerText.match(
+    /(?:at|around|approximately|approx\.?|~)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
   );
-  if (explicitTimeMatch) {
-    let hour = parseInt(explicitTimeMatch[1], 10);
-    const minutes = explicitTimeMatch[2] ? parseInt(explicitTimeMatch[2], 10) : 0;
-    const period = explicitTimeMatch[3].toLowerCase();
-
-    // Convert to 24-hour
-    if (period === "pm" && hour !== 12) hour += 12;
-    if (period === "am" && hour === 12) hour = 0;
-
-    return `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+  if (atAroundMatch) {
+    return to24h(
+      parseInt(atAroundMatch[1], 10),
+      atAroundMatch[2] ? parseInt(atAroundMatch[2], 10) : 0,
+      atAroundMatch[3].toLowerCase(),
+    );
   }
 
-  // Pattern: natural language time periods
-  if (/\b(early\s+)?morning\b/i.test(lowerText)) return "09:00";
+  // Pattern 3: 24-hour time "HH:MM" (e.g. "14:30", "07:30")
+  const time24Match = lowerText.match(/\b(\d{2}):(\d{2})\b/);
+  if (time24Match) {
+    const h = parseInt(time24Match[1], 10);
+    const m = parseInt(time24Match[2], 10);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      return `${time24Match[1]}:${time24Match[2]}`;
+    }
+  }
+
+  // Pattern 4: "departs at X", "departure X AM/PM", "arrives X AM/PM", "flight at X"
+  const travelTimeMatch = lowerText.match(
+    /(?:depart(?:s|ure|ing)?|arriv(?:e|al|es|ing)?|flight|check[- ]?in|boarding|takeoff|landing)\s+(?:at\s+|around\s+|by\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
+  );
+  if (travelTimeMatch) {
+    return to24h(
+      parseInt(travelTimeMatch[1], 10),
+      travelTimeMatch[2] ? parseInt(travelTimeMatch[2], 10) : 0,
+      travelTimeMatch[3].toLowerCase(),
+    );
+  }
+
+  // Pattern 5: Generic "X AM/PM" or "X:XX AM/PM" anywhere in text
+  const explicitTimeMatch = lowerText.match(
+    /(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
+  );
+  if (explicitTimeMatch) {
+    return to24h(
+      parseInt(explicitTimeMatch[1], 10),
+      explicitTimeMatch[2] ? parseInt(explicitTimeMatch[2], 10) : 0,
+      explicitTimeMatch[3].toLowerCase(),
+    );
+  }
+
+  // Pattern 6: Natural language time periods
+  if (/\bearly\s+morning\b/i.test(lowerText)) return "07:00";
+  if (/\b(dawn|sunrise)\b/i.test(lowerText)) return "06:30";
+  if (/\bmorning\b/i.test(lowerText)) return "09:00";
   if (/\blate\s+morning\b/i.test(lowerText)) return "11:00";
-  if (/\bnoon\b|\bmidday\b/i.test(lowerText)) return "12:00";
-  if (/\b(early\s+)?afternoon\b/i.test(lowerText)) return "14:00";
+  if (/\bnoon\b|\bmidday\b|\blunch\b/i.test(lowerText)) return "12:00";
+  if (/\bearly\s+afternoon\b/i.test(lowerText)) return "13:00";
+  if (/\bafternoon\b/i.test(lowerText)) return "14:00";
   if (/\blate\s+afternoon\b/i.test(lowerText)) return "16:00";
   if (/\b(early\s+)?evening\b/i.test(lowerText)) return "18:00";
   if (/\blate\s+evening\b/i.test(lowerText)) return "20:00";
   if (/\bnight\b/i.test(lowerText)) return "20:00";
+  if (/\bmidnight\b/i.test(lowerText)) return "00:00";
 
   return undefined;
 }

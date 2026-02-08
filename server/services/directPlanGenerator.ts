@@ -1432,6 +1432,18 @@ Today's date is: ${new Date().toISOString().split('T')[0]}
 - "complete workout before 12 PM" → startTime: "10:00"
 - "afternoon study session" → startTime: "14:00"
 - "evening drinks" → startTime: "18:00"
+- "around 5:30 AM" → startTime: "05:30"
+- "approximately 2 PM" → startTime: "14:00"
+- "flight departs 7:30 AM" → startTime: "05:30" (arrive 2 hours early)
+- "arrive at airport by 5:30 AM" → startTime: "05:30"
+- "check-in at 3 PM" → startTime: "15:00"
+- "reservation at 7:30 PM" → startTime: "19:30"
+
+**Travel tasks (CRITICAL - always set startTime for travel):**
+- For flights: startTime = airport arrival time (2 hours before departure)
+- For hotel check-in: startTime = check-in time
+- For reservations/bookings: startTime = reservation time
+- If task mentions a specific time anywhere in the description → ALWAYS extract it as startTime
 
 **Time ranges:**
 - "9 AM - 5 PM", "9am-5pm" → startTime: "09:00", endTime: "17:00"
@@ -1455,11 +1467,14 @@ Today's date is: ${new Date().toISOString().split('T')[0]}
 - Activity startDate/endDate: "YYYY-MM-DD" for multi-day plans
 
 ### 6. IMPORTANT RULES:
-- **ALWAYS** extract times from task descriptions if they contain time hints (morning, afternoon, evening, before X, by X)
+- **ALWAYS** extract times from task descriptions if they contain ANY time hint (morning, afternoon, evening, before X, by X, around X, at X, departs X, arrives X)
+- **NEVER** leave startTime as null if the task description mentions a specific time — extract it
 - If task description says "before 12 PM" or "by noon" → set appropriate startTime (don't leave null)
+- If task mentions "around 5:30 AM" → startTime: "05:30"
 - If task mentions "morning workout" → startTime: "09:00"
 - If task mentions "afternoon study" → startTime: "14:00"
 - If task mentions "evening drinks" → startTime: "18:00"
+- For travel/flight tasks: if departure time is known, set startTime to 2 hours before departure
 - If absolutely NO time hint is present → distribute tasks reasonably across the day (9 AM to 8 PM)
 - If date is ambiguous (e.g., "next week") → calculate best estimate from today
 - If year is not specified → use current year (or next year if date has passed)

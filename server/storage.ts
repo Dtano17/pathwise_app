@@ -286,7 +286,8 @@ export interface IStorage {
   updateNotificationPreferences(userId: string, updates: Partial<NotificationPreferences>): Promise<NotificationPreferences | undefined>;
   getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>; // Alias for getUserNotificationPreferences
   getUsersWithDailyPlanningEnabled(): Promise<Array<{ userId: string; dailyPlanningTime: string | null }>>;
-  
+  getUsersWithAccountabilityEnabled(): Promise<Array<{ userId: string }>>;
+
   // User Notifications (in-app notifications)
   createUserNotification(notification: { userId: string; sourceGroupId: string | null; actorUserId: string | null; type: string; title: string; body: string | null; metadata: any }): Promise<any>;
   getUserNotifications(userId: string, limit?: number): Promise<any[]>;
@@ -1810,6 +1811,15 @@ export class DatabaseStorage implements IStorage {
     })
       .from(notificationPreferences)
       .where(eq(notificationPreferences.enableDailyPlanning, true));
+    return results;
+  }
+
+  async getUsersWithAccountabilityEnabled(): Promise<Array<{ userId: string }>> {
+    const results = await db.select({
+      userId: notificationPreferences.userId,
+    })
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.enableAccountabilityReminders, true));
     return results;
   }
 

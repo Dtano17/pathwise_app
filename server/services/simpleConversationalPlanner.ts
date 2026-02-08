@@ -1683,6 +1683,10 @@ When user mentions dates or times, convert to ISO format:
 - "afternoon" → startTime: "14:00"
 - "evening" → startTime: "18:00"
 - "2pm" → startTime: "14:00"
+- "around 5:30 AM" → startTime: "05:30"
+- "flight departs 7:30 AM" → startTime: "05:30" (arrive 2h early)
+- "check-in at 3 PM" → startTime: "15:00"
+- "reservation at 7:30 PM" → startTime: "19:30"
 - "Nov 10-24" → startDate: "2025-11-10", endDate: "2025-11-24"
 
 **In the plan output:**
@@ -1690,6 +1694,8 @@ When user mentions dates or times, convert to ISO format:
 - \`plan.endDate\` = Activity end date (YYYY-MM-DD) for multi-day
 - \`task.scheduledDate\` = When this task happens (YYYY-MM-DD)
 - \`task.startTime\` = Time of day (HH:MM in 24-hour format)
+
+**NEVER leave startTime null** if the task description contains ANY time reference (morning, afternoon, evening, before X, by X, around X, at X, departs X, arrives X). For travel/flight tasks, set startTime to the airport arrival time (2 hours before departure).
 
 **This enables:**
 - Calendar integration (users can add tasks to their calendar)
