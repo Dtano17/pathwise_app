@@ -16779,10 +16779,8 @@ You can find these tasks in your task list and start working on them right away!
 
       console.log(`[CONFIRM MEDIA] User selected TMDB ID ${selectedTmdbId} for entry ${entryId}`);
 
-      // Fetch full details for the selected movie/TV show
-      const result = mediaType === 'tv'
-        ? await tmdbService.searchTV(selectedTmdbId.toString())
-        : await tmdbService.searchMovie(selectedTmdbId.toString());
+      // Fetch full details for the selected movie/TV show by TMDB ID
+      const result = await tmdbService.getDetailsById(selectedTmdbId, mediaType || 'movie');
 
       if (!result) {
         return res.status(404).json({ error: "Could not fetch details for selected media" });

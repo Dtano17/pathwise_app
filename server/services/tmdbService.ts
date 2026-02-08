@@ -1720,6 +1720,69 @@ Respond ONLY with valid JSON (no explanation):
   }
 
   /**
+   * Fetch movie or TV show details by TMDB ID and return as TMDBSearchResult.
+   * Used when confirming a user's selection from the media picker.
+   */
+  async getDetailsById(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<TMDBSearchResult | null> {
+    if (!this.apiKey) return null;
+
+    try {
+      if (mediaType === 'movie') {
+        const details = await this.getMovieDetails(tmdbId);
+        if (!details) return null;
+
+        const director = details.credits?.crew?.find((c: any) => c.job === 'Director')?.name;
+        const cast = details.credits?.cast?.slice(0, 5).map((c: any) => c.name);
+        const backdropUrl = this.getImageUrl(details.backdrop_path, 'w780');
+        const posterUrl = this.getImageUrl(details.poster_path, 'w500');
+
+        return {
+          posterUrl: backdropUrl || posterUrl,
+          backdropUrl,
+          title: details.title,
+          overview: details.overview,
+          releaseYear: details.release_date ? details.release_date.substring(0, 4) : '',
+          rating: Math.round(details.vote_average * 10) / 10,
+          ratingCount: details.vote_count,
+          genres: details.genres?.map((g: any) => g.name) || [],
+          director,
+          cast,
+          runtime: details.runtime ? `${details.runtime} min` : undefined,
+          tmdbId: details.id,
+          mediaType: 'movie',
+        };
+      } else {
+        const details = await this.getTVDetails(tmdbId);
+        if (!details) return null;
+
+        const creator = details.created_by?.[0]?.name;
+        const cast = details.credits?.cast?.slice(0, 5).map((c: any) => c.name);
+        const backdropUrl = this.getImageUrl(details.backdrop_path, 'w780');
+        const posterUrl = this.getImageUrl(details.poster_path, 'w500');
+
+        return {
+          posterUrl: backdropUrl || posterUrl,
+          backdropUrl,
+          title: details.name,
+          overview: details.overview,
+          releaseYear: details.first_air_date ? details.first_air_date.substring(0, 4) : '',
+          rating: Math.round(details.vote_average * 10) / 10,
+          ratingCount: details.vote_count,
+          genres: details.genres?.map((g: any) => g.name) || [],
+          director: creator,
+          cast,
+          runtime: details.episode_run_time?.[0] ? `${details.episode_run_time[0]} min/ep` : undefined,
+          tmdbId: details.id,
+          mediaType: 'tv',
+        };
+      }
+    } catch (error) {
+      console.error('[TMDB] getDetailsById error:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get TV show details including credits
    */
   private async getTVDetails(tvId: number): Promise<any> {
