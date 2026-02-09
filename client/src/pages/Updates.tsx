@@ -9,14 +9,19 @@ import {
   ImagePlus,
   Combine,
   Share2,
-  Video,
   Smartphone,
   Globe,
   Star,
   Calendar,
   Zap,
   BarChart3,
-  Moon
+  Moon,
+  LayoutGrid,
+  Smile,
+  Search,
+  Clock,
+  Bell,
+  Tv
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -33,6 +38,80 @@ interface UpdateEntry {
 
 const updates: UpdateEntry[] = [
   {
+    id: 'smart-notifications',
+    date: 'February 2026',
+    title: 'Smart Notifications & Scheduling',
+    category: 'improvement',
+    description: 'Smarter notification delivery with intelligent scheduling, quiet hours support, and real-time bell icon updates so you never miss what matters.',
+    highlights: [
+      'Real-time notification badge updates',
+      'Smart time extraction from task descriptions for reminders',
+      'Quiet hours automatically reschedule notifications',
+      'Duplicate notification prevention'
+    ],
+    icon: <Bell className="w-6 h-6 text-rose-500" />,
+    isNew: true
+  },
+  {
+    id: 'unified-widgets',
+    date: 'February 2026',
+    title: 'Unified Home Screen Widgets',
+    category: 'improvement',
+    description: 'Redesigned widgets for iOS and Android with consistent stats that match your Reports dashboard — streak, tasks, plans, and completion rate at a glance.',
+    highlights: [
+      'Widget stats now match Reports page exactly',
+      'iOS widgets: small, medium, large, and Lock Screen sizes',
+      'Android widgets: 2x2 and 4x2 layouts with category icons',
+      'Real-time sync when you complete tasks'
+    ],
+    icon: <LayoutGrid className="w-6 h-6 text-blue-500" />,
+    isNew: true
+  },
+  {
+    id: 'journal-enrichment-v2',
+    date: 'February 2026',
+    title: 'Enhanced Journal Enrichment',
+    category: 'improvement',
+    description: 'Journal entries for movies, TV shows, books, restaurants, and more now get richer details — better poster art, streaming availability, and smarter name matching.',
+    highlights: [
+      'Google Search-powered name standardization for accurate results',
+      'Improved movie and TV show poster matching via TMDB',
+      'See where to stream movies and shows you journal about',
+      'Better cover art for books, albums, and venues'
+    ],
+    icon: <Search className="w-6 h-6 text-teal-500" />,
+    isNew: true
+  },
+  {
+    id: 'emoji-plan-titles',
+    date: 'February 2026',
+    title: 'AI Emoji Plan Titles',
+    category: 'feature',
+    description: 'Your activity plans now get fun, contextual emoji automatically added to their titles by AI — making your plan list more visual and easier to scan.',
+    highlights: [
+      'AI picks the perfect emoji for each plan',
+      'Works with all plan types (Quick, Smart, Direct)',
+      'Emoji reflects the activity category and mood'
+    ],
+    icon: <Smile className="w-6 h-6 text-amber-500" />,
+    isNew: true
+  },
+  {
+    id: 'quick-plan-ux',
+    date: 'February 2026',
+    title: 'Quick Plan UX Improvements',
+    category: 'improvement',
+    description: 'The Quick Plan flow is now smoother with a clearer confirmation step, better location suggestions, and cleaner error messages.',
+    highlights: [
+      'Redesigned plan confirmation screen',
+      'Improved location and venue hints',
+      'Cleaner error messages without technical jargon',
+      'Better header and navigation during planning'
+    ],
+    icon: <Zap className="w-6 h-6 text-yellow-500" />,
+    isNew: true
+  },
+  {
     id: 'reports-dashboard',
     date: 'February 2026',
     title: 'Reports & Progress Dashboard',
@@ -47,8 +126,7 @@ const updates: UpdateEntry[] = [
       'Category filtering for focused insights',
       'Widget sync for home screen stats'
     ],
-    icon: <BarChart3 className="w-6 h-6 text-indigo-500" />,
-    isNew: true
+    icon: <BarChart3 className="w-6 h-6 text-indigo-500" />
   },
   {
     id: 'end-of-day-review',
@@ -63,8 +141,7 @@ const updates: UpdateEntry[] = [
       'Auto-generates daily journal entry',
       'Celebration confetti on completion'
     ],
-    icon: <Moon className="w-6 h-6 text-purple-500" />,
-    isNew: true
+    icon: <Moon className="w-6 h-6 text-purple-500" />
   },
   {
     id: 'social-media-import',
@@ -78,8 +155,7 @@ const updates: UpdateEntry[] = [
       'Turn saved inspiration into actionable plans',
       'Track your progress on activities you discover'
     ],
-    icon: <ImagePlus className="w-6 h-6 text-pink-500" />,
-    isNew: false
+    icon: <ImagePlus className="w-6 h-6 text-pink-500" />
   },
   {
     id: 'plan-remix',
@@ -93,8 +169,7 @@ const updates: UpdateEntry[] = [
       'Credits original plan creators',
       'Reorder tasks before saving'
     ],
-    icon: <Combine className="w-6 h-6 text-violet-500" />,
-    isNew: true
+    icon: <Combine className="w-6 h-6 text-violet-500" />
   },
   {
     id: 'cross-platform-import',

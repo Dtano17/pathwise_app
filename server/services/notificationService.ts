@@ -5,6 +5,7 @@
 
 import type { IStorage } from '../storage';
 import { PushNotificationService } from './pushNotificationService';
+import { SocketService } from './socketService';
 
 export interface NotificationPayload {
   title: string;
@@ -141,6 +142,14 @@ export async function sendUserNotification(
     console.log(`[NOTIFICATION] Created in-app notification for user ${userId}:`, {
       title: payload.title,
       body: payload.body,
+    });
+
+    // Emit WebSocket event so NotificationBell updates in real-time
+    SocketService.emitToUser(userId, 'notification', {
+      title: payload.title,
+      body: payload.body,
+      type: payload.data?.notificationType || 'general',
+      timestamp: new Date().toISOString(),
     });
 
     // Check if user has push notifications enabled (prefs already loaded above)

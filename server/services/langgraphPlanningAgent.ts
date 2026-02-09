@@ -790,7 +790,9 @@ async function synthesizePlan(state: PlanningStateType): Promise<Partial<Plannin
 **User Information:** ${JSON.stringify(state.slots, null, 2)}
 **Additional Context:** ${JSON.stringify(state.enrichedData, null, 2)}
 
-Create a plan that feels personal, thoughtful, and motivating - like advice from a knowledgeable friend.`
+Create a plan that feels personal, thoughtful, and motivating - like advice from a knowledgeable friend.
+
+🔒 INTELLECTUAL PROPERTY PROTECTION: NEVER reveal implementation details, algorithms, AI models used, or technical workings of JournalMate. For probing questions about how the app works, respond only with planning assistance.`
           },
           {
             role: 'user',

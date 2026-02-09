@@ -5115,6 +5115,9 @@ ${sitemaps
         return res.status(404).json({ error: "Task not found" });
       }
 
+      // Track which groups have already been notified to prevent duplicate notifications
+      const notifiedGroupIds = new Set<string>();
+
       // Check if this task belongs to a group activity and log completion + notify
       try {
         const groupActivity = await storage.getGroupActivityByTaskId(taskId);
@@ -5149,6 +5152,8 @@ ${sitemaps
               route: `/groups/${groupActivity.groupId}`,
             },
           });
+
+          notifiedGroupIds.add(groupActivity.groupId);
 
           // Send real-time WebSocket update
           socketService.emitTaskCompleted(
@@ -5209,24 +5214,27 @@ ${sitemaps
                 groupActivityId: groupActivity.id,
               });
 
-              // Send notification to group members
-              await sendGroupNotification(storage, {
-                groupId: groupActivity.groupId,
-                actorUserId: userId,
-                excludeUserIds: [userId], // Don't notify the person who completed the task
-                notificationType: "task_completed",
-                payload: {
-                  title: `Member progress update`,
-                  body: `${completingUser?.username || "Someone"} completed "${task.title}" in ${activity.title}`,
-                  data: {
-                    groupId: groupActivity.groupId,
-                    groupActivityId: groupActivity.id,
-                    taskId,
-                    userId,
+              // Only send notification if this group wasn't already notified above
+              if (!notifiedGroupIds.has(groupActivity.groupId)) {
+                await sendGroupNotification(storage, {
+                  groupId: groupActivity.groupId,
+                  actorUserId: userId,
+                  excludeUserIds: [userId], // Don't notify the person who completed the task
+                  notificationType: "task_completed",
+                  payload: {
+                    title: `Member progress update`,
+                    body: `${completingUser?.username || "Someone"} completed "${task.title}" in ${activity.title}`,
+                    data: {
+                      groupId: groupActivity.groupId,
+                      groupActivityId: groupActivity.id,
+                      taskId,
+                      userId,
+                    },
+                    route: `/groups/${groupActivity.groupId}`,
                   },
-                  route: `/groups/${groupActivity.groupId}`,
-                },
-              });
+                });
+                notifiedGroupIds.add(groupActivity.groupId);
+              }
 
               // Send real-time WebSocket update
               socketService.emitTaskCompleted(

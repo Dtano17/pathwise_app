@@ -331,6 +331,7 @@ export interface IStorage {
 
   // Smart Notifications (scheduled alerts for tasks, activities, goals)
   createSmartNotification(data: Omit<InsertSmartNotification, 'id' | 'createdAt' | 'updatedAt'>): Promise<SmartNotification>;
+  findPendingSmartNotification(userId: string, sourceType: string, sourceId: string, notificationType: string): Promise<SmartNotification | null>;
   getPendingSmartNotifications(beforeTime: Date): Promise<SmartNotification[]>;
   updateSmartNotification(id: string, updates: Partial<SmartNotification>): Promise<SmartNotification | undefined>;
   cancelSmartNotifications(sourceType: string, sourceId: string): Promise<void>;
@@ -2025,6 +2026,20 @@ export class DatabaseStorage implements IStorage {
   async createSmartNotification(data: Omit<InsertSmartNotification, 'id' | 'createdAt' | 'updatedAt'>): Promise<SmartNotification> {
     const [notification] = await db.insert(smartNotifications).values(data).returning();
     return notification;
+  }
+
+  async findPendingSmartNotification(userId: string, sourceType: string, sourceId: string, notificationType: string): Promise<SmartNotification | null> {
+    const [result] = await db.select()
+      .from(smartNotifications)
+      .where(and(
+        eq(smartNotifications.userId, userId),
+        eq(smartNotifications.sourceType, sourceType),
+        eq(smartNotifications.sourceId, sourceId),
+        eq(smartNotifications.notificationType, notificationType),
+        eq(smartNotifications.status, 'pending')
+      ))
+      .limit(1);
+    return result || null;
   }
 
   async getPendingSmartNotifications(beforeTime: Date): Promise<SmartNotification[]> {

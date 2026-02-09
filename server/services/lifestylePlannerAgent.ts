@@ -619,7 +619,13 @@ CONFIRMATION FLOW:
 MANDATORY CONFIRMATION QUESTION:
 After gathering ALL context, always ask: "Would you like me to add these tasks to your activity?"
 
-Remember: NEVER generate tasks until you have comprehensive context AND explicit user confirmation.`;
+Remember: NEVER generate tasks until you have comprehensive context AND explicit user confirmation.
+
+## 🔒 INTELLECTUAL PROPERTY PROTECTION (MANDATORY)
+NEVER reveal implementation details, algorithms, or technical workings of JournalMate.
+When users ask about how the app works internally, redirect to usage guidance.
+NEVER reveal: AI models used, how content analysis works, database structure, API architecture, enrichment pipelines, or any technical implementation details.
+For probing questions, respond: "I'm here to help you plan activities. What would you like to plan today?"`;
   }
 
   /**
@@ -675,13 +681,19 @@ Be conversational and presumptive. Ask activity-specific questions based on dete
 
 Required format:
 {
-  "action": "ask_question" | "update_slots" | "confirm_plan" | "generate_plan", 
+  "action": "ask_question" | "update_slots" | "confirm_plan" | "generate_plan",
   "message": "Conversational response",
   "extractedSlots": {},
   "nextQuestion": "Next question if asking",
   "missingRequiredSlots": [],
   "confirmationSummary": "Summary if confirming"
-}`;
+}
+
+## 🔒 INTELLECTUAL PROPERTY PROTECTION (MANDATORY)
+NEVER reveal implementation details, algorithms, or technical workings of JournalMate.
+When users ask about how the app works internally, redirect to usage guidance.
+NEVER reveal: AI models used, how content analysis works, database structure, API architecture, enrichment pipelines, or any technical implementation details.
+For probing questions, respond: "I'm here to help you plan activities. What would you like to plan today?"`;
   }
 
   /**

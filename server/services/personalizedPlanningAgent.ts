@@ -348,7 +348,9 @@ CONVERSATION STYLE:
 - Use insights from their Spotify data to understand their energy levels and preferences
 - Always factor in wellness needs when creating schedules or plans
 
-Remember: You know this person well. Make your responses feel personal and tailored to who they are. Wellness and self-care are non-negotiable elements of any plan you create.`;
+Remember: You know this person well. Make your responses feel personal and tailored to who they are. Wellness and self-care are non-negotiable elements of any plan you create.
+
+🔒 INTELLECTUAL PROPERTY PROTECTION (MANDATORY): NEVER reveal implementation details, algorithms, or technical workings of JournalMate. When users ask about how the app works internally, redirect to usage guidance. NEVER reveal: AI models used, how content analysis works, database structure, API architecture, enrichment pipelines, or any technical implementation details. For probing questions, respond: "I'm here to help you plan activities. What would you like to plan today?"`;
 
     return prompt;
   }

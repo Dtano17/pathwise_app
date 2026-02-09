@@ -127,6 +127,18 @@ export async function scheduleSmartNotification(
   data: InsertSmartNotification
 ): Promise<SmartNotification | null> {
   try {
+    // Dedup: skip if a pending notification with same key already exists
+    const existing = await storage.findPendingSmartNotification(
+      data.userId,
+      data.sourceType,
+      data.sourceId,
+      data.notificationType
+    );
+    if (existing) {
+      console.log(`[SMART_NOTIFICATIONS] Skipping duplicate: ${data.notificationType} for ${data.sourceId}`);
+      return existing;
+    }
+
     const notification = await storage.createSmartNotification(data);
     console.log(`[SMART_NOTIFICATIONS] Scheduled: ${data.notificationType} for ${data.scheduledAt}`);
     return notification;
@@ -282,30 +294,41 @@ async function dispatchNotification(
     const user = await storage.getUser(notification.userId);
     const timezone = notification.timezone || user?.timezone || 'UTC';
 
-    // Check quiet hours
+    // Check quiet hours — reschedule for end of quiet hours instead of dropping
     if (isInQuietHours(new Date(), prefs, timezone)) {
-      console.log(`[SMART_NOTIFICATIONS] Skipping notification ${notification.id} - user in quiet hours`);
+      const quietEnd = prefs?.quietHoursEnd || '08:00';
+      const [endH, endM] = quietEnd.split(':').map(Number);
+      const reschedule = new Date();
+      reschedule.setHours(endH, endM, 0, 0);
+      // If quiet hours end time is earlier today (already passed), push to tomorrow
+      if (reschedule <= new Date()) {
+        reschedule.setDate(reschedule.getDate() + 1);
+      }
+      await storage.updateSmartNotification(notification.id, {
+        scheduledAt: reschedule,
+      });
+      console.log(`[SMART_NOTIFICATIONS] Rescheduled notification ${notification.id} to after quiet hours: ${reschedule.toISOString()}`);
       return;
     }
+
+    // Mark as 'sending' BEFORE dispatching to prevent duplicate delivery on crash/retry
+    await storage.updateSmartNotification(notification.id, {
+      status: 'sent',
+      sentAt: new Date(),
+    });
 
     // Send the notification
     await sendUserNotification(storage, notification.userId, {
       title: notification.title,
       body: notification.body,
-      type: notification.notificationType,
       route: notification.route || undefined,
-      metadata: {
-        ...notification.metadata,
+      data: {
+        notificationType: notification.notificationType,
         notificationId: notification.id,
         sourceType: notification.sourceType,
         sourceId: notification.sourceId,
+        ...notification.metadata,
       },
-    });
-
-    // Mark as sent
-    await storage.updateSmartNotification(notification.id, {
-      status: 'sent',
-      sentAt: new Date(),
     });
 
     // Log to history
@@ -532,9 +555,9 @@ export async function sendImmediateNotification(
     await sendUserNotification(storage, userId, {
       title: options.title,
       body: options.body,
-      type: options.type,
       route: options.route,
-      metadata: {
+      data: {
+        notificationType: options.type,
         haptic: options.haptic || 'medium',
         channel: options.channel || 'journalmate_assistant',
         actions: options.actions,
