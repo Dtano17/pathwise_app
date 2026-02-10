@@ -342,8 +342,9 @@ export default function MainApp({
     open: boolean;
     activity: ActivityType | null;
   }>({ open: false, activity: null });
-  const [showDirectPlanDialog, setShowDirectPlanDialog] = useState(false);
-  const [directPlanFromJournal, setDirectPlanFromJournal] = useState<string>('');
+  const [showJournalPlanDialog, setShowJournalPlanDialog] = useState(false);
+  const [journalPlanInput, setJournalPlanInput] = useState<string>('');
+  const [journalPlanMode, setJournalPlanMode] = useState<'quick' | 'smart' | 'direct'>('direct');
   const [promptedActivities, setPromptedActivities] = useState<Set<string>>(
     () => {
       try {
@@ -4825,14 +4826,10 @@ export default function MainApp({
                 // Close the journal dialog
                 onShowLifestylePlanner(false);
 
-                if (mode === 'direct') {
-                  // For Direct Plan: open ConversationalPlanner with pre-filled text
-                  setDirectPlanFromJournal(formattedText);
-                  setShowDirectPlanDialog(true);
-                } else {
-                  // For Quick/Smart Plan: use existing processSharedContent flow
-                  processSharedContent(formattedText);
-                }
+                // Open ConversationalPlanner with the correct mode and pre-filled text
+                setJournalPlanInput(formattedText);
+                setJournalPlanMode(mode);
+                setShowJournalPlanDialog(true);
               }}
             />
           </div>
@@ -4866,26 +4863,26 @@ export default function MainApp({
         </DialogContent>
       </Dialog>
 
-      {/* Direct Plan from Journal Dialog */}
+      {/* Plan from Journal Dialog (Quick/Smart/Direct) */}
       <Dialog
-        open={showDirectPlanDialog}
+        open={showJournalPlanDialog}
         onOpenChange={(open) => {
-          setShowDirectPlanDialog(open);
+          setShowJournalPlanDialog(open);
           if (!open) {
-            setDirectPlanFromJournal('');
+            setJournalPlanInput('');
           }
         }}
       >
         <DialogContent
           className="max-w-[95vw] sm:max-w-4xl h-[90vh] flex flex-col p-0"
-          data-testid="modal-direct-plan-journal"
+          data-testid="modal-journal-plan"
         >
           <ConversationalPlanner
-            initialMode="direct"
-            initialInput={directPlanFromJournal}
+            initialMode={journalPlanMode}
+            initialInput={journalPlanInput}
             onClose={() => {
-              setShowDirectPlanDialog(false);
-              setDirectPlanFromJournal('');
+              setShowJournalPlanDialog(false);
+              setJournalPlanInput('');
             }}
             user={user}
             onSignInRequired={() => setShowPlannerSignIn(true)}

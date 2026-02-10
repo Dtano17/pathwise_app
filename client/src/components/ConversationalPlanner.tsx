@@ -765,15 +765,36 @@ export default function ConversationalPlanner({ onClose, initialMode, initialInp
     }
   });
 
-  // Auto-fill and trigger direct plan when initialInput is provided
+  // Auto-fill and trigger plan when initialInput is provided
   useEffect(() => {
-    if (initialInput && planningMode === 'direct' && !currentSession) {
+    if (!initialInput || currentSession) return;
+
+    if (planningMode === 'direct') {
+      // Direct mode: set message and auto-trigger directPlanMutation
       setMessage(initialInput);
       const timer = setTimeout(() => {
         directPlanMutation.mutate({
           userInput: initialInput,
           contentType: 'text',
           isModification: false,
+        });
+      }, 300);
+      return () => clearTimeout(timer);
+    } else if (planningMode === 'quick' || planningMode === 'smart') {
+      // Quick/Smart mode: create temp session, set message, and auto-send
+      setCurrentSession({
+        id: 'temp-' + Date.now(),
+        sessionState: 'gathering',
+        conversationHistory: [],
+        slots: {},
+        isComplete: false
+      } as PlannerSession);
+      setMessage(initialInput);
+      const timer = setTimeout(() => {
+        sendMessageMutation.mutate({
+          message: initialInput,
+          mode: planningMode,
+          conversationHistory: []
         });
       }, 300);
       return () => clearTimeout(timer);
