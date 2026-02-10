@@ -342,6 +342,8 @@ export default function MainApp({
     open: boolean;
     activity: ActivityType | null;
   }>({ open: false, activity: null });
+  const [showDirectPlanDialog, setShowDirectPlanDialog] = useState(false);
+  const [directPlanFromJournal, setDirectPlanFromJournal] = useState<string>('');
   const [promptedActivities, setPromptedActivities] = useState<Set<string>>(
     () => {
       try {
@@ -2543,14 +2545,14 @@ export default function MainApp({
               </div>
 
               {/* Discover Tab */}
-              <TabsContent value="discover" className="space-y-6 pb-20">
+              <TabsContent value="discover" className="space-y-6 pb-32 safe-bottom">
                 <DiscoverPlansView
                   onSignInRequired={() => setShowDiscoverSignIn(true)}
                 />
               </TabsContent>
 
               {/* Goal Input Tab */}
-              <TabsContent value="input" className="space-y-6 pb-20">
+              <TabsContent value="input" className="space-y-6 pb-32 safe-bottom">
                 {editingActivity && (
                   <div className="max-w-4xl mx-auto mb-6 px-4">
                     <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
@@ -3029,7 +3031,7 @@ export default function MainApp({
               </TabsContent>
 
               {/* Activities Tab - Primary Focus */}
-              <TabsContent value="activities" className="space-y-6 pb-20">
+              <TabsContent value="activities" className="space-y-6 pb-32 safe-bottom">
                 <div className="text-center mb-6 px-4">
                   <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                     Your Activities
@@ -3517,7 +3519,7 @@ export default function MainApp({
               </TabsContent>
 
               {/* All Tasks Tab */}
-              <TabsContent value="tasks" className="space-y-6 pb-20">
+              <TabsContent value="tasks" className="space-y-6 pb-32 safe-bottom">
                 <div className="text-center mb-6 px-4">
                   {selectedActivityId ? (
                     <>
@@ -3814,14 +3816,14 @@ export default function MainApp({
               </TabsContent>
 
               {/* Reports Tab */}
-              <TabsContent value="reports" className="pb-20">
+              <TabsContent value="reports" className="pb-32 safe-bottom">
                 <SignInGate feature="Reports and analytics">
                   <ReportsPage />
                 </SignInGate>
               </TabsContent>
 
               {/* App Integrations Tab */}
-              <TabsContent value="sync" className="h-full flex flex-col pb-20">
+              <TabsContent value="sync" className="h-full flex flex-col pb-32 safe-bottom">
                 <SignInGate feature="App integrations">
                   <div className="max-w-4xl mx-auto space-y-8">
                     {/* Import Content to Plan - Hero Section */}
@@ -4049,7 +4051,7 @@ export default function MainApp({
               </TabsContent>
 
               {/* Groups Tab */}
-              <TabsContent value="groups" className="space-y-6 pb-20">
+              <TabsContent value="groups" className="space-y-6 pb-32 safe-bottom">
                 <SignInGate feature="Group collaboration">
                   <div className="max-w-4xl mx-auto px-4">
                     <div className="text-center mb-8">
@@ -4254,7 +4256,7 @@ export default function MainApp({
               </TabsContent>
 
               {/* About Tab */}
-              <TabsContent value="about" className="space-y-8 pb-20">
+              <TabsContent value="about" className="space-y-8 pb-32 safe-bottom">
                 <div className="max-w-4xl mx-auto">
                   {/* Hero Section */}
                   <div className="text-center mb-12">
@@ -4817,7 +4819,22 @@ export default function MainApp({
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto min-h-0">
-            <PersonalJournal onClose={() => onShowLifestylePlanner(false)} />
+            <PersonalJournal
+              onClose={() => onShowLifestylePlanner(false)}
+              onPlanWithSelected={(formattedText, mode) => {
+                // Close the journal dialog
+                onShowLifestylePlanner(false);
+
+                if (mode === 'direct') {
+                  // For Direct Plan: open ConversationalPlanner with pre-filled text
+                  setDirectPlanFromJournal(formattedText);
+                  setShowDirectPlanDialog(true);
+                } else {
+                  // For Quick/Smart Plan: use existing processSharedContent flow
+                  processSharedContent(formattedText);
+                }
+              }}
+            />
           </div>
         </DialogContent>
       </Dialog>
@@ -4843,6 +4860,33 @@ export default function MainApp({
             }}
             activityId={journalActivityContext?.activityId}
             activityTitle={journalActivityContext?.title}
+            user={user}
+            onSignInRequired={() => setShowPlannerSignIn(true)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Direct Plan from Journal Dialog */}
+      <Dialog
+        open={showDirectPlanDialog}
+        onOpenChange={(open) => {
+          setShowDirectPlanDialog(open);
+          if (!open) {
+            setDirectPlanFromJournal('');
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-[95vw] sm:max-w-4xl h-[90vh] flex flex-col p-0"
+          data-testid="modal-direct-plan-journal"
+        >
+          <ConversationalPlanner
+            initialMode="direct"
+            initialInput={directPlanFromJournal}
+            onClose={() => {
+              setShowDirectPlanDialog(false);
+              setDirectPlanFromJournal('');
+            }}
             user={user}
             onSignInRequired={() => setShowPlannerSignIn(true)}
           />

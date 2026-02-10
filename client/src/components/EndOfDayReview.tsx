@@ -11,7 +11,30 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { hapticsSwipe, hapticsSuccess, hapticsCelebrate } from '@/lib/haptics';
 import confetti from 'canvas-confetti';
+
+// Helper: render text with clickable links
+function renderWithLinks(text: string): React.ReactNode {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return parts.map((part, i) => {
+    if (/^https?:\/\//.test(part)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
 
 interface Task {
   id: string;
@@ -44,8 +67,15 @@ export default function EndOfDayReview({ open, onOpenChange, onComplete }: EndOf
   const [showCelebration, setShowCelebration] = useState(false);
 
   const x = useMotionValue(0);
+  const y = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0, 1, 1, 1, 0]);
+  const [exitDirection, setExitDirection] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Reactive indicator opacities bound to motion values
+  const leftIndicatorOpacity = useTransform(x, [-100, -50, 0], [1, 0.5, 0]);
+  const rightIndicatorOpacity = useTransform(x, [0, 50, 100], [0, 0.5, 1]);
+  const upIndicatorOpacity = useTransform(y, [-100, -50, 0], [1, 0.5, 0]);
 
   // Fetch today's completed tasks
   useEffect(() => {
@@ -86,9 +116,11 @@ export default function EndOfDayReview({ open, onOpenChange, onComplete }: EndOf
 
     setReactions([...reactions, reaction]);
 
-    // Trigger haptic feedback if available
-    if (navigator.vibrate) {
-      navigator.vibrate(type === 'superlike' ? [10, 50, 10] : 10);
+    // Trigger haptic feedback
+    if (type === 'superlike') {
+      hapticsSuccess();
+    } else {
+      hapticsSwipe();
     }
 
     // Play sound effect (optional)
@@ -99,6 +131,7 @@ export default function EndOfDayReview({ open, onOpenChange, onComplete }: EndOf
       setTimeout(() => {
         setCurrentIndex(currentIndex + 1);
         x.set(0);
+        y.set(0);
       }, 300);
     } else {
       // All tasks reviewed!
@@ -117,21 +150,28 @@ export default function EndOfDayReview({ open, onOpenChange, onComplete }: EndOf
 
     if (info.offset.x > threshold) {
       // Swiped right = Like
+      setExitDirection({ x: 500, y: 0 });
       handleReaction('like');
     } else if (info.offset.x < -threshold) {
       // Swiped left = Unlike
+      setExitDirection({ x: -500, y: 0 });
       handleReaction('unlike');
     } else if (info.offset.y < -threshold) {
       // Swiped up = Superlike
+      setExitDirection({ x: 0, y: -500 });
       handleReaction('superlike');
     } else {
       // Not enough swipe, return to center
       x.set(0);
+      y.set(0);
     }
   };
 
   const handleComplete = async () => {
     setShowCelebration(true);
+
+    // Trigger celebration haptics
+    hapticsCelebrate();
 
     // Trigger confetti
     confetti({
@@ -344,34 +384,39 @@ Keep crushing it! 🚀
               </Button>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Swipeable Card Stack */}
-              <div className="relative h-[400px] flex items-center justify-center">
+              <div className="relative h-[280px] xs:h-[340px] sm:h-[400px] flex items-center justify-center overflow-hidden">
                 <AnimatePresence>
                   {currentTask && (
                     <motion.div
                       key={currentTask.id}
-                      style={{ x, rotate, opacity }}
+                      style={{ x, y, rotate, opacity, touchAction: 'none' }}
                       drag
-                      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+                      dragElastic={1}
                       onDragEnd={handleDragEnd}
-                      className="absolute w-full"
+                      className="absolute w-full px-2"
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.8, opacity: 0 }}
+                      exit={{
+                        x: exitDirection.x,
+                        y: exitDirection.y,
+                        opacity: 0,
+                        transition: { duration: 0.3 }
+                      }}
                       transition={{ duration: 0.3 }}
                     >
                       <Card className="cursor-grab active:cursor-grabbing border-2 border-primary/20 shadow-xl">
-                        <CardContent className="p-8 text-center space-y-4">
-                          <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center">
-                            <CheckCircle2 className="w-8 h-8 text-white" />
+                        <CardContent className="p-4 sm:p-8 text-center space-y-3 sm:space-y-4">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-full bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center">
+                            <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                           </div>
 
                           <div className="space-y-2">
-                            <h3 className="text-xl font-bold">{currentTask.title}</h3>
+                            <h3 className="text-lg sm:text-xl font-bold break-words line-clamp-2">{currentTask.title}</h3>
                             {currentTask.description && (
-                              <p className="text-muted-foreground text-sm">
-                                {currentTask.description}
+                              <p className="text-muted-foreground text-sm break-words line-clamp-3">
+                                {renderWithLinks(currentTask.description)}
                               </p>
                             )}
                             {currentTask.activityTitle && (
@@ -381,7 +426,7 @@ Keep crushing it! 🚀
                             )}
                           </div>
 
-                          <div className="pt-4">
+                          <div className="pt-2 sm:pt-4">
                             <p className="text-sm text-muted-foreground font-medium">
                               How did this task go?
                             </p>
@@ -392,30 +437,38 @@ Keep crushing it! 🚀
                   )}
                 </AnimatePresence>
 
-                {/* Swipe Indicators */}
+                {/* Swipe Indicators - reactive to drag position */}
                 <motion.div
-                  className="absolute left-4 top-1/2 -translate-y-1/2 opacity-0"
-                  animate={{ opacity: x.get() < -50 ? 1 : 0 }}
+                  className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10"
+                  style={{ opacity: leftIndicatorOpacity }}
                 >
-                  <div className="bg-orange-500 text-white p-4 rounded-full">
-                    <ThumbsDown className="w-6 h-6" />
+                  <div className="bg-orange-500 text-white p-3 sm:p-4 rounded-full">
+                    <ThumbsDown className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                 </motion.div>
 
                 <motion.div
-                  className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0"
-                  animate={{ opacity: x.get() > 50 ? 1 : 0 }}
+                  className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 pointer-events-none z-10"
+                  style={{ opacity: rightIndicatorOpacity }}
                 >
-                  <div className="bg-green-500 text-white p-4 rounded-full">
-                    <ThumbsUp className="w-6 h-6" />
+                  <div className="bg-green-500 text-white p-3 sm:p-4 rounded-full">
+                    <ThumbsUp className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                 </motion.div>
 
-                {/* Superlike indicator would need separate y motion value */}
+                {/* Superlike indicator */}
+                <motion.div
+                  className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none z-10"
+                  style={{ opacity: upIndicatorOpacity }}
+                >
+                  <div className="bg-red-500 text-white p-3 sm:p-4 rounded-full">
+                    <Heart className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                </motion.div>
               </div>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 xs:grid-cols-4 gap-2">
                 <Button
                   variant="outline"
                   size="lg"

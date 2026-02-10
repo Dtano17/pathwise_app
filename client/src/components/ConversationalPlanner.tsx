@@ -61,13 +61,14 @@ type PlanningMode = 'quick' | 'smart' | 'chat' | 'direct' | 'journal' | null;
 interface ConversationalPlannerProps {
   onClose?: () => void;
   initialMode?: PlanningMode;
+  initialInput?: string;
   activityId?: string;
   activityTitle?: string;
   user?: any;
   onSignInRequired?: () => void;
 }
 
-export default function ConversationalPlanner({ onClose, initialMode, activityId, activityTitle, user, onSignInRequired }: ConversationalPlannerProps) {
+export default function ConversationalPlanner({ onClose, initialMode, initialInput, activityId, activityTitle, user, onSignInRequired }: ConversationalPlannerProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { location: deviceLocation, requestLocation, isGranted: hasLocationPermission } = useDeviceLocation();
@@ -763,6 +764,22 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       });
     }
   });
+
+  // Auto-fill and trigger direct plan when initialInput is provided
+  useEffect(() => {
+    if (initialInput && planningMode === 'direct' && !currentSession) {
+      setMessage(initialInput);
+      const timer = setTimeout(() => {
+        directPlanMutation.mutate({
+          userInput: initialInput,
+          contentType: 'text',
+          isModification: false,
+        });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialInput]);
 
   // Create activity from direct plan
   const createActivityFromPlan = useMutation({

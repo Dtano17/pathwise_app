@@ -22,7 +22,7 @@ import {
   Settings, Pencil, Merge, Link, Image, Eye, EyeOff, Calendar, ExternalLink,
   Dumbbell, Building2, TreePine, Wine, Clock, PenLine, Play, ShoppingCart,
   CalendarPlus, Globe, Phone, ClipboardList, PartyPopper, Briefcase,
-  GraduationCap, Boxes, CheckCircle2, type LucideIcon
+  GraduationCap, Boxes, CheckCircle2, CheckSquare, type LucideIcon
 } from 'lucide-react';
 
 // Venue type to icon mapping using Lucide icons
@@ -328,6 +328,7 @@ interface CustomCategory {
 
 interface PersonalJournalProps {
   onClose?: () => void;
+  onPlanWithSelected?: (formattedText: string, mode: 'quick' | 'smart' | 'direct') => void;
 }
 
 interface JournalSettings {
@@ -387,7 +388,7 @@ interface JournalSummary {
   };
 }
 
-export default function PersonalJournal({ onClose }: PersonalJournalProps) {
+export default function PersonalJournal({ onClose, onPlanWithSelected }: PersonalJournalProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>('journal');
   const [activeCategory, setActiveCategory] = useState<string>('restaurants');
@@ -416,7 +417,12 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [ratingFilter, setRatingFilter] = useState<string>('all');
   const [genreFilter, setGenreFilter] = useState<string>('all');
-  
+
+  // Multi-select mode for "Plan with Selected"
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [showPlanModeDialog, setShowPlanModeDialog] = useState(false);
+
   // Journal settings state
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [journalSettings, setJournalSettings] = useState<JournalSettings>({
@@ -587,9 +593,11 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     }
   }, [userData]);
 
-  // Reset subcategory filter when category changes
+  // Reset subcategory filter and selection when category changes
   useEffect(() => {
     setSubcategoryFilter('all');
+    setSelectedItems(new Set());
+    setIsSelectMode(false);
   }, [activeCategory]);
 
   // Merge default and custom categories (custom categories display with emoji and smart icons)
@@ -1311,6 +1319,110 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     }
   }, [handleAddItem]);
 
+  // Multi-select handlers for "Plan with Selected"
+  const handleToggleSelect = useCallback((itemId: string) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    const items = journalData[activeCategory] || [];
+    const allIds = items.map((item, index) => {
+      if (typeof item === 'object' && item !== null) {
+        return item.id;
+      }
+      return `str-${activeCategory}-${index}`;
+    });
+    setSelectedItems(new Set(allIds));
+  }, [journalData, activeCategory]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedItems(new Set());
+  }, []);
+
+  // Format selected journal entries into structured text for the planner
+  const formatSelectedForPlanner = useCallback((): string => {
+    const entries = journalData[activeCategory] || [];
+    const categoryLabel = currentCategory?.label || activeCategory;
+
+    const selectedEntries = entries
+      .map((item, index) => {
+        const itemId = typeof item === 'object' && item !== null
+          ? item.id
+          : `str-${activeCategory}-${index}`;
+        if (!selectedItems.has(itemId)) return null;
+        return item;
+      })
+      .filter(Boolean) as JournalItem[];
+
+    const lines: string[] = [];
+    lines.push(`Create a plan based on these ${selectedEntries.length} items from my ${categoryLabel} list:\n`);
+
+    selectedEntries.forEach((item, idx) => {
+      if (typeof item === 'string') {
+        lines.push(`${idx + 1}. ${item}`);
+        return;
+      }
+
+      const parts: string[] = [item.text];
+      const we = item.webEnrichment;
+
+      if (we) {
+        if (we.director) parts.push(`directed by ${we.director}`);
+        if (we.author) parts.push(`by ${we.author}`);
+        if (we.releaseYear) parts.push(`(${we.releaseYear})`);
+        if (we.publicationYear) parts.push(`(${we.publicationYear})`);
+        if (we.genre) parts.push(we.genre);
+        if (we.runtime) parts.push(we.runtime);
+        if (we.priceRange) parts.push(we.priceRange);
+        if (we.rating) parts.push(`${we.rating} stars`);
+        if (we.location?.address) parts.push(we.location.address);
+        if (we.location?.city && !we.location?.address) parts.push(we.location.city);
+        if (we.muscleGroups?.length) parts.push(`targets: ${we.muscleGroups.join(', ')}`);
+        if (we.difficulty) parts.push(we.difficulty);
+        if (we.duration) parts.push(we.duration);
+      }
+
+      if (item.completed) parts.push('[already completed]');
+
+      lines.push(`${idx + 1}. ${parts.join(' ')}`);
+    });
+
+    // Category-specific planning hints
+    const hints: Record<string, string> = {
+      movies: '\nPlease create a movie marathon schedule with viewing order, estimated times, snack suggestions, and discussion points.',
+      restaurants: '\nPlease create a restaurant crawl or dining plan with visit order, recommended dishes, estimated costs, and reservations timeline.',
+      books: '\nPlease create a reading plan with reading order, estimated time per book, discussion points, and milestones.',
+      music: '\nPlease create a listening session or concert plan with order, context for each, and playlist suggestions.',
+      travel: '\nPlease create a travel itinerary with suggested order of visits, logistics, estimated costs, and time allocations.',
+      fitness: '\nPlease create a workout plan incorporating these exercises with sets, reps, rest periods, and progression.',
+      hobbies: '\nPlease create a structured activity plan with scheduling suggestions and materials needed.',
+    };
+
+    lines.push(hints[activeCategory] || '\nPlease create an organized, actionable plan incorporating all of these items with scheduling and priority suggestions.');
+
+    return lines.join('\n');
+  }, [journalData, activeCategory, selectedItems, currentCategory]);
+
+  // Handle "Plan with Selected" — format entries, close dialog, route to planner
+  const handlePlanWithSelected = useCallback((mode: 'quick' | 'smart' | 'direct') => {
+    const formattedText = formatSelectedForPlanner();
+    setShowPlanModeDialog(false);
+    setIsSelectMode(false);
+    setSelectedItems(new Set());
+
+    if (onPlanWithSelected) {
+      onPlanWithSelected(formattedText, mode);
+    }
+  }, [formatSelectedForPlanner, onPlanWithSelected]);
+
   // Extract unique locations from all journal entries across all categories (including web enrichment data)
   const uniqueLocations = useMemo(() => {
     const locations = new Set<string>();
@@ -1673,19 +1785,38 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                 )}
               </div>
               
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => enrichEntryMutation.mutate({ category: activeCategory })}
-                disabled={enrichEntryMutation.isPending}
-                className="gap-1.5 text-xs text-muted-foreground hover:text-foreground flex-shrink-0"
-                data-testid="button-refresh-category"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${enrichEntryMutation.isPending ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">
-                  {enrichEntryMutation.isPending ? 'Loading...' : 'Refresh Data'}
-                </span>
-              </Button>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Button
+                  variant={isSelectMode ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setIsSelectMode(!isSelectMode);
+                    if (isSelectMode) {
+                      setSelectedItems(new Set());
+                    }
+                  }}
+                  className="gap-1.5 text-xs"
+                  data-testid="button-toggle-select-mode"
+                >
+                  <CheckSquare className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">
+                    {isSelectMode ? 'Cancel' : 'Select'}
+                  </span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => enrichEntryMutation.mutate({ category: activeCategory })}
+                  disabled={enrichEntryMutation.isPending}
+                  className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  data-testid="button-refresh-category"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${enrichEntryMutation.isPending ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">
+                    {enrichEntryMutation.isPending ? 'Loading...' : 'Refresh Data'}
+                  </span>
+                </Button>
+              </div>
             </div>
             
             {/* Filter Dropdowns - Only show if settings enabled */}
@@ -1882,12 +2013,30 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                     const hasWebImage = !!primaryImage;
                     const hasManualOverride = !!manualBackdrop;
 
+                    const itemId = isRichEntry ? (item as RichJournalEntry).id : `str-${activeCategory}-${filteredIndex}`;
+                    const isSelected = selectedItems.has(itemId);
+
                     return (
                       <Card
                         key={filteredIndex}
-                        className="hover-elevate cursor-default group overflow-hidden"
+                        className={`hover-elevate group overflow-hidden relative ${
+                          isSelectMode && isSelected ? 'ring-2 ring-primary bg-primary/5' : ''
+                        } ${isSelectMode ? 'cursor-pointer' : 'cursor-default'}`}
                         data-testid={`journal-entry-${filteredIndex}`}
+                        onClick={isSelectMode ? () => handleToggleSelect(itemId) : undefined}
                       >
+                        {/* Selection checkbox overlay */}
+                        {isSelectMode && (
+                          <div className="absolute top-2 left-2 z-40">
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                              isSelected
+                                ? 'bg-primary border-primary text-primary-foreground'
+                                : 'bg-background/80 border-muted-foreground/30'
+                            }`}>
+                              {isSelected && <Check className="w-4 h-4" />}
+                            </div>
+                          </div>
+                        )}
                         {/* Web enrichment image header - full image display */}
                         {hasWebImage && (
                           <div className="relative w-full aspect-square sm:aspect-video bg-muted overflow-hidden">
@@ -2418,6 +2567,49 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                 </div>
               )}
             </ScrollArea>
+
+            {/* Floating action bar for selected items */}
+            {isSelectMode && selectedItems.size > 0 && (
+              <div className="sticky bottom-0 left-0 right-0 bg-primary text-primary-foreground p-3 rounded-lg shadow-lg flex flex-col xs:flex-row items-center justify-between gap-2 mx-2 mb-2 animate-in slide-in-from-bottom-4 z-50">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-sm font-semibold">
+                    {selectedItems.size}
+                  </Badge>
+                  <span className="text-sm font-medium">
+                    {selectedItems.size === 1 ? 'item selected' : 'items selected'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleSelectAll}
+                    className="text-xs"
+                    data-testid="button-select-all"
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleClearSelection}
+                    className="text-xs"
+                    data-testid="button-clear-selection"
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-white text-primary hover:bg-white/90 font-semibold gap-1.5"
+                    onClick={() => setShowPlanModeDialog(true)}
+                    data-testid="button-plan-with-selected"
+                  >
+                    <Target className="w-4 h-4" />
+                    Plan with Selected
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Save indicator */}
             {saveEntryMutation.isPending && (
@@ -3500,6 +3692,68 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
           {createTemplateMutation.isPending ? 'Creating...' : 'Create Template'}
         </Button>
       </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* Plan Mode Selection Dialog */}
+  <Dialog open={showPlanModeDialog} onOpenChange={setShowPlanModeDialog}>
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Target className="w-5 h-5 text-primary" />
+          Plan with {selectedItems.size} {selectedItems.size === 1 ? 'Item' : 'Items'}
+        </DialogTitle>
+        <DialogDescription>
+          Choose how you'd like to create a plan from your selected {currentCategory?.label?.toLowerCase() || 'items'}
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-3 py-4">
+        <Button
+          variant="outline"
+          className="w-full justify-start h-auto py-3 px-4 gap-3"
+          onClick={() => handlePlanWithSelected('quick')}
+          data-testid="button-plan-mode-quick"
+        >
+          <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-300">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div className="text-left">
+            <div className="font-medium text-sm">Quick Plan</div>
+            <div className="text-xs text-muted-foreground">Fast plan generation with a few questions</div>
+          </div>
+        </Button>
+
+        <Button
+          variant="outline"
+          className="w-full justify-start h-auto py-3 px-4 gap-3"
+          onClick={() => handlePlanWithSelected('smart')}
+          data-testid="button-plan-mode-smart"
+        >
+          <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
+            <Wand2 className="w-4 h-4" />
+          </div>
+          <div className="text-left">
+            <div className="font-medium text-sm">Smart Plan</div>
+            <div className="text-xs text-muted-foreground">Personalized questions for a tailored plan</div>
+          </div>
+        </Button>
+
+        <Button
+          variant="outline"
+          className="w-full justify-start h-auto py-3 px-4 gap-3"
+          onClick={() => handlePlanWithSelected('direct')}
+          data-testid="button-plan-mode-direct"
+        >
+          <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300">
+            <Target className="w-4 h-4" />
+          </div>
+          <div className="text-left">
+            <div className="font-medium text-sm">Direct Plan</div>
+            <div className="text-xs text-muted-foreground">Zero questions, instant structured plan</div>
+          </div>
+        </Button>
+      </div>
     </DialogContent>
   </Dialog>
   </div>
