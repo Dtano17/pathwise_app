@@ -140,9 +140,10 @@ async function preloadImages() {
   for (const [key, file] of Object.entries(backdropFiles)) {
     const p = path.join(backdropDir, file);
     if (fs.existsSync(p)) {
-      // Phone card: ~160x110, Feature graphic mini: ~60x48
+      // Phone card: ~160x110, Feature graphic mini: ~60x48, Tablet card: ~250x130
       IMG_CACHE[key + '_card'] = await imageToBase64(p, 200, 130);
       IMG_CACHE[key + '_mini'] = await imageToBase64(p, 121, 48);
+      IMG_CACHE[key + '_tablet'] = await imageToBase64(p, 280, 140);
     } else {
       console.warn(`  Warning: missing backdrop ${file}`);
     }
@@ -151,44 +152,109 @@ async function preloadImages() {
   console.log(`  Preloaded ${Object.keys(IMG_CACHE).length} image assets`);
 }
 
-// SVG platform icon paths (recognizable branded shapes)
+// SVG platform icon paths (recognizable branded shapes matching actual logos)
 function platformIcon(name, cx, cy, r) {
+  const uid = `${name}_${Math.round(cx)}_${Math.round(cy)}`;
   switch (name) {
     case 'instagram':
       return `
-        <defs><linearGradient id="igGrad_${cx}" x1="0%" y1="100%" x2="100%" y2="0%">
+        <defs><linearGradient id="igGrad_${uid}" x1="0%" y1="100%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="#FFDC80"/><stop offset="25%" stop-color="#F77737"/>
           <stop offset="50%" stop-color="#E1306C"/><stop offset="75%" stop-color="#C13584"/>
           <stop offset="100%" stop-color="#833AB4"/>
         </linearGradient></defs>
-        <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#igGrad_${cx})"/>
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#igGrad_${uid})"/>
         <rect x="${cx - r * 0.5}" y="${cy - r * 0.5}" width="${r}" height="${r}" rx="${r * 0.22}" fill="none" stroke="white" stroke-width="${r * 0.14}"/>
         <circle cx="${cx}" cy="${cy}" r="${r * 0.25}" fill="none" stroke="white" stroke-width="${r * 0.14}"/>
         <circle cx="${cx + r * 0.3}" cy="${cy - r * 0.3}" r="${r * 0.07}" fill="white"/>`;
-    case 'tiktok':
+
+    case 'tiktok': {
+      // TikTok music note (♪) with signature red/cyan 3D color offset
+      const ns = r * 1.2;
+      const ny = cy + r * 0.35;
+      // Draw a music note path instead of text for better rendering
+      const stemX = cx + r * 0.12;
+      const headR = r * 0.22;
+      const stemTop = cy - r * 0.48;
+      const stemBot = cy + r * 0.18;
+      const headCx = cx - r * 0.05;
+      const headCy = cy + r * 0.3;
+      const flagEndX = cx + r * 0.42;
+      const flagEndY = cy - r * 0.15;
+      const off = r * 0.08;
+      const notePath = (dx, dy) => `
+        <ellipse cx="${headCx + dx}" cy="${headCy + dy}" rx="${headR * 1.2}" ry="${headR}" transform="rotate(-20,${headCx + dx},${headCy + dy})" fill="currentColor"/>
+        <line x1="${stemX + dx}" y1="${stemTop + dy}" x2="${stemX + dx}" y2="${stemBot + dy}" stroke="currentColor" stroke-width="${r * 0.13}" stroke-linecap="round"/>
+        <path d="M ${stemX + dx} ${stemTop + dy} Q ${stemX + dx + r * 0.2} ${stemTop + dy + r * 0.1} ${flagEndX + dx} ${flagEndY + dy}" fill="none" stroke="currentColor" stroke-width="${r * 0.12}" stroke-linecap="round"/>`;
       return `
-        <circle cx="${cx}" cy="${cy}" r="${r}" fill="#000"/>
-        <text x="${cx}" y="${cy + r * 0.15}" font-family="Arial" font-size="${r * 0.9}" font-weight="900" fill="#25F4EE" text-anchor="middle">d</text>
-        <text x="${cx + 1}" y="${cy + r * 0.15 - 1}" font-family="Arial" font-size="${r * 0.9}" font-weight="900" fill="#FE2C55" text-anchor="middle">d</text>
-        <text x="${cx + 0.5}" y="${cy + r * 0.15 - 0.5}" font-family="Arial" font-size="${r * 0.9}" font-weight="900" fill="white" text-anchor="middle">d</text>`;
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="#010101"/>
+        <g fill="#25F4EE" stroke="#25F4EE" color="#25F4EE">${notePath(-off, -off * 0.5)}</g>
+        <g fill="#FE2C55" stroke="#FE2C55" color="#FE2C55">${notePath(off, off * 0.5)}</g>
+        <g fill="white" stroke="white" color="white">${notePath(0, 0)}</g>`;
+    }
+
     case 'youtube':
       return `
         <circle cx="${cx}" cy="${cy}" r="${r}" fill="#FF0000"/>
         <polygon points="${cx - r * 0.3},${cy - r * 0.35} ${cx + r * 0.45},${cy} ${cx - r * 0.3},${cy + r * 0.35}" fill="white"/>`;
-    case 'chatgpt':
+
+    case 'chatgpt': {
+      // OpenAI hexagonal flower logo - 6 interlocking curved segments
+      const s = r * 0.52;
+      const sw = (r * 0.12).toFixed(1);
+      const pts = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI / 3) * i - Math.PI / 2;
+        pts.push([cx + s * Math.cos(a), cy + s * Math.sin(a)]);
+      }
+      const hexPts = pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+      // Draw curved arcs between alternating vertices to create the interlocking flower
+      let arcs = '';
+      for (let i = 0; i < 6; i++) {
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % 6];
+        // Midpoint for the arc control
+        const mx = (p1[0] + p2[0]) / 2;
+        const my = (p1[1] + p2[1]) / 2;
+        // Pull arc toward center for the interlocking effect
+        const cpx = mx + (cx - mx) * 0.4;
+        const cpy = my + (cy - my) * 0.4;
+        arcs += `<path d="M ${p1[0].toFixed(1)} ${p1[1].toFixed(1)} Q ${cpx.toFixed(1)} ${cpy.toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}" fill="none" stroke="white" stroke-width="${sw}" stroke-linecap="round"/>`;
+      }
       return `
         <circle cx="${cx}" cy="${cy}" r="${r}" fill="#10A37F"/>
-        <text x="${cx}" y="${cy + r * 0.35}" font-family="Arial" font-size="${r * 1.0}" font-weight="bold" fill="white" text-anchor="middle">G</text>`;
+        <polygon points="${hexPts}" fill="none" stroke="white" stroke-width="${sw}" stroke-linejoin="round"/>
+        ${arcs}`;
+    }
+
     case 'web':
       return `
         <circle cx="${cx}" cy="${cy}" r="${r}" fill="${C.sky}"/>
         <circle cx="${cx}" cy="${cy}" r="${r * 0.55}" fill="none" stroke="white" stroke-width="${r * 0.1}"/>
         <ellipse cx="${cx}" cy="${cy}" rx="${r * 0.25}" ry="${r * 0.55}" fill="none" stroke="white" stroke-width="${r * 0.1}"/>
         <line x1="${cx - r * 0.55}" y1="${cy}" x2="${cx + r * 0.55}" y2="${cy}" stroke="white" stroke-width="${r * 0.1}"/>`;
-    case 'claude':
+
+    case 'claude': {
+      // Anthropic Claude sunburst logo - radiating rays from center
+      const numRays = 8;
+      const innerR = r * 0.16;
+      const outerR = r * 0.56;
+      const rayW = (r * 0.13).toFixed(1);
+      let rays = '';
+      for (let i = 0; i < numRays; i++) {
+        const a = (2 * Math.PI / numRays) * i - Math.PI / 2;
+        const x1 = cx + innerR * Math.cos(a);
+        const y1 = cy + innerR * Math.sin(a);
+        const x2 = cx + outerR * Math.cos(a);
+        const y2 = cy + outerR * Math.sin(a);
+        rays += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="white" stroke-width="${rayW}" stroke-linecap="round"/>`;
+      }
       return `
         <circle cx="${cx}" cy="${cy}" r="${r}" fill="#D97706"/>
-        <text x="${cx}" y="${cy + r * 0.35}" font-family="Arial" font-size="${r * 1.0}" font-weight="bold" fill="white" text-anchor="middle">C</text>`;
+        ${rays}
+        <circle cx="${cx}" cy="${cy}" r="${(innerR + 0.3).toFixed(1)}" fill="white"/>`;
+    }
+
     default:
       return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${C.primary}"/>`;
   }
@@ -855,78 +921,118 @@ function screenshot7_Accountability() {
     <text x="8" y="46" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${C.white}">Stay on Track</text>
     <text x="8" y="66" font-family="Arial" font-size="12" fill="${C.textSecondary}">Your personal accountability system</text>
 
-    <!-- REMINDERS SECTION -->
-    <text x="8" y="96" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">UPCOMING REMINDERS</text>
+    <!-- PUSH NOTIFICATION (floating above the app, like a real notification) -->
+    <rect x="0" y="80" width="${sw}" height="58" rx="14" fill="#1E293B" stroke="${C.primary}" stroke-opacity="0.5" stroke-width="1.5"/>
+    <circle cx="20" cy="99" r="10" fill="${C.primary}" opacity="0.3"/>
+    <text x="20" y="103" font-family="Arial" font-size="9" fill="${C.primaryLight}" text-anchor="middle">&#128276;</text>
+    <text x="36" y="97" font-family="Arial" font-size="9" font-weight="bold" fill="${C.primaryLight}">JournalMate &#183; Reminder</text>
+    <text x="${sw - 8}" y="97" font-family="Arial" font-size="8" fill="${C.textMuted}" text-anchor="end">now</text>
+    <text x="36" y="114" font-family="Arial" font-size="11" font-weight="bold" fill="${C.white}">Book Flight: Austin &#8594; LAX</text>
+    <text x="36" y="130" font-family="Arial" font-size="9" fill="${C.textMuted}">Prices drop in 3 days &#8212; AI recommends booking now</text>
 
-    <!-- Today's reminder card (highlighted) -->
-    <rect x="0" y="110" width="${sw}" height="72" rx="14" fill="${C.primary}" opacity="0.1" stroke="${C.primary}" stroke-opacity="0.4" stroke-width="1.5"/>
-    <rect x="0" y="110" width="4" height="72" rx="2" fill="${C.primary}"/>
-    <circle cx="28" cy="136" r="14" fill="${C.primary}" opacity="0.2"/>
-    <text x="28" y="141" font-family="Arial" font-size="12" fill="${C.primaryLight}" text-anchor="middle">&#128276;</text>
-    <text x="50" y="132" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="${C.white}">Book Flight: Austin &#8594; LAX</text>
-    <text x="50" y="150" font-family="Arial" font-size="10" fill="${C.primaryLight}">Today at 2:00 PM &#183; Austin to LA Adventure</text>
-    <text x="50" y="170" font-family="Arial" font-size="10" fill="${C.textMuted}">Prices drop in 3 days &#8212; AI recommends booking now</text>
+    <!-- CALENDAR SCHEDULE WIDGET -->
+    <text x="8" y="162" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">CALENDAR SCHEDULE</text>
+    <text x="${sw - 8}" y="162" font-family="Arial" font-size="9" fill="${C.emeraldLight}" text-anchor="end">&#10003; Synced</text>
 
-    <!-- Tomorrow's reminder -->
-    <rect x="0" y="192" width="${sw}" height="56" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
-    <rect x="0" y="192" width="4" height="56" rx="2" fill="${C.amber}"/>
-    <circle cx="28" cy="220" r="14" fill="${C.amber}" opacity="0.15"/>
-    <text x="28" y="225" font-family="Arial" font-size="12" fill="${C.amberLight}" text-anchor="middle">&#128197;</text>
-    <text x="50" y="214" font-family="Arial" font-size="12" font-weight="bold" fill="${C.white}">Gym: Morning HIIT Session</text>
-    <text x="50" y="232" font-family="Arial" font-size="10" fill="${C.textSecondary}">Tomorrow 6:30 AM &#183; Synced to Google Calendar</text>
+    <rect x="0" y="174" width="${sw}" height="146" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
 
-    <!-- Weekend reminder -->
-    <rect x="0" y="258" width="${sw}" height="56" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
-    <rect x="0" y="258" width="4" height="56" rx="2" fill="${C.rose}"/>
-    <circle cx="28" cy="286" r="14" fill="${C.rose}" opacity="0.15"/>
-    <text x="28" y="291" font-family="Arial" font-size="12" fill="${C.roseLight}" text-anchor="middle">&#128150;</text>
-    <text x="50" y="280" font-family="Arial" font-size="12" font-weight="bold" fill="${C.white}">Date Night Reservation</text>
-    <text x="50" y="298" font-family="Arial" font-size="10" fill="${C.textSecondary}">Saturday 7:00 PM &#183; Added to Apple Calendar</text>
+    <!-- Mini calendar header -->
+    <text x="14" y="196" font-family="'Segoe UI', Arial" font-size="12" font-weight="bold" fill="${C.white}">February 2026</text>
+    <text x="${sw - 14}" y="196" font-family="Arial" font-size="10" fill="${C.textMuted}" text-anchor="end">&#9664; &#9654;</text>
 
-    <!-- CALENDAR SYNC SECTION -->
-    <text x="8" y="342" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">CALENDAR SYNC</text>
+    <!-- Day headers -->
+    ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => {
+      const dx = 14 + i * Math.round((sw - 28) / 7);
+      return `<text x="${dx + Math.round((sw - 28) / 14)}" y="214" font-family="Arial" font-size="8" fill="${C.textMuted}" text-anchor="middle">${d}</text>`;
+    }).join('')}
 
-    <rect x="0" y="356" width="${sw}" height="76" rx="14" fill="${C.darkCard}" stroke="${C.emerald}" stroke-opacity="0.3" stroke-width="1"/>
-    <circle cx="28" cy="382" r="14" fill="${C.emerald}" opacity="0.15"/>
-    <text x="28" y="387" font-family="Arial" font-size="12" fill="${C.emeraldLight}" text-anchor="middle">&#10003;</text>
-    <text x="50" y="378" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="${C.white}">Auto-Synced to Your Calendar</text>
-    <text x="50" y="396" font-family="Arial" font-size="10" fill="${C.textSecondary}">Google Calendar &#183; Apple Calendar &#183; Outlook</text>
-    <text x="50" y="416" font-family="Arial" font-size="10" fill="${C.emeraldLight}">12 events synced this week &#183; 0 missed</text>
+    <!-- Calendar days (Feb 2026, week of 8-14) -->
+    ${(() => {
+      const cellW = Math.round((sw - 28) / 7);
+      let cells = '';
+      const startDay = 8;
+      for (let d = 0; d < 7; d++) {
+        const day = startDay + d;
+        const dx = 14 + d * cellW + Math.round(cellW / 2);
+        const isToday = day === 12;
+        const hasEvent = [10, 11, 12, 13, 14].includes(day);
+        if (isToday) {
+          cells += `<circle cx="${dx}" cy="230" r="10" fill="${C.primary}"/>`;
+          cells += `<text x="${dx}" y="234" font-family="Arial" font-size="9" font-weight="bold" fill="white" text-anchor="middle">${day}</text>`;
+        } else {
+          cells += `<text x="${dx}" y="234" font-family="Arial" font-size="9" fill="${hasEvent ? C.white : C.textMuted}" text-anchor="middle">${day}</text>`;
+        }
+        if (hasEvent && !isToday) {
+          cells += `<circle cx="${dx}" cy="240" r="2" fill="${[C.primary, C.amber, C.primary, C.rose, C.emerald][d % 5]}"/>`;
+        }
+      }
+      return cells;
+    })()}
+
+    <!-- Today's schedule items -->
+    <line x1="14" y1="250" x2="${sw - 14}" y2="250" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
+    <text x="14" y="266" font-family="Arial" font-size="9" font-weight="bold" fill="${C.textMuted}">TODAY</text>
+
+    <rect x="14" y="274" width="3" height="18" rx="1.5" fill="${C.primary}"/>
+    <text x="24" y="284" font-family="Arial" font-size="10" fill="${C.white}">2:00 PM &#8212; Book Flight: Austin &#8594; LAX</text>
+    <text x="${sw - 14}" y="284" font-family="Arial" font-size="8" fill="${C.primaryLight}" text-anchor="end">&#9992; Travel</text>
+
+    <rect x="14" y="296" width="3" height="18" rx="1.5" fill="${C.amber}"/>
+    <text x="24" y="306" font-family="Arial" font-size="10" fill="${C.white}">6:30 PM &#8212; Gym: Evening HIIT Session</text>
+    <text x="${sw - 14}" y="306" font-family="Arial" font-size="8" fill="${C.amberLight}" text-anchor="end">&#127947; Fitness</text>
+
+    <!-- GOAL TRACKING WIDGET -->
+    <text x="8" y="346" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">GOAL TRACKER WIDGET</text>
+
+    <!-- Two side-by-side goal widgets -->
+    <rect x="0" y="358" width="${halfW}" height="100" rx="12" fill="${C.darkCard}" stroke="${C.emerald}" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="${halfW / 2}" y="376" font-family="Arial" font-size="9" font-weight="bold" fill="${C.emeraldLight}" text-anchor="middle">MY GOAL</text>
+    <text x="${halfW / 2}" y="396" font-family="'Segoe UI', Arial" font-size="11" font-weight="bold" fill="${C.white}" text-anchor="middle">Austin to LA Trip</text>
+    <!-- Circular progress ring -->
+    <circle cx="${halfW / 2}" cy="430" r="16" fill="none" stroke="${C.darkSurface}" stroke-width="3"/>
+    <circle cx="${halfW / 2}" cy="430" r="16" fill="none" stroke="${C.emerald}" stroke-width="3" stroke-dasharray="${Math.round(2 * Math.PI * 16 * 0.83)} ${Math.round(2 * Math.PI * 16)}" transform="rotate(-90,${halfW / 2},430)"/>
+    <text x="${halfW / 2}" y="434" font-family="Arial" font-size="10" font-weight="bold" fill="${C.emerald}" text-anchor="middle">83%</text>
+
+    <rect x="${halfW + 10}" y="358" width="${halfW}" height="100" rx="12" fill="${C.darkCard}" stroke="${C.sky}" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="${halfW + 10 + halfW / 2}" y="376" font-family="Arial" font-size="9" font-weight="bold" fill="${C.skyLight}" text-anchor="middle">SHARED GOAL</text>
+    <text x="${halfW + 10 + halfW / 2}" y="396" font-family="'Segoe UI', Arial" font-size="11" font-weight="bold" fill="${C.white}" text-anchor="middle">Thanksgiving Plan</text>
+    <circle cx="${halfW + 10 + halfW / 2}" cy="430" r="16" fill="none" stroke="${C.darkSurface}" stroke-width="3"/>
+    <circle cx="${halfW + 10 + halfW / 2}" cy="430" r="16" fill="none" stroke="${C.sky}" stroke-width="3" stroke-dasharray="${Math.round(2 * Math.PI * 16 * 0.45)} ${Math.round(2 * Math.PI * 16)}" transform="rotate(-90,${halfW + 10 + halfW / 2},430)"/>
+    <text x="${halfW + 10 + halfW / 2}" y="434" font-family="Arial" font-size="10" font-weight="bold" fill="${C.sky}" text-anchor="middle">45%</text>
 
     <!-- TRENDING NEAR YOU -->
-    <text x="8" y="462" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">TRENDING NEAR YOU</text>
-    <text x="${sw - 8}" y="462" font-family="Arial" font-size="10" fill="${C.primaryLight}" text-anchor="end">Austin, TX</text>
+    <text x="8" y="486" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">TRENDING NEAR YOU</text>
+    <text x="${sw - 8}" y="486" font-family="Arial" font-size="10" fill="${C.primaryLight}" text-anchor="end">Austin, TX</text>
 
     ${[
       { title: 'ACL Fest Weekend Plan', uses: '340 using', icon: '&#127925;', color: C.coral },
-      { title: 'Austin Freeze Prep', uses: '890 using', icon: '&#10052;', color: C.sky },
       { title: 'SXSW Conference Guide', uses: '1.2k using', icon: '&#127908;', color: C.teal },
     ].map((t, i) => {
-      const ty = 476 + i * 50;
+      const ty = 500 + i * 46;
       return `
-        <rect x="0" y="${ty}" width="${sw}" height="42" rx="12" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
-        <circle cx="22" cy="${ty + 21}" r="12" fill="${t.color}" opacity="0.15"/>
-        <text x="22" y="${ty + 26}" font-family="Arial" font-size="11" fill="${t.color}" text-anchor="middle">${t.icon}</text>
-        <text x="42" y="${ty + 17}" font-family="Arial" font-size="12" font-weight="bold" fill="${C.white}">${t.title}</text>
-        <text x="42" y="${ty + 34}" font-family="Arial" font-size="9" fill="${C.textMuted}">${t.uses} &#183; Trending</text>
-        <rect x="${sw - 68}" y="${ty + 8}" width="60" height="26" rx="13" fill="${C.primary}" opacity="0.9"/>
-        <text x="${sw - 38}" y="${ty + 26}" font-family="Arial" font-size="9" font-weight="bold" fill="white" text-anchor="middle">+ Use</text>
+        <rect x="0" y="${ty}" width="${sw}" height="38" rx="12" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <circle cx="22" cy="${ty + 19}" r="11" fill="${t.color}" opacity="0.15"/>
+        <text x="22" y="${ty + 23}" font-family="Arial" font-size="10" fill="${t.color}" text-anchor="middle">${t.icon}</text>
+        <text x="42" y="${ty + 15}" font-family="Arial" font-size="11" font-weight="bold" fill="${C.white}">${t.title}</text>
+        <text x="42" y="${ty + 30}" font-family="Arial" font-size="9" fill="${C.textMuted}">${t.uses} &#183; Trending</text>
+        <rect x="${sw - 64}" y="${ty + 7}" width="56" height="24" rx="12" fill="${C.primary}" opacity="0.9"/>
+        <text x="${sw - 36}" y="${ty + 24}" font-family="Arial" font-size="9" font-weight="bold" fill="white" text-anchor="middle">+ Use</text>
       `;
     }).join('')}
 
-    <!-- PLAN FOR OTHERS -->
-    <text x="8" y="644" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">PLAN FOR OTHERS &amp; EARN</text>
+    <!-- PLAN FOR OTHERS & EARN -->
+    <text x="8" y="614" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">PLAN FOR OTHERS &amp; EARN</text>
 
-    <rect x="0" y="658" width="${sw}" height="60" rx="14" fill="${C.amber}" opacity="0.08" stroke="${C.amber}" stroke-opacity="0.3" stroke-width="1"/>
-    <circle cx="28" cy="688" r="14" fill="${C.amber}" opacity="0.2"/>
-    <text x="28" y="693" font-family="Arial" font-size="13" fill="${C.amberLight}" text-anchor="middle">&#127942;</text>
-    <text x="50" y="682" font-family="'Segoe UI', Arial" font-size="12" font-weight="bold" fill="${C.white}">Create plans for friends &amp; family</text>
-    <text x="50" y="700" font-family="Arial" font-size="10" fill="${C.amberLight}">Share plans &#8594; Earn badges &#8594; Climb the leaderboard</text>
+    <rect x="0" y="628" width="${sw}" height="55" rx="14" fill="${C.amber}" opacity="0.08" stroke="${C.amber}" stroke-opacity="0.3" stroke-width="1"/>
+    <circle cx="28" cy="655" r="14" fill="${C.amber}" opacity="0.2"/>
+    <text x="28" y="660" font-family="Arial" font-size="12" fill="${C.amberLight}" text-anchor="middle">&#127942;</text>
+    <text x="50" y="649" font-family="'Segoe UI', Arial" font-size="12" font-weight="bold" fill="${C.white}">Create plans for friends &amp; family</text>
+    <text x="50" y="667" font-family="Arial" font-size="10" fill="${C.amberLight}">Share plans &#8594; Earn badges &#8594; Climb the leaderboard</text>
   `;
 
   return phoneScreenshot(1080, 1920, THEMES.reports,
     'Never Miss a Thing',
-    'Reminders, calendar sync, and trending plans near you',
+    'Calendar, reminders, widgets &#8212; all in one place',
     body
   );
 }
@@ -1185,19 +1291,19 @@ function tablet1_ShareFromAnywhere(w, h) {
   const pillW = Math.round((cw - 40) / 6);
 
   const body = `
-    <!-- Source platforms row -->
+    <!-- Source platforms row with real branded icons -->
     <text x="0" y="16" font-family="Arial" font-size="11" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">SHARE FROM ANYWHERE</text>
 
     ${[
-      { label: 'Instagram', color: '#E4405F' },
-      { label: 'TikTok', color: '#FFF' },
-      { label: 'YouTube', color: '#FF0000' },
-      { label: 'ChatGPT', color: '#10A37F' },
-      { label: 'Any URL', color: C.sky },
-      { label: 'Claude', color: C.indigo },
+      { label: 'Instagram', key: 'instagram', color: '#E4405F' },
+      { label: 'TikTok', key: 'tiktok', color: '#FFF' },
+      { label: 'YouTube', key: 'youtube', color: '#FF0000' },
+      { label: 'ChatGPT', key: 'chatgpt', color: '#10A37F' },
+      { label: 'Any URL', key: 'web', color: C.sky },
+      { label: 'Claude', key: 'claude', color: '#D97706' },
     ].map((p, i) => `
       <rect x="${i * (pillW + 8)}" y="30" width="${pillW}" height="50" rx="14" fill="${p.color}" opacity="0.1" stroke="${p.color}" stroke-opacity="0.3" stroke-width="1"/>
-      <text x="${i * (pillW + 8) + pillW / 2}" y="52" font-family="Arial" font-size="15" text-anchor="middle" fill="${p.color}">&#9679;</text>
+      ${platformIcon(p.key, i * (pillW + 8) + pillW / 2, 50, 10)}
       <text x="${i * (pillW + 8) + pillW / 2}" y="72" font-family="Arial" font-size="11" fill="${p.color}" text-anchor="middle">${p.label}</text>
     `).join('')}
 
@@ -1260,12 +1366,13 @@ function tablet1_ShareFromAnywhere(w, h) {
 function tablet2_Discover(w, h) {
   const cw = Math.min(w * 0.9, 1000);
   const cardW = Math.round((cw - 36) / 4);
+  const imgH = 130;
 
   const plans = [
-    { title: 'Thanksgiving Feast', price: '$320', views: '1.2k', c1: '#8B4513', c2: '#D2691E' },
-    { title: 'Christmas Celebration', price: '$850', views: '2.4k', c1: '#B22222', c2: '#FF6347' },
-    { title: 'HEB Shopping Guide', price: '$400', views: '890', c1: '#2E8B57', c2: '#3CB371' },
-    { title: 'NYE Party Planning', price: '$550', views: '1.8k', c1: '#4B0082', c2: '#8A2BE2' },
+    { title: 'Thanksgiving Feast', price: '$320', views: '1.2k', author: 'Sarah M.', tasks: '15 tasks', imgKey: 'thanksgiving_tablet' },
+    { title: 'Christmas Celebration', price: '$850', views: '2.4k', author: 'James K.', tasks: '22 tasks', imgKey: 'christmas_tablet' },
+    { title: 'Austin Weekend', price: '$400', views: '890', author: 'Maria L.', tasks: '12 tasks', imgKey: 'austin_tablet' },
+    { title: 'NYE Party Planning', price: '$550', views: '1.8k', author: 'David R.', tasks: '18 tasks', imgKey: 'nye_tablet' },
   ];
 
   const body = `
@@ -1279,25 +1386,35 @@ function tablet2_Discover(w, h) {
       <text x="${i * (Math.round(cw / 7) + 4) + Math.round(cw / 14)}" y="71" font-family="Arial" font-size="12" fill="${i === 0 ? C.roseLight : C.textSecondary}" text-anchor="middle">${cat}</text>
     `).join('')}
 
-    <!-- Plan cards grid -->
+    <!-- Plan cards grid with real embedded photos -->
     ${plans.map((p, i) => {
       const cx = i * (cardW + 12);
+      const b64 = IMG_CACHE[p.imgKey];
+      const clipId = 'tabClip' + i;
       return `
-        <defs><linearGradient id="tp${i}" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="${p.c1}"/><stop offset="100%" stop-color="${p.c2}"/>
-        </linearGradient></defs>
         <rect x="${cx}" y="96" width="${cardW}" height="260" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
-        <rect x="${cx}" y="96" width="${cardW}" height="130" rx="14" fill="url(#tp${i})"/>
-        <circle cx="${cx + cardW * 0.35}" cy="155" r="18" fill="white" opacity="0.06"/>
-        <circle cx="${cx + cardW * 0.65}" cy="170" r="24" fill="white" opacity="0.04"/>
+
+        <!-- Real photo with rounded top corners -->
+        <defs><clipPath id="${clipId}"><rect x="${cx}" y="96" width="${cardW}" height="${imgH}" rx="14"/></clipPath></defs>
+        ${b64
+          ? `<image x="${cx}" y="96" width="${cardW}" height="${imgH}" href="${b64}" clip-path="url(#${clipId})" preserveAspectRatio="xMidYMid slice"/>`
+          : `<rect x="${cx}" y="96" width="${cardW}" height="${imgH}" rx="14" fill="#333"/>`}
+
+        <!-- Dark overlay at bottom of photo -->
+        <rect x="${cx}" y="${96 + imgH - 30}" width="${cardW}" height="30" fill="${C.dark}" opacity="0.35"/>
+
+        <!-- Price badge -->
         <rect x="${cx + cardW - 56}" y="104" width="48" height="22" rx="11" fill="#000" opacity="0.6"/>
         <text x="${cx + cardW - 32}" y="120" font-family="Arial" font-size="12" font-weight="bold" fill="white" text-anchor="middle">${p.price}</text>
+
         <text x="${cx + 12}" y="246" font-family="'Segoe UI', Arial" font-size="14" font-weight="bold" fill="${C.white}">${p.title}</text>
-        <text x="${cx + 12}" y="266" font-family="Arial" font-size="11" fill="${C.textSecondary}">&#128065; ${p.views} views</text>
-        <rect x="${cx + 8}" y="280" width="${Math.round((cardW - 20) * 0.45)}" height="28" rx="14" fill="${C.darkSurface}" stroke="${C.darkCardBorder}" stroke-width="1"/>
-        <text x="${cx + 8 + Math.round((cardW - 20) * 0.225)}" y="298" font-family="Arial" font-size="10" fill="${C.textSecondary}" text-anchor="middle">Preview</text>
-        <rect x="${cx + 8 + Math.round((cardW - 20) * 0.5)}" y="280" width="${Math.round((cardW - 20) * 0.48)}" height="28" rx="14" fill="${C.primary}"/>
-        <text x="${cx + 8 + Math.round((cardW - 20) * 0.74)}" y="298" font-family="Arial" font-size="10" font-weight="bold" fill="white" text-anchor="middle">+ Use Plan</text>
+        <text x="${cx + 12}" y="264" font-family="Arial" font-size="10" fill="${C.textSecondary}">${p.author} &#183; ${p.tasks}</text>
+        <text x="${cx + 12}" y="280" font-family="Arial" font-size="10" fill="${C.textMuted}">&#128065; ${p.views} views</text>
+
+        <rect x="${cx + 8}" y="294" width="${Math.round((cardW - 20) * 0.45)}" height="28" rx="14" fill="${C.darkSurface}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <text x="${cx + 8 + Math.round((cardW - 20) * 0.225)}" y="312" font-family="Arial" font-size="10" fill="${C.textSecondary}" text-anchor="middle">Preview</text>
+        <rect x="${cx + 8 + Math.round((cardW - 20) * 0.5)}" y="294" width="${Math.round((cardW - 20) * 0.48)}" height="28" rx="14" fill="${C.primary}"/>
+        <text x="${cx + 8 + Math.round((cardW - 20) * 0.74)}" y="312" font-family="Arial" font-size="10" font-weight="bold" fill="white" text-anchor="middle">+ Use Plan</text>
       `;
     }).join('')}
 
