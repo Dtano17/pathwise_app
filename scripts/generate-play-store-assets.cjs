@@ -2,12 +2,16 @@
 /**
  * Generate Google Play Store graphics for JournalMate.ai
  *
+ * VIBRANT LIFESTYLE EDITION
+ * Each screenshot has a unique gradient theme, large phone mockup,
+ * floating decorative elements, and aspirational marketing copy.
+ *
  * Generates:
  * - App Icon (512x512)
  * - Feature Graphic (1024x500)
  * - Phone Screenshots (1080x1920, 9:16) x 6
  * - 7-inch Tablet Screenshots (1200x1920, 10:16) x 4
- * - 10-inch Tablet Screenshots (1200x1920, 10:16) x 4
+ * - 10-inch Tablet Screenshots (1920x1200, 16:10) x 4
  */
 
 const sharp = require('sharp');
@@ -16,938 +20,1068 @@ const fs = require('fs');
 
 const OUTPUT_DIR = path.join(__dirname, '..', 'store-assets', 'google-play');
 
-// Brand colors
+// ============================
+// VIBRANT COLOR SYSTEM
+// ============================
 const COLORS = {
-  primary: '#6C5CE7',
-  primaryDark: '#5A4BD1',
-  primaryLight: '#8B7CF0',
-  accent: '#A29BFE',
-  dark: '#0B0F1A',
-  darkCard: '#151929',
-  darkCardBorder: '#2A2D45',
-  white: '#FFFFFF',
-  lightGray: '#F0F0FF',
-  textMuted: '#9CA3AF',
-  green: '#22C55E',
-  greenLight: '#4ADE80',
+  // Brand core
+  primary: '#7C3AED',       // Vivid purple
+  primaryLight: '#A78BFA',
+  primaryDark: '#5B21B6',
+
+  // Lifestyle accent palette
+  teal: '#14B8A6',
+  tealLight: '#5EEAD4',
+  coral: '#F97316',
+  coralLight: '#FB923C',
+  rose: '#F43F5E',
+  roseLight: '#FB7185',
+  sky: '#0EA5E9',
+  skyLight: '#38BDF8',
   amber: '#F59E0B',
+  amberLight: '#FBBF24',
+  emerald: '#10B981',
+  emeraldLight: '#34D399',
+  pink: '#EC4899',
+  pinkLight: '#F472B6',
+  indigo: '#6366F1',
+  indigoLight: '#818CF8',
+
+  // Dark UI (for phone screen content)
+  dark: '#0F1225',
+  darkCard: '#1A1F36',
+  darkCardBorder: '#2D3352',
+  white: '#FFFFFF',
+  textMuted: '#94A3B8',
+
+  // Progress colors
+  green: '#22C55E',
   red: '#EF4444',
   cyan: '#06B6D4',
-  pink: '#EC4899',
-  indigo: '#818CF8',
-  gradientStart: '#6C5CE7',
-  gradientEnd: '#06B6D4',
 };
 
-// Book/journal icon SVG (matching the app icon style)
-const BOOK_ICON_SVG = `
-<svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M20 15 C20 15, 20 65, 20 65 C20 68, 22 70, 25 70 L60 70 C60 70, 60 65, 60 65 L25 65 C23 65, 23 63, 25 63 L60 63 L60 15 Z"
-        fill="white" opacity="0.95" stroke="white" stroke-width="2"/>
-  <path d="M35 30 C35 30, 40 40, 45 30" stroke="${COLORS.primary}" stroke-width="3" fill="none" stroke-linecap="round"/>
-</svg>`;
+// ============================
+// THEMED GRADIENT BACKGROUNDS
+// ============================
+// Each screenshot gets its own unique, vibrant gradient
+const THEMES = {
+  goalInput: {
+    name: 'Cosmic Purple',
+    bg1: '#1A0533', bg2: '#0F1B4D', bg3: '#0A1628',
+    glow1: '#7C3AED', glow2: '#14B8A6',
+    accent: '#A78BFA',
+    orb1: 'rgba(124, 58, 237, 0.35)', orb2: 'rgba(20, 184, 166, 0.25)',
+  },
+  activities: {
+    name: 'Ocean Depths',
+    bg1: '#051937', bg2: '#0A2D5E', bg3: '#0D1F3C',
+    glow1: '#0EA5E9', glow2: '#7C3AED',
+    accent: '#38BDF8',
+    orb1: 'rgba(14, 165, 233, 0.3)', orb2: 'rgba(124, 58, 237, 0.2)',
+  },
+  tasks: {
+    name: 'Warm Sunset',
+    bg1: '#1A0A2E', bg2: '#2D1041', bg3: '#1A0533',
+    glow1: '#F97316', glow2: '#F43F5E',
+    accent: '#FB923C',
+    orb1: 'rgba(249, 115, 22, 0.25)', orb2: 'rgba(244, 63, 94, 0.2)',
+  },
+  reports: {
+    name: 'Emerald Glow',
+    bg1: '#042F2E', bg2: '#0A1628', bg3: '#064E3B',
+    glow1: '#10B981', glow2: '#0EA5E9',
+    accent: '#34D399',
+    orb1: 'rgba(16, 185, 129, 0.3)', orb2: 'rgba(14, 165, 233, 0.2)',
+  },
+  discover: {
+    name: 'Rose Adventure',
+    bg1: '#1A0A2E', bg2: '#3B0764', bg3: '#1E1B4B',
+    glow1: '#EC4899', glow2: '#F97316',
+    accent: '#F472B6',
+    orb1: 'rgba(236, 72, 153, 0.3)', orb2: 'rgba(249, 115, 22, 0.2)',
+  },
+  groups: {
+    name: 'Indigo Social',
+    bg1: '#0C0A2E', bg2: '#1E1B4B', bg3: '#0E1744',
+    glow1: '#6366F1', glow2: '#14B8A6',
+    accent: '#818CF8',
+    orb1: 'rgba(99, 102, 241, 0.35)', orb2: 'rgba(20, 184, 166, 0.25)',
+  },
+};
 
-// Helper: Create gradient background SVG
-function createGradientBg(width, height, angle = 135) {
+// ============================
+// SVG HELPER FUNCTIONS
+// ============================
+
+// Create a rich, themed gradient background with floating orbs
+function createThemedBackground(width, height, theme) {
   return `
-  <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${COLORS.dark};stop-opacity:1" />
-        <stop offset="50%" style="stop-color:#111528;stop-opacity:1" />
-        <stop offset="100%" style="stop-color:#0D1225;stop-opacity:1" />
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:${theme.bg1};stop-opacity:1" />
+        <stop offset="50%" style="stop-color:${theme.bg2};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${theme.bg3};stop-opacity:1" />
       </linearGradient>
-      <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <radialGradient id="orb1" cx="20%" cy="25%" r="45%">
+        <stop offset="0%" style="stop-color:${theme.glow1};stop-opacity:0.3" />
+        <stop offset="60%" style="stop-color:${theme.glow1};stop-opacity:0.08" />
+        <stop offset="100%" style="stop-color:${theme.glow1};stop-opacity:0" />
+      </radialGradient>
+      <radialGradient id="orb2" cx="80%" cy="75%" r="40%">
+        <stop offset="0%" style="stop-color:${theme.glow2};stop-opacity:0.25" />
+        <stop offset="60%" style="stop-color:${theme.glow2};stop-opacity:0.06" />
+        <stop offset="100%" style="stop-color:${theme.glow2};stop-opacity:0" />
+      </radialGradient>
+      <radialGradient id="orb3" cx="70%" cy="15%" r="30%">
+        <stop offset="0%" style="stop-color:${theme.glow1};stop-opacity:0.15" />
+        <stop offset="100%" style="stop-color:${theme.glow1};stop-opacity:0" />
+      </radialGradient>
+      <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" style="stop-color:${theme.glow1};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${theme.glow2};stop-opacity:1" />
+      </linearGradient>
+      <linearGradient id="btnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${COLORS.cyan};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${theme.glow1};stop-opacity:1" />
       </linearGradient>
-      <radialGradient id="glow1" cx="20%" cy="30%" r="40%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:0.15" />
-        <stop offset="100%" style="stop-color:${COLORS.primary};stop-opacity:0" />
-      </radialGradient>
-      <radialGradient id="glow2" cx="80%" cy="70%" r="35%">
-        <stop offset="0%" style="stop-color:${COLORS.cyan};stop-opacity:0.1" />
-        <stop offset="100%" style="stop-color:${COLORS.cyan};stop-opacity:0" />
-      </radialGradient>
+      <linearGradient id="phoneGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:${theme.glow1};stop-opacity:0.4" />
+        <stop offset="100%" style="stop-color:${theme.glow2};stop-opacity:0.2" />
+      </linearGradient>
+      <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="20"/>
+      </filter>
+      <filter id="phoneShadow" x="-15%" y="-10%" width="130%" height="125%">
+        <feDropShadow dx="0" dy="12" stdDeviation="30" flood-color="${theme.glow1}" flood-opacity="0.35"/>
+      </filter>
+      <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="115%">
+        <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.4"/>
+      </filter>
+      <filter id="textShadow">
+        <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.5"/>
+      </filter>
     </defs>
-    <rect width="100%" height="100%" fill="url(#bg)"/>
-    <rect width="100%" height="100%" fill="url(#glow1)"/>
-    <rect width="100%" height="100%" fill="url(#glow2)"/>
-  </svg>`;
+
+    <!-- Rich gradient background -->
+    <rect width="100%" height="100%" fill="url(#bgGrad)"/>
+
+    <!-- Floating light orbs -->
+    <rect width="100%" height="100%" fill="url(#orb1)"/>
+    <rect width="100%" height="100%" fill="url(#orb2)"/>
+    <rect width="100%" height="100%" fill="url(#orb3)"/>
+
+    <!-- Subtle floating circles for depth -->
+    <circle cx="${width * 0.15}" cy="${height * 0.2}" r="${width * 0.12}" fill="${theme.orb1}" filter="url(#softGlow)"/>
+    <circle cx="${width * 0.85}" cy="${height * 0.7}" r="${width * 0.15}" fill="${theme.orb2}" filter="url(#softGlow)"/>
+    <circle cx="${width * 0.6}" cy="${height * 0.1}" r="${width * 0.06}" fill="${theme.orb1}" filter="url(#softGlow)"/>
+    <circle cx="${width * 0.3}" cy="${height * 0.85}" r="${width * 0.08}" fill="${theme.orb2}" filter="url(#softGlow)"/>
+
+    <!-- Sparkle dots -->
+    <circle cx="${width * 0.1}" cy="${height * 0.15}" r="2" fill="${theme.accent}" opacity="0.6"/>
+    <circle cx="${width * 0.25}" cy="${height * 0.08}" r="1.5" fill="${COLORS.white}" opacity="0.4"/>
+    <circle cx="${width * 0.85}" cy="${height * 0.12}" r="2" fill="${theme.accent}" opacity="0.5"/>
+    <circle cx="${width * 0.92}" cy="${height * 0.25}" r="1.5" fill="${COLORS.white}" opacity="0.3"/>
+    <circle cx="${width * 0.05}" cy="${height * 0.5}" r="2" fill="${theme.accent}" opacity="0.4"/>
+    <circle cx="${width * 0.95}" cy="${height * 0.55}" r="1.5" fill="${COLORS.white}" opacity="0.35"/>
+    <circle cx="${width * 0.15}" cy="${height * 0.92}" r="2" fill="${theme.accent}" opacity="0.5"/>
+    <circle cx="${width * 0.88}" cy="${height * 0.88}" r="1.5" fill="${COLORS.white}" opacity="0.3"/>
+  `;
 }
 
-// Helper: Phone frame SVG with content
-function createPhoneFrame(width, height, screenContent, frameX, frameY, frameW, frameH) {
-  const cornerRadius = 28;
-  const screenPadding = 8;
-  const screenRadius = 22;
+// Phone frame mockup - MUCH LARGER, with glow effect
+function createPhoneFrame(frameX, frameY, frameW, frameH, screenContent) {
+  const cornerR = Math.round(frameW * 0.07);
+  const bezel = Math.round(frameW * 0.02);
+  const screenR = Math.round(frameW * 0.06);
+  const notchW = Math.round(frameW * 0.28);
+  const notchH = Math.round(frameH * 0.018);
 
   return `
-    <!-- Phone Frame -->
+    <!-- Phone shadow glow -->
     <rect x="${frameX}" y="${frameY}" width="${frameW}" height="${frameH}"
-          rx="${cornerRadius}" ry="${cornerRadius}"
-          fill="#1A1A2E" stroke="#333355" stroke-width="2"/>
-    <!-- Screen -->
-    <rect x="${frameX + screenPadding}" y="${frameY + screenPadding + 20}"
-          width="${frameW - screenPadding * 2}" height="${frameH - screenPadding * 2 - 40}"
-          rx="${screenRadius}" ry="${screenRadius}"
+          rx="${cornerR}" ry="${cornerR}"
+          fill="url(#phoneGlow)" filter="url(#phoneShadow)" opacity="0.5"/>
+
+    <!-- Phone body -->
+    <rect x="${frameX}" y="${frameY}" width="${frameW}" height="${frameH}"
+          rx="${cornerR}" ry="${cornerR}"
+          fill="#1A1A2E" stroke="#3D3D5C" stroke-width="2"/>
+
+    <!-- Screen area -->
+    <rect x="${frameX + bezel}" y="${frameY + bezel + notchH + 8}"
+          width="${frameW - bezel * 2}" height="${frameH - bezel * 2 - notchH * 2 - 16}"
+          rx="${screenR}" ry="${screenR}"
           fill="${COLORS.dark}"/>
+
     <!-- Notch -->
-    <rect x="${frameX + frameW/2 - 40}" y="${frameY + 6}" width="80" height="18" rx="9" fill="#000"/>
-    <!-- Screen Content Group -->
-    <g transform="translate(${frameX + screenPadding + 4}, ${frameY + screenPadding + 24})">
+    <rect x="${frameX + (frameW - notchW) / 2}" y="${frameY + 6}"
+          width="${notchW}" height="${notchH}" rx="${notchH / 2}" fill="#000"/>
+
+    <!-- Screen content -->
+    <g transform="translate(${frameX + bezel + 6}, ${frameY + bezel + notchH + 14})">
       ${screenContent}
     </g>
   `;
 }
 
 // ============================================
-// ASSET 1: App Icon (512x512)
+// PHONE SCREENSHOT TEMPLATE
 // ============================================
-async function generateAppIcon() {
-  // The existing icon at android-play-store-512.png is already perfect
-  // Just copy it to the output directory
-  const src = path.join(__dirname, '..', 'client/public/icons/android/android-play-store-512.png');
-  const dest = path.join(OUTPUT_DIR, 'app-icon-512x512.png');
-  fs.copyFileSync(src, dest);
-  console.log('✓ App Icon (512x512) - copied existing icon');
+function phoneScreenSvg(width, height, theme, headerText, subtitleText, bodyContent) {
+  const phoneW = Math.round(width * 0.48);
+  const phoneH = Math.round(phoneW * 2.0);
+  const phoneX = Math.round((width - phoneW) / 2);
+  const phoneY = Math.round(height * 0.16);
+
+  return `
+  <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+    ${createThemedBackground(width, height, theme)}
+
+    <!-- Marketing headline -->
+    <text x="${width / 2}" y="${height * 0.055}" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="56" font-weight="800" fill="${COLORS.white}" text-anchor="middle" letter-spacing="-1.5" filter="url(#textShadow)">
+      ${headerText}
+    </text>
+    <text x="${width / 2}" y="${height * 0.09}" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="24" fill="${theme.accent}" text-anchor="middle" opacity="0.9">
+      ${subtitleText}
+    </text>
+
+    <!-- Accent underline -->
+    <rect x="${(width - 80) / 2}" y="${height * 0.1}" width="80" height="4" rx="2" fill="url(#accentGrad)"/>
+
+    <!-- Phone mockup (LARGE) -->
+    ${createPhoneFrame(phoneX, phoneY, phoneW, phoneH, bodyContent)}
+
+    <!-- Bottom branding bar -->
+    <rect x="${(width - 220) / 2}" y="${height - 70}" width="220" height="40" rx="20" fill="${theme.glow1}" opacity="0.15"/>
+    <text x="${width / 2}" y="${height - 43}" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="18" font-weight="600" fill="${COLORS.white}" text-anchor="middle" opacity="0.8">
+      JournalMate.ai
+    </text>
+  </svg>`;
 }
 
 // ============================================
-// ASSET 2: Feature Graphic (1024x500)
+// SCREEN CONTENT DIMENSIONS
+// ============================================
+function getScreenDims(phoneW) {
+  const bezel = Math.round(phoneW * 0.02);
+  return {
+    sw: phoneW - bezel * 2 - 12, // screen width usable
+  };
+}
+
+// ============================================
+// SCREENSHOT 1: AI Goal Input
+// ============================================
+function screenshot1_GoalInput() {
+  const phoneW = Math.round(1080 * 0.48);
+  const { sw } = getScreenDims(phoneW);
+
+  const body = `
+    <!-- Status bar -->
+    <text x="8" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">9:41</text>
+    <text x="${sw - 8}" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}" text-anchor="end">100%</text>
+
+    <!-- Header -->
+    <text x="8" y="50" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${COLORS.white}">What's your next adventure?</text>
+    <text x="8" y="72" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">Describe your goal or dream</text>
+
+    <!-- Input area with glow border -->
+    <rect x="0" y="88" width="${sw}" height="100" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.primary}" stroke-opacity="0.4" stroke-width="1.5"/>
+    <text x="16" y="115" font-family="Arial" font-size="14" fill="${COLORS.white}" opacity="0.9">I want to start a morning</text>
+    <text x="16" y="135" font-family="Arial" font-size="14" fill="${COLORS.white}" opacity="0.9">workout routine and eat</text>
+    <text x="16" y="155" font-family="Arial" font-size="14" fill="${COLORS.white}" opacity="0.9">healthier this month</text>
+
+    <!-- Voice mic button -->
+    <circle cx="${sw - 32}" cy="168" r="18" fill="${COLORS.primary}" opacity="0.9"/>
+    <text x="${sw - 32}" y="174" font-family="Arial" font-size="16" fill="white" text-anchor="middle">&#x1F3A4;</text>
+
+    <!-- "Choose a vibe" section -->
+    <text x="8" y="218" font-family="Arial" font-size="12" font-weight="600" fill="${COLORS.textMuted}" letter-spacing="1">CHOOSE A VIBE</text>
+
+    <!-- Colorful category pills - 2 rows -->
+    <rect x="0" y="232" width="${Math.round(sw * 0.3)}" height="36" rx="18" fill="${COLORS.emerald}" opacity="0.2" stroke="${COLORS.emerald}" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="${Math.round(sw * 0.15)}" y="255" font-family="Arial" font-size="13" fill="${COLORS.emeraldLight}" text-anchor="middle">Wellness</text>
+
+    <rect x="${Math.round(sw * 0.33)}" y="232" width="${Math.round(sw * 0.3)}" height="36" rx="18" fill="${COLORS.sky}" opacity="0.2" stroke="${COLORS.sky}" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="${Math.round(sw * 0.48)}" y="255" font-family="Arial" font-size="13" fill="${COLORS.skyLight}" text-anchor="middle">Travel</text>
+
+    <rect x="${Math.round(sw * 0.66)}" y="232" width="${Math.round(sw * 0.33)}" height="36" rx="18" fill="${COLORS.coral}" opacity="0.2" stroke="${COLORS.coral}" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="${Math.round(sw * 0.825)}" y="255" font-family="Arial" font-size="13" fill="${COLORS.coralLight}" text-anchor="middle">Adventure</text>
+
+    <rect x="0" y="278" width="${Math.round(sw * 0.3)}" height="36" rx="18" fill="${COLORS.rose}" opacity="0.2" stroke="${COLORS.rose}" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="${Math.round(sw * 0.15)}" y="301" font-family="Arial" font-size="13" fill="${COLORS.roseLight}" text-anchor="middle">Romance</text>
+
+    <rect x="${Math.round(sw * 0.33)}" y="278" width="${Math.round(sw * 0.3)}" height="36" rx="18" fill="${COLORS.indigo}" opacity="0.2" stroke="${COLORS.indigo}" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="${Math.round(sw * 0.48)}" y="301" font-family="Arial" font-size="13" fill="${COLORS.indigoLight}" text-anchor="middle">Spiritual</text>
+
+    <rect x="${Math.round(sw * 0.66)}" y="278" width="${Math.round(sw * 0.33)}" height="36" rx="18" fill="${COLORS.amber}" opacity="0.2" stroke="${COLORS.amber}" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="${Math.round(sw * 0.825)}" y="301" font-family="Arial" font-size="13" fill="${COLORS.amberLight}" text-anchor="middle">Career</text>
+
+    <!-- Planning mode cards -->
+    <text x="8" y="345" font-family="Arial" font-size="12" font-weight="600" fill="${COLORS.textMuted}" letter-spacing="1">PLANNING MODE</text>
+
+    <rect x="0" y="360" width="${Math.round(sw * 0.48)}" height="52" rx="14" fill="${COLORS.primary}" opacity="0.2" stroke="${COLORS.primary}" stroke-width="1.5"/>
+    <text x="${Math.round(sw * 0.24)}" y="382" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.primaryLight}" text-anchor="middle">Quick Plan</text>
+    <text x="${Math.round(sw * 0.24)}" y="400" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">5 AI questions</text>
+
+    <rect x="${Math.round(sw * 0.52)}" y="360" width="${Math.round(sw * 0.48)}" height="52" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="${Math.round(sw * 0.76)}" y="382" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}" text-anchor="middle">Smart Plan</text>
+    <text x="${Math.round(sw * 0.76)}" y="400" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">7 deep questions</text>
+
+    <!-- Vibrant CTA button -->
+    <rect x="0" y="430" width="${sw}" height="52" rx="26" fill="url(#btnGrad)"/>
+    <text x="${sw / 2}" y="462" font-family="'Segoe UI', Arial" font-size="17" font-weight="bold" fill="white" text-anchor="middle">Generate My Plan</text>
+
+    <!-- Recent activity hint -->
+    <text x="8" y="515" font-family="Arial" font-size="12" font-weight="600" fill="${COLORS.textMuted}" letter-spacing="1">RECENT</text>
+    <rect x="0" y="528" width="${sw}" height="48" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="16" y="550" font-family="Arial" font-size="13" fill="${COLORS.white}">Weekend Meal Prep</text>
+    <text x="16" y="566" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Completed yesterday</text>
+    <circle cx="${sw - 20}" cy="552" r="10" fill="${COLORS.green}" opacity="0.2"/>
+    <text x="${sw - 20}" y="556" font-family="Arial" font-size="12" fill="${COLORS.green}" text-anchor="middle">&#10003;</text>
+  `;
+
+  return phoneScreenSvg(1080, 1920, THEMES.goalInput,
+    'Plan Any Dream with AI',
+    'Voice or text — your lifestyle planner handles the rest',
+    body
+  );
+}
+
+// ============================================
+// SCREENSHOT 2: Activities Dashboard
+// ============================================
+function screenshot2_Activities() {
+  const phoneW = Math.round(1080 * 0.48);
+  const { sw } = getScreenDims(phoneW);
+
+  const cards = [
+    { emoji: '&#x1F4AA;', title: 'Morning Fitness', sub: '7 of 10 tasks', pct: 70, color: COLORS.emerald, colorLight: COLORS.emeraldLight, cat: 'Wellness', due: 'Today' },
+    { emoji: '&#x2708;', title: 'Japan Trip Planning', sub: '3 of 12 tasks', pct: 25, color: COLORS.sky, colorLight: COLORS.skyLight, cat: 'Travel', due: 'Mar 15' },
+    { emoji: '&#x1F4CB;', title: 'Product Launch Prep', sub: '5 of 8 tasks', pct: 63, color: COLORS.primary, colorLight: COLORS.primaryLight, cat: 'Work', due: 'This week' },
+    { emoji: '&#x1F496;', title: 'Date Night Ideas', sub: '1 of 5 tasks', pct: 20, color: COLORS.rose, colorLight: COLORS.roseLight, cat: 'Romance', due: 'Saturday' },
+  ];
+
+  const cardH = 105;
+  const gap = 12;
+
+  const body = `
+    <text x="8" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">9:41</text>
+    <text x="${sw - 8}" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}" text-anchor="end">100%</text>
+
+    <text x="8" y="50" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${COLORS.white}">My Adventures</text>
+    <text x="8" y="72" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">4 active plans</text>
+
+    <!-- Search -->
+    <rect x="0" y="86" width="${sw}" height="40" rx="20" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="36" y="111" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">Search adventures...</text>
+    <text x="16" y="111" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">&#x1F50D;</text>
+
+    ${cards.map((c, i) => {
+      const y = 140 + i * (cardH + gap);
+      const barW = sw - 60;
+      return `
+        <!-- Card: ${c.title} -->
+        <rect x="0" y="${y}" width="${sw}" height="${cardH}" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1" filter="url(#cardShadow)"/>
+        <rect x="0" y="${y}" width="5" height="${cardH}" rx="2.5" fill="${c.color}"/>
+        <circle cx="32" cy="${y + 32}" r="18" fill="${c.color}" opacity="0.2"/>
+        <text x="32" y="${y + 38}" font-family="Arial" font-size="16" text-anchor="middle">${c.emoji}</text>
+        <text x="60" y="${y + 28}" font-family="Arial" font-size="15" font-weight="bold" fill="${COLORS.white}">${c.title}</text>
+        <text x="60" y="${y + 46}" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">${c.sub}</text>
+        <rect x="60" y="${y + 56}" width="${barW - 40}" height="5" rx="2.5" fill="#2A2D45"/>
+        <rect x="60" y="${y + 56}" width="${Math.round((barW - 40) * c.pct / 100)}" height="5" rx="2.5" fill="${c.color}"/>
+        <text x="${sw - 10}" y="${y + 62}" font-family="Arial" font-size="11" fill="${c.colorLight}" text-anchor="end">${c.pct}%</text>
+        <text x="60" y="${y + 84}" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">Due: ${c.due}  &#183;  ${c.cat}</text>
+      `;
+    }).join('')}
+  `;
+
+  return phoneScreenSvg(1080, 1920, THEMES.activities,
+    'All Your Plans, One Place',
+    'Track progress across every adventure',
+    body
+  );
+}
+
+// ============================================
+// SCREENSHOT 3: Tasks View
+// ============================================
+function screenshot3_Tasks() {
+  const phoneW = Math.round(1080 * 0.48);
+  const { sw } = getScreenDims(phoneW);
+
+  const tasks = [
+    { text: 'Wake up at 6:00 AM', ctx: 'Morning Routine', done: true, priority: 'Done', prioColor: COLORS.green },
+    { text: '30-min HIIT workout', ctx: 'Morning Fitness', done: false, priority: 'High', prioColor: COLORS.red },
+    { text: 'Healthy breakfast prep', ctx: 'Morning Routine', done: false, priority: 'Medium', prioColor: COLORS.amber },
+    { text: 'Review product roadmap', ctx: 'Product Launch', done: false, priority: 'Normal', prioColor: COLORS.primary },
+    { text: 'Book flight to Tokyo', ctx: 'Japan Trip', done: false, priority: 'Normal', prioColor: COLORS.cyan },
+    { text: 'Research restaurants', ctx: 'Date Night', done: false, priority: 'Normal', prioColor: COLORS.rose },
+    { text: 'Write team update', ctx: 'Product Launch', done: false, priority: 'Normal', prioColor: COLORS.primary },
+  ];
+
+  const taskH = 58;
+  const gap = 8;
+
+  const body = `
+    <text x="8" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">9:41</text>
+
+    <text x="8" y="50" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${COLORS.white}">Today's Tasks</text>
+    <text x="8" y="72" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">7 tasks to conquer</text>
+
+    <!-- Filter pills -->
+    <rect x="0" y="86" width="55" height="28" rx="14" fill="${COLORS.primary}" opacity="0.3" stroke="${COLORS.primary}" stroke-opacity="0.6" stroke-width="1"/>
+    <text x="27" y="105" font-family="Arial" font-size="12" fill="${COLORS.primaryLight}" text-anchor="middle">All</text>
+    <rect x="63" y="86" width="55" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="90" y="105" font-family="Arial" font-size="12" fill="${COLORS.textMuted}" text-anchor="middle">High</text>
+    <rect x="126" y="86" width="70" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="161" y="105" font-family="Arial" font-size="12" fill="${COLORS.textMuted}" text-anchor="middle">Medium</text>
+
+    ${tasks.map((t, i) => {
+      const y = 126 + i * (taskH + gap);
+      return `
+        <rect x="0" y="${y}" width="${sw}" height="${taskH}" rx="14" fill="${COLORS.darkCard}" stroke="${t.done ? COLORS.green : COLORS.darkCardBorder}" stroke-opacity="${t.done ? '0.4' : '1'}" stroke-width="1" ${t.done ? 'opacity="0.6"' : ''}/>
+        <circle cx="26" cy="${y + taskH / 2}" r="12" fill="${t.done ? COLORS.green : 'none'}" ${t.done ? 'opacity="0.3"' : `stroke="${t.prioColor}" stroke-opacity="0.5" stroke-width="2"`}/>
+        ${t.done ? `<text x="26" y="${y + taskH / 2 + 4}" font-family="Arial" font-size="12" fill="${COLORS.green}" text-anchor="middle">&#10003;</text>` : ''}
+        <text x="48" y="${y + 22}" font-family="Arial" font-size="13" fill="${t.done ? COLORS.textMuted : COLORS.white}" ${t.done ? 'text-decoration="line-through"' : ''}>${t.text}</text>
+        <text x="48" y="${y + 40}" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">${t.ctx} &#183; </text>
+        <text x="${48 + t.ctx.length * 5.5 + 18}" y="${y + 40}" font-family="Arial" font-size="10" fill="${t.prioColor}">${t.priority}</text>
+      `;
+    }).join('')}
+
+    <!-- Swipe hint -->
+    <text x="${sw / 2}" y="${126 + tasks.length * (taskH + gap) + 16}" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle" opacity="0.6">Swipe to complete &#183; Tap to expand</text>
+  `;
+
+  return phoneScreenSvg(1080, 1920, THEMES.tasks,
+    'Crush Your Daily Goals',
+    'Swipe, prioritize, and conquer every task',
+    body
+  );
+}
+
+// ============================================
+// SCREENSHOT 4: Reports & Analytics
+// ============================================
+function screenshot4_Reports() {
+  const phoneW = Math.round(1080 * 0.48);
+  const { sw } = getScreenDims(phoneW);
+  const statW = Math.round((sw - 16) / 3);
+
+  const body = `
+    <text x="8" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">9:41</text>
+
+    <text x="8" y="50" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${COLORS.white}">Your Progress</text>
+    <text x="8" y="72" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">This week's highlights</text>
+
+    <!-- Stat cards row -->
+    <rect x="0" y="88" width="${statW}" height="72" rx="14" fill="${COLORS.primary}" opacity="0.15" stroke="${COLORS.primary}" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="${statW / 2}" y="118" font-family="Arial" font-size="26" font-weight="bold" fill="${COLORS.primaryLight}" text-anchor="middle">87%</text>
+    <text x="${statW / 2}" y="140" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">Completion</text>
+
+    <rect x="${statW + 8}" y="88" width="${statW}" height="72" rx="14" fill="${COLORS.emerald}" opacity="0.12" stroke="${COLORS.emerald}" stroke-opacity="0.25" stroke-width="1"/>
+    <text x="${statW + 8 + statW / 2}" y="118" font-family="Arial" font-size="26" font-weight="bold" fill="${COLORS.emeraldLight}" text-anchor="middle">12</text>
+    <text x="${statW + 8 + statW / 2}" y="140" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">Day Streak</text>
+
+    <rect x="${(statW + 8) * 2}" y="88" width="${statW}" height="72" rx="14" fill="${COLORS.sky}" opacity="0.12" stroke="${COLORS.sky}" stroke-opacity="0.25" stroke-width="1"/>
+    <text x="${(statW + 8) * 2 + statW / 2}" y="118" font-family="Arial" font-size="26" font-weight="bold" fill="${COLORS.skyLight}" text-anchor="middle">48</text>
+    <text x="${(statW + 8) * 2 + statW / 2}" y="140" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">Tasks Done</text>
+
+    <!-- Weekly chart -->
+    <rect x="0" y="176" width="${sw}" height="170" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="16" y="202" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">Weekly Progress</text>
+
+    ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => {
+      const barH = [32, 52, 68, 85, 95, 75, 55][i];
+      const barW = Math.round((sw - 60) / 8);
+      const x = 20 + i * (barW + Math.round(barW * 0.3));
+      return `
+        <rect x="${x}" y="${326 - barH}" width="${barW}" height="${barH}" rx="4" fill="${COLORS.emerald}" opacity="${0.4 + i * 0.08}"/>
+        <text x="${x + barW / 2}" y="340" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">${day}</text>
+      `;
+    }).join('')}
+
+    <!-- Category breakdown -->
+    <text x="8" y="374" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.white}">By Category</text>
+
+    ${[
+      { name: 'Wellness', pct: 80, color: COLORS.emerald },
+      { name: 'Work', pct: 90, color: COLORS.primary },
+      { name: 'Travel', pct: 35, color: COLORS.sky },
+    ].map((cat, i) => {
+      const y = 390 + i * 52;
+      const barAreaW = sw - 120;
+      return `
+        <rect x="0" y="${y}" width="${sw}" height="44" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+        <text x="16" y="${y + 27}" font-family="Arial" font-size="13" fill="${COLORS.white}">${cat.name}</text>
+        <rect x="100" y="${y + 20}" width="${barAreaW}" height="5" rx="2.5" fill="#2A2D45"/>
+        <rect x="100" y="${y + 20}" width="${Math.round(barAreaW * cat.pct / 100)}" height="5" rx="2.5" fill="${cat.color}"/>
+        <text x="${sw - 10}" y="${y + 27}" font-family="Arial" font-size="12" fill="${cat.color}" text-anchor="end">${cat.pct}%</text>
+      `;
+    }).join('')}
+
+    <!-- Achievements -->
+    <text x="8" y="562" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.white}">Achievements Unlocked</text>
+
+    <rect x="0" y="576" width="${statW}" height="44" rx="12" fill="${COLORS.amber}" opacity="0.15" stroke="${COLORS.amber}" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="${statW / 2}" y="603" font-family="Arial" font-size="11" fill="${COLORS.amberLight}" text-anchor="middle">&#x1F3C6; First 50</text>
+
+    <rect x="${statW + 8}" y="576" width="${statW}" height="44" rx="12" fill="${COLORS.coral}" opacity="0.15" stroke="${COLORS.coral}" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="${statW + 8 + statW / 2}" y="603" font-family="Arial" font-size="11" fill="${COLORS.coralLight}" text-anchor="middle">&#x1F525; 10 Streak</text>
+
+    <rect x="${(statW + 8) * 2}" y="576" width="${statW}" height="44" rx="12" fill="${COLORS.emerald}" opacity="0.12" stroke="${COLORS.emerald}" stroke-opacity="0.25" stroke-width="1"/>
+    <text x="${(statW + 8) * 2 + statW / 2}" y="603" font-family="Arial" font-size="11" fill="${COLORS.emeraldLight}" text-anchor="middle">&#x2B50; Top 5%</text>
+  `;
+
+  return phoneScreenSvg(1080, 1920, THEMES.reports,
+    'See Your Growth',
+    'Streaks, analytics, and achievements at a glance',
+    body
+  );
+}
+
+// ============================================
+// SCREENSHOT 5: Discover Plans
+// ============================================
+function screenshot5_Discover() {
+  const phoneW = Math.round(1080 * 0.48);
+  const { sw } = getScreenDims(phoneW);
+  const halfW = Math.round((sw - 10) / 2);
+
+  const body = `
+    <text x="8" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">9:41</text>
+
+    <text x="8" y="50" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${COLORS.white}">Discover</text>
+    <text x="8" y="72" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">Trending community plans</text>
+
+    <!-- Category chips -->
+    <rect x="0" y="86" width="70" height="28" rx="14" fill="${COLORS.rose}" opacity="0.25" stroke="${COLORS.rose}" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="35" y="105" font-family="Arial" font-size="11" fill="${COLORS.roseLight}" text-anchor="middle">Trending</text>
+    <rect x="78" y="86" width="60" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="108" y="105" font-family="Arial" font-size="11" fill="${COLORS.textMuted}" text-anchor="middle">Travel</text>
+    <rect x="146" y="86" width="60" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="176" y="105" font-family="Arial" font-size="11" fill="${COLORS.textMuted}" text-anchor="middle">Fitness</text>
+    <rect x="214" y="86" width="60" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="244" y="105" font-family="Arial" font-size="11" fill="${COLORS.textMuted}" text-anchor="middle">Career</text>
+
+    <!-- Featured plan card -->
+    <rect x="0" y="124" width="${sw}" height="155" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <rect x="1" y="125" width="${sw - 2}" height="90" rx="15" fill="${COLORS.primary}" opacity="0.25"/>
+    <text x="${sw / 2}" y="175" font-family="Arial" font-size="36" text-anchor="middle">&#x1F3D4;</text>
+    <text x="16" y="242" font-family="Arial" font-size="15" font-weight="bold" fill="${COLORS.white}">Ultimate Hiking Adventure</text>
+    <text x="16" y="262" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">12 tasks &#183; 3.2k views &#183; Adventure</text>
+    <text x="${sw - 16}" y="258" font-family="Arial" font-size="13" fill="${COLORS.rose}" text-anchor="end">&#x2764; 284</text>
+
+    <!-- Grid of 4 plan cards -->
+    ${[
+      { emoji: '&#x1F373;', title: 'Meal Prep Sunday', meta: '8 tasks &#183; 1.5k', hearts: '156', bgColor: COLORS.teal },
+      { emoji: '&#x1F9D8;', title: '30-Day Mindfulness', meta: '30 tasks &#183; 2.1k', hearts: '203', bgColor: COLORS.emerald },
+      { emoji: '&#x1F4BC;', title: 'Interview Mastery', meta: '10 tasks &#183; 890', hearts: '98', bgColor: COLORS.amber },
+      { emoji: '&#x1F491;', title: 'Perfect Date Night', meta: '6 tasks &#183; 1.8k', hearts: '175', bgColor: COLORS.rose },
+    ].map((card, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = col * (halfW + 10);
+      const y = 292 + row * 155;
+      return `
+        <rect x="${x}" y="${y}" width="${halfW}" height="142" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+        <rect x="${x + 1}" y="${y + 1}" width="${halfW - 2}" height="70" rx="13" fill="${card.bgColor}" opacity="0.2"/>
+        <text x="${x + halfW / 2}" y="${y + 44}" font-family="Arial" font-size="28" text-anchor="middle">${card.emoji}</text>
+        <text x="${x + 12}" y="${y + 94}" font-family="Arial" font-size="12" font-weight="bold" fill="${COLORS.white}">${card.title}</text>
+        <text x="${x + 12}" y="${y + 112}" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">${card.meta}</text>
+        <text x="${x + 12}" y="${y + 130}" font-family="Arial" font-size="11" fill="${COLORS.rose}">&#x2764; ${card.hearts}</text>
+      `;
+    }).join('')}
+  `;
+
+  return phoneScreenSvg(1080, 1920, THEMES.discover,
+    'Explore &amp; Remix Plans',
+    'Browse trending adventures from the community',
+    body
+  );
+}
+
+// ============================================
+// SCREENSHOT 6: Groups & Collaboration
+// ============================================
+function screenshot6_Groups() {
+  const phoneW = Math.round(1080 * 0.48);
+  const { sw } = getScreenDims(phoneW);
+
+  const body = `
+    <text x="8" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">9:41</text>
+
+    <text x="8" y="50" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${COLORS.white}">Groups</text>
+    <text x="8" y="72" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">Achieve goals together</text>
+
+    <!-- Create group CTA -->
+    <rect x="0" y="88" width="${sw}" height="46" rx="23" fill="url(#btnGrad)"/>
+    <text x="${sw / 2}" y="117" font-family="Arial" font-size="15" font-weight="bold" fill="white" text-anchor="middle">+ Create New Group</text>
+
+    <!-- Group Card 1: Fitness Squad -->
+    <rect x="0" y="148" width="${sw}" height="130" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="16" y="175" font-family="Arial" font-size="15" font-weight="bold" fill="${COLORS.white}">Fitness Squad</text>
+    <text x="16" y="195" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">5 members &#183; 3 shared goals</text>
+
+    <!-- Avatars -->
+    <circle cx="28" cy="222" r="13" fill="${COLORS.primary}"/>
+    <text x="28" y="227" font-family="Arial" font-size="11" fill="white" text-anchor="middle">JM</text>
+    <circle cx="50" cy="222" r="13" fill="${COLORS.teal}"/>
+    <text x="50" y="227" font-family="Arial" font-size="11" fill="white" text-anchor="middle">SK</text>
+    <circle cx="72" cy="222" r="13" fill="${COLORS.emerald}"/>
+    <text x="72" y="227" font-family="Arial" font-size="11" fill="white" text-anchor="middle">AR</text>
+    <circle cx="94" cy="222" r="13" fill="${COLORS.amber}"/>
+    <text x="94" y="227" font-family="Arial" font-size="11" fill="white" text-anchor="middle">LP</text>
+    <circle cx="116" cy="222" r="13" fill="${COLORS.darkCardBorder}"/>
+    <text x="116" y="227" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">+1</text>
+
+    <text x="16" y="254" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Team progress</text>
+    <rect x="16" y="260" width="${sw - 32}" height="5" rx="2.5" fill="#2A2D45"/>
+    <rect x="16" y="260" width="${Math.round((sw - 32) * 0.7)}" height="5" rx="2.5" fill="${COLORS.emerald}"/>
+    <text x="${sw - 16}" y="268" font-family="Arial" font-size="11" fill="${COLORS.emeraldLight}" text-anchor="end">70%</text>
+
+    <!-- Group Card 2: Book Club -->
+    <rect x="0" y="292" width="${sw}" height="130" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="16" y="319" font-family="Arial" font-size="15" font-weight="bold" fill="${COLORS.white}">Book Club</text>
+    <text x="16" y="339" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">8 members &#183; 2 shared goals</text>
+
+    <circle cx="28" cy="366" r="13" fill="${COLORS.rose}"/>
+    <text x="28" y="371" font-family="Arial" font-size="11" fill="white" text-anchor="middle">EM</text>
+    <circle cx="50" cy="366" r="13" fill="${COLORS.indigo}"/>
+    <text x="50" y="371" font-family="Arial" font-size="11" fill="white" text-anchor="middle">TC</text>
+    <circle cx="72" cy="366" r="13" fill="${COLORS.amber}"/>
+    <text x="72" y="371" font-family="Arial" font-size="11" fill="white" text-anchor="middle">RD</text>
+    <circle cx="94" cy="366" r="13" fill="${COLORS.darkCardBorder}"/>
+    <text x="94" y="371" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">+5</text>
+
+    <text x="16" y="398" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Team progress</text>
+    <rect x="16" y="404" width="${sw - 32}" height="5" rx="2.5" fill="#2A2D45"/>
+    <rect x="16" y="404" width="${Math.round((sw - 32) * 0.45)}" height="5" rx="2.5" fill="${COLORS.indigo}"/>
+    <text x="${sw - 16}" y="412" font-family="Arial" font-size="11" fill="${COLORS.indigoLight}" text-anchor="end">45%</text>
+
+    <!-- Activity Feed -->
+    <text x="8" y="445" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.white}">Recent Activity</text>
+
+    ${[
+      { text: 'Sarah completed "5K Run"', sub: 'Fitness Squad &#183; 2h ago', color: COLORS.emerald, icon: '&#10003;' },
+      { text: 'Alex shared "Read Ch. 5"', sub: 'Book Club &#183; 5h ago', color: COLORS.indigo, icon: '+' },
+      { text: 'New goal: "Run 50 miles"', sub: 'Fitness Squad &#183; 1d ago', color: COLORS.amber, icon: '&#x1F3AF;' },
+    ].map((item, i) => {
+      const y = 458 + i * 52;
+      return `
+        <rect x="0" y="${y}" width="${sw}" height="44" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+        <circle cx="22" cy="${y + 22}" r="11" fill="${item.color}" opacity="0.25"/>
+        <text x="22" y="${y + 27}" font-family="Arial" font-size="10" fill="${item.color}" text-anchor="middle">${item.icon}</text>
+        <text x="40" y="${y + 18}" font-family="Arial" font-size="12" fill="${COLORS.white}">${item.text}</text>
+        <text x="40" y="${y + 34}" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">${item.sub}</text>
+      `;
+    }).join('')}
+  `;
+
+  return phoneScreenSvg(1080, 1920, THEMES.groups,
+    'Achieve Together',
+    'Team up with friends on shared goals',
+    body
+  );
+}
+
+// ============================================
+// FEATURE GRAPHIC (1024x500)
+// With actual app logo composite + Share/Customize/Community features
 // ============================================
 async function generateFeatureGraphic() {
   const width = 1024;
   const height = 500;
 
+  const phoneW = 165;
+  const phoneH = 330;
+
   const svg = `
   <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#0B0F1A;stop-opacity:1" />
-        <stop offset="40%" style="stop-color:#111528;stop-opacity:1" />
-        <stop offset="100%" style="stop-color:#0D1225;stop-opacity:1" />
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:#1A0533;stop-opacity:1" />
+        <stop offset="30%" style="stop-color:#0F1B4D;stop-opacity:1" />
+        <stop offset="70%" style="stop-color:#0E1744;stop-opacity:1" />
+        <stop offset="100%" style="stop-color:#042F2E;stop-opacity:1" />
       </linearGradient>
-      <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${COLORS.primaryLight};stop-opacity:1" />
-      </linearGradient>
-      <linearGradient id="accentLine" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${COLORS.cyan};stop-opacity:1" />
-      </linearGradient>
-      <radialGradient id="glow1" cx="25%" cy="40%" r="50%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:0.2" />
+      <radialGradient id="orb1" cx="12%" cy="35%" r="40%">
+        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:0.35" />
         <stop offset="100%" style="stop-color:${COLORS.primary};stop-opacity:0" />
       </radialGradient>
-      <radialGradient id="glow2" cx="75%" cy="60%" r="40%">
-        <stop offset="0%" style="stop-color:${COLORS.cyan};stop-opacity:0.12" />
-        <stop offset="100%" style="stop-color:${COLORS.cyan};stop-opacity:0" />
+      <radialGradient id="orb2" cx="88%" cy="65%" r="35%">
+        <stop offset="0%" style="stop-color:${COLORS.teal};stop-opacity:0.3" />
+        <stop offset="100%" style="stop-color:${COLORS.teal};stop-opacity:0" />
       </radialGradient>
-      <filter id="shadow1" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="${COLORS.primary}" flood-opacity="0.4"/>
+      <radialGradient id="orb3" cx="55%" cy="15%" r="25%">
+        <stop offset="0%" style="stop-color:${COLORS.rose};stop-opacity:0.12" />
+        <stop offset="100%" style="stop-color:${COLORS.rose};stop-opacity:0" />
+      </radialGradient>
+      <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${COLORS.teal};stop-opacity:1" />
+      </linearGradient>
+      <linearGradient id="btnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${COLORS.teal};stop-opacity:1" />
+      </linearGradient>
+      <linearGradient id="shareGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:${COLORS.rose};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${COLORS.coral};stop-opacity:1" />
+      </linearGradient>
+      <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="12"/>
       </filter>
-      <filter id="textGlow" x="-10%" y="-10%" width="120%" height="120%">
-        <feGaussianBlur in="SourceGraphic" stdDeviation="1"/>
+      <filter id="phoneShadow" x="-15%" y="-10%" width="130%" height="125%">
+        <feDropShadow dx="0" dy="6" stdDeviation="16" flood-color="${COLORS.primary}" flood-opacity="0.35"/>
+      </filter>
+      <filter id="textShadow">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.5"/>
       </filter>
     </defs>
 
     <!-- Background -->
-    <rect width="100%" height="100%" fill="url(#bg)"/>
-    <rect width="100%" height="100%" fill="url(#glow1)"/>
-    <rect width="100%" height="100%" fill="url(#glow2)"/>
+    <rect width="100%" height="100%" fill="url(#bgGrad)"/>
+    <rect width="100%" height="100%" fill="url(#orb1)"/>
+    <rect width="100%" height="100%" fill="url(#orb2)"/>
+    <rect width="100%" height="100%" fill="url(#orb3)"/>
 
-    <!-- Decorative grid dots -->
-    ${Array.from({length: 20}, (_, i) =>
-      Array.from({length: 10}, (_, j) =>
-        `<circle cx="${i * 55 + 20}" cy="${j * 55 + 20}" r="1" fill="${COLORS.accent}" opacity="0.08"/>`
-      ).join('')
-    ).join('')}
+    <!-- Floating orbs -->
+    <circle cx="80" cy="130" r="70" fill="rgba(124,58,237,0.18)" filter="url(#softGlow)"/>
+    <circle cx="920" cy="380" r="90" fill="rgba(20,184,166,0.12)" filter="url(#softGlow)"/>
+    <circle cx="550" cy="60" r="40" fill="rgba(236,72,153,0.1)" filter="url(#softGlow)"/>
 
-    <!-- Left side: Text Content -->
-    <!-- App Icon Circle -->
-    <circle cx="130" cy="190" r="55" fill="url(#purpleGrad)" filter="url(#shadow1)"/>
-    <g transform="translate(90, 150)">
-      ${BOOK_ICON_SVG}
-    </g>
+    <!-- Sparkle dots -->
+    <circle cx="45" cy="70" r="2" fill="${COLORS.primaryLight}" opacity="0.5"/>
+    <circle cx="200" cy="35" r="1.5" fill="white" opacity="0.35"/>
+    <circle cx="480" cy="55" r="2" fill="${COLORS.tealLight}" opacity="0.4"/>
+    <circle cx="850" cy="90" r="2" fill="${COLORS.primaryLight}" opacity="0.45"/>
+    <circle cx="980" cy="160" r="1.5" fill="white" opacity="0.3"/>
+    <circle cx="30" cy="420" r="1.5" fill="${COLORS.tealLight}" opacity="0.4"/>
+    <circle cx="500" cy="470" r="2" fill="${COLORS.primaryLight}" opacity="0.35"/>
 
-    <!-- App Name -->
-    <text x="72" y="295" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="bold" fill="${COLORS.white}" letter-spacing="-0.5">
+    <!-- ========== LEFT SIDE: Logo + Branding ========== -->
+    <!-- Logo placeholder (actual logo composited via sharp) -->
+    <!-- Logo will be placed at x=50, y=42, size=80x80 -->
+
+    <!-- App name (positioned next to logo) -->
+    <text x="145" y="78" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="36" font-weight="800" fill="${COLORS.white}" letter-spacing="-0.5" filter="url(#textShadow)">
       JournalMate.ai
     </text>
 
     <!-- Tagline -->
-    <text x="72" y="332" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="${COLORS.textMuted}" letter-spacing="0.5">
-      AI-Powered Lifestyle Planner
-    </text>
-
-    <!-- Accent line under tagline -->
-    <rect x="72" y="345" width="180" height="3" rx="1.5" fill="url(#accentLine)"/>
-
-    <!-- Feature pills -->
-    <g transform="translate(72, 370)">
-      <rect x="0" y="0" width="110" height="32" rx="16" fill="${COLORS.primary}" opacity="0.2" stroke="${COLORS.primary}" stroke-opacity="0.4" stroke-width="1"/>
-      <text x="55" y="21" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="${COLORS.accent}" text-anchor="middle">AI Planning</text>
-
-      <rect x="120" y="0" width="90" height="32" rx="16" fill="${COLORS.cyan}" opacity="0.15" stroke="${COLORS.cyan}" stroke-opacity="0.3" stroke-width="1"/>
-      <text x="165" y="21" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="${COLORS.cyan}" text-anchor="middle">Goals</text>
-
-      <rect x="220" y="0" width="110" height="32" rx="16" fill="${COLORS.green}" opacity="0.15" stroke="${COLORS.green}" stroke-opacity="0.3" stroke-width="1"/>
-      <text x="275" y="21" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="${COLORS.greenLight}" text-anchor="middle">Analytics</text>
-    </g>
-
-    <!-- Subtitle -->
-    <text x="72" y="442" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="${COLORS.textMuted}" opacity="0.7">
-      Discover plans. Make them yours. Share the journey.
-    </text>
-
-    <!-- Right side: Phone mockup -->
-    <g transform="translate(530, 30)">
-      <!-- Phone frame -->
-      <rect x="40" y="0" width="220" height="440" rx="24" ry="24" fill="#1A1A2E" stroke="#333355" stroke-width="2"/>
-      <!-- Screen -->
-      <rect x="48" y="28" width="204" height="384" rx="18" fill="${COLORS.dark}"/>
-      <!-- Notch -->
-      <rect x="110" y="6" width="60" height="16" rx="8" fill="#000"/>
-
-      <!-- Screen Content: Activities Dashboard -->
-      <g transform="translate(56, 40)">
-        <!-- Status bar -->
-        <text x="4" y="12" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">9:41</text>
-        <text x="170" y="12" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="end">100%</text>
-
-        <!-- Header -->
-        <text x="4" y="38" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="bold" fill="${COLORS.white}">My Activities</text>
-        <text x="4" y="52" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">3 active plans</text>
-
-        <!-- Activity Card 1 -->
-        <rect x="0" y="62" width="188" height="72" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-        <circle cx="22" cy="88" r="12" fill="${COLORS.primary}" opacity="0.3"/>
-        <text x="22" y="92" font-family="Arial" font-size="12" fill="${COLORS.primary}" text-anchor="middle">🎯</text>
-        <text x="42" y="82" font-family="Arial" font-size="11" font-weight="bold" fill="${COLORS.white}">Morning Routine</text>
-        <text x="42" y="95" font-family="Arial" font-size="9" fill="${COLORS.textMuted}">5 of 8 tasks done</text>
-        <!-- Progress bar -->
-        <rect x="42" y="104" width="130" height="5" rx="2.5" fill="#2A2D45"/>
-        <rect x="42" y="104" width="81" height="5" rx="2.5" fill="${COLORS.green}"/>
-        <text x="176" y="110" font-family="Arial" font-size="9" fill="${COLORS.green}" text-anchor="end">63%</text>
-
-        <!-- Activity Card 2 -->
-        <rect x="0" y="142" width="188" height="72" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-        <circle cx="22" cy="168" r="12" fill="${COLORS.cyan}" opacity="0.3"/>
-        <text x="22" y="172" font-family="Arial" font-size="12" fill="${COLORS.cyan}" text-anchor="middle">✈️</text>
-        <text x="42" y="162" font-family="Arial" font-size="11" font-weight="bold" fill="${COLORS.white}">Weekend Trip Plan</text>
-        <text x="42" y="175" font-family="Arial" font-size="9" fill="${COLORS.textMuted}">2 of 6 tasks done</text>
-        <rect x="42" y="184" width="130" height="5" rx="2.5" fill="#2A2D45"/>
-        <rect x="42" y="184" width="43" height="5" rx="2.5" fill="${COLORS.cyan}"/>
-        <text x="176" y="190" font-family="Arial" font-size="9" fill="${COLORS.cyan}" text-anchor="end">33%</text>
-
-        <!-- Activity Card 3 -->
-        <rect x="0" y="222" width="188" height="72" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-        <circle cx="22" cy="248" r="12" fill="${COLORS.amber}" opacity="0.3"/>
-        <text x="22" y="252" font-family="Arial" font-size="12" fill="${COLORS.amber}" text-anchor="middle">💪</text>
-        <text x="42" y="242" font-family="Arial" font-size="11" font-weight="bold" fill="${COLORS.white}">Fitness Challenge</text>
-        <text x="42" y="255" font-family="Arial" font-size="9" fill="${COLORS.textMuted}">7 of 10 tasks done</text>
-        <rect x="42" y="264" width="130" height="5" rx="2.5" fill="#2A2D45"/>
-        <rect x="42" y="264" width="91" height="5" rx="2.5" fill="${COLORS.amber}"/>
-        <text x="176" y="270" font-family="Arial" font-size="9" fill="${COLORS.amber}" text-anchor="end">70%</text>
-
-        <!-- Bottom nav -->
-        <rect x="-8" y="310" width="204" height="50" rx="0" fill="${COLORS.darkCard}"/>
-        <text x="25" y="340" font-family="Arial" font-size="9" fill="${COLORS.primary}" text-anchor="middle">Home</text>
-        <text x="72" y="340" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">Discover</text>
-        <text x="120" y="340" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">Tasks</text>
-        <text x="168" y="340" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">Reports</text>
-      </g>
-    </g>
-
-    <!-- Second phone (partial, behind) -->
-    <g transform="translate(710, 60)" opacity="0.5">
-      <rect x="0" y="0" width="200" height="400" rx="22" fill="#1A1A2E" stroke="#333355" stroke-width="1.5"/>
-      <rect x="7" y="26" width="186" height="348" rx="16" fill="${COLORS.dark}"/>
-      <rect x="55" y="6" width="56" height="14" rx="7" fill="#000"/>
-
-      <!-- Reports screen hint -->
-      <g transform="translate(16, 44)">
-        <text x="4" y="22" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">Reports</text>
-
-        <!-- Stat cards row -->
-        <rect x="0" y="34" width="76" height="50" rx="10" fill="${COLORS.primary}" opacity="0.2"/>
-        <text x="38" y="56" font-family="Arial" font-size="18" font-weight="bold" fill="${COLORS.primary}" text-anchor="middle">87%</text>
-        <text x="38" y="72" font-family="Arial" font-size="8" fill="${COLORS.textMuted}" text-anchor="middle">Completion</text>
-
-        <rect x="84" y="34" width="76" height="50" rx="10" fill="${COLORS.green}" opacity="0.15"/>
-        <text x="122" y="56" font-family="Arial" font-size="18" font-weight="bold" fill="${COLORS.green}" text-anchor="middle">12</text>
-        <text x="122" y="72" font-family="Arial" font-size="8" fill="${COLORS.textMuted}" text-anchor="middle">Day Streak</text>
-
-        <!-- Chart area hint -->
-        <rect x="0" y="96" width="160" height="80" rx="10" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-        <polyline points="10,160 30,140 55,150 80,130 105,120 130,135 150,110"
-                  fill="none" stroke="${COLORS.primary}" stroke-width="2" stroke-linecap="round"/>
-        <polyline points="10,160 30,140 55,150 80,130 105,120 130,135 150,110"
-                  fill="url(#purpleGrad)" opacity="0.1"/>
-      </g>
-    </g>
-  </svg>`;
-
-  await sharp(Buffer.from(svg))
-    .png()
-    .toFile(path.join(OUTPUT_DIR, 'feature-graphic-1024x500.png'));
-  console.log('✓ Feature Graphic (1024x500)');
-}
-
-// ============================================
-// Phone Screenshots (1080x1920)
-// ============================================
-
-function phoneScreenSvg(width, height, headerText, subtitleText, bodyContent) {
-  return `
-  <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#0B0F1A;stop-opacity:1" />
-        <stop offset="50%" style="stop-color:#111528;stop-opacity:1" />
-        <stop offset="100%" style="stop-color:#0D1225;stop-opacity:1" />
-      </linearGradient>
-      <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${COLORS.primaryLight};stop-opacity:1" />
-      </linearGradient>
-      <linearGradient id="accentLine" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${COLORS.cyan};stop-opacity:1" />
-      </linearGradient>
-      <radialGradient id="glow1" cx="30%" cy="20%" r="50%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:0.15" />
-        <stop offset="100%" style="stop-color:${COLORS.primary};stop-opacity:0" />
-      </radialGradient>
-      <radialGradient id="glow2" cx="70%" cy="80%" r="40%">
-        <stop offset="0%" style="stop-color:${COLORS.cyan};stop-opacity:0.08" />
-        <stop offset="100%" style="stop-color:${COLORS.cyan};stop-opacity:0" />
-      </radialGradient>
-      <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="110%">
-        <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#000" flood-opacity="0.3"/>
-      </filter>
-    </defs>
-
-    <rect width="100%" height="100%" fill="url(#bg)"/>
-    <rect width="100%" height="100%" fill="url(#glow1)"/>
-    <rect width="100%" height="100%" fill="url(#glow2)"/>
-
-    <!-- Decorative elements -->
-    ${Array.from({length: 15}, (_, i) =>
-      Array.from({length: 26}, (_, j) =>
-        `<circle cx="${i * 75 + 30}" cy="${j * 75 + 30}" r="1" fill="${COLORS.accent}" opacity="0.05"/>`
-      ).join('')
-    ).join('')}
-
-    <!-- Header marketing text -->
-    <text x="${width/2}" y="120" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="bold" fill="${COLORS.white}" text-anchor="middle" letter-spacing="-1">
-      ${headerText}
-    </text>
-    <text x="${width/2}" y="170" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="${COLORS.textMuted}" text-anchor="middle">
-      ${subtitleText}
+    <text x="145" y="108" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="18" fill="${COLORS.tealLight}" opacity="0.95">
+      Your AI Lifestyle Companion
     </text>
 
     <!-- Accent line -->
-    <rect x="${width/2 - 60}" y="190" width="120" height="3" rx="1.5" fill="url(#accentLine)"/>
+    <rect x="145" y="120" width="180" height="3" rx="1.5" fill="url(#accentGrad)"/>
 
-    <!-- Phone mockup -->
-    <g transform="translate(${width/2 - 190}, 240)">
-      <rect x="0" y="0" width="380" height="760" rx="40" ry="40" fill="#1A1A2E" stroke="#333355" stroke-width="3"/>
-      <rect x="12" y="40" width="356" height="680" rx="30" fill="${COLORS.dark}"/>
-      <rect x="130" y="10" width="120" height="24" rx="12" fill="#000"/>
+    <!-- Three key feature rows with icons -->
+    <!-- Feature 1: AI-Powered Planning -->
+    <g transform="translate(50, 150)">
+      <rect x="0" y="0" width="38" height="38" rx="10" fill="${COLORS.primary}" opacity="0.25"/>
+      <text x="19" y="26" font-family="Arial" font-size="18" text-anchor="middle">&#x2728;</text>
+      <text x="48" y="17" font-family="'Segoe UI', Arial" font-size="15" font-weight="700" fill="${COLORS.white}">AI-Powered Planning</text>
+      <text x="48" y="33" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Voice or text — plans for any goal</text>
+    </g>
 
-      <!-- Screen content -->
-      <g transform="translate(24, 60)">
-        ${bodyContent}
+    <!-- Feature 2: Share & Discover -->
+    <g transform="translate(50, 200)">
+      <rect x="0" y="0" width="38" height="38" rx="10" fill="${COLORS.rose}" opacity="0.2"/>
+      <text x="19" y="26" font-family="Arial" font-size="18" text-anchor="middle">&#x1F4E4;</text>
+      <text x="48" y="17" font-family="'Segoe UI', Arial" font-size="15" font-weight="700" fill="${COLORS.white}">Share &amp; Discover Plans</text>
+      <text x="48" y="33" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Share to social media, remix community plans</text>
+    </g>
+
+    <!-- Feature 3: Own & Customize -->
+    <g transform="translate(50, 250)">
+      <rect x="0" y="0" width="38" height="38" rx="10" fill="${COLORS.teal}" opacity="0.2"/>
+      <text x="19" y="26" font-family="Arial" font-size="18" text-anchor="middle">&#x1F3A8;</text>
+      <text x="48" y="17" font-family="'Segoe UI', Arial" font-size="15" font-weight="700" fill="${COLORS.white}">Own &amp; Customize</text>
+      <text x="48" y="33" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Make plans yours, edit tasks, set your pace</text>
+    </g>
+
+    <!-- Feature 4: Track Together -->
+    <g transform="translate(50, 300)">
+      <rect x="0" y="0" width="38" height="38" rx="10" fill="${COLORS.emerald}" opacity="0.2"/>
+      <text x="19" y="26" font-family="Arial" font-size="18" text-anchor="middle">&#x1F91D;</text>
+      <text x="48" y="17" font-family="'Segoe UI', Arial" font-size="15" font-weight="700" fill="${COLORS.white}">Achieve Together</text>
+      <text x="48" y="33" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Groups, shared goals, team progress</text>
+    </g>
+
+    <!-- Category icons row -->
+    <g transform="translate(50, 365)">
+      <text x="0" y="0" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" letter-spacing="1">PLAN ANYTHING</text>
+      ${['&#x1F3CB;', '&#x2708;', '&#x1F373;', '&#x1F3D4;', '&#x1F496;', '&#x1F4BC;', '&#x1F9D8;', '&#x1F3B5;'].map((e, i) => `
+        <circle cx="${i * 42 + 12}" cy="28" r="16" fill="${[COLORS.emerald, COLORS.sky, COLORS.coral, COLORS.teal, COLORS.rose, COLORS.amber, COLORS.indigo, COLORS.pink][i]}" opacity="0.2"/>
+        <text x="${i * 42 + 12}" y="34" font-family="Arial" font-size="14" text-anchor="middle">${e}</text>
+      `).join('')}
+    </g>
+
+    <!-- CTA -->
+    <rect x="50" y="430" width="160" height="38" rx="19" fill="url(#btnGrad)" opacity="0.9"/>
+    <text x="130" y="454" font-family="Arial" font-size="14" font-weight="bold" fill="white" text-anchor="middle">Get Started Free</text>
+
+    <text x="225" y="454" font-family="Arial" font-size="12" fill="${COLORS.textMuted}" opacity="0.7">Wellness &#183; Travel &#183; Career &#183; Romance &#183; Fitness</text>
+
+    <!-- ========== RIGHT SIDE: App screens ========== -->
+
+    <!-- Main phone: Discover/Share screen -->
+    <g filter="url(#phoneShadow)">
+      <rect x="555" y="25" width="${phoneW}" height="${phoneH}" rx="18" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="2"/>
+      <rect x="562" y="44" width="${phoneW - 14}" height="${phoneH - 38}" rx="14" fill="${COLORS.dark}"/>
+      <rect x="${555 + phoneW / 2 - 28}" y="30" width="56" height="13" rx="6.5" fill="#000"/>
+
+      <g transform="translate(568, 54)">
+        <text x="4" y="12" font-family="Arial" font-size="9" fill="${COLORS.textMuted}">9:41</text>
+        <text x="4" y="30" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.white}">Discover</text>
+        <text x="4" y="44" font-family="Arial" font-size="8" fill="${COLORS.textMuted}">Trending plans</text>
+
+        <!-- Featured plan with share button -->
+        <rect x="0" y="54" width="137" height="100" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="0.5"/>
+        <rect x="1" y="55" width="135" height="50" rx="11" fill="${COLORS.primary}" opacity="0.25"/>
+        <text x="68" y="84" font-family="Arial" font-size="22" text-anchor="middle">&#x1F3D4;</text>
+        <text x="8" y="120" font-family="Arial" font-size="9" font-weight="bold" fill="${COLORS.white}">Hiking Adventure</text>
+        <text x="8" y="132" font-family="Arial" font-size="7" fill="${COLORS.textMuted}">12 tasks &#183; 3.2k views</text>
+
+        <!-- Share button overlay -->
+        <rect x="98" y="132" width="34" height="18" rx="9" fill="url(#shareGrad)" opacity="0.9"/>
+        <text x="115" y="144" font-family="Arial" font-size="8" fill="white" text-anchor="middle">Share</text>
+
+        <!-- Heart count -->
+        <text x="8" y="148" font-family="Arial" font-size="8" fill="${COLORS.rose}">&#x2764; 284</text>
+
+        <!-- Small plan cards -->
+        <rect x="0" y="158" width="65" height="75" rx="10" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="0.5"/>
+        <rect x="1" y="159" width="63" height="35" rx="9" fill="${COLORS.teal}" opacity="0.2"/>
+        <text x="32" y="180" font-family="Arial" font-size="16" text-anchor="middle">&#x1F373;</text>
+        <text x="6" y="208" font-family="Arial" font-size="7" font-weight="bold" fill="${COLORS.white}">Meal Prep</text>
+        <text x="6" y="220" font-family="Arial" font-size="6" fill="${COLORS.rose}">&#x2764; 156</text>
+
+        <rect x="72" y="158" width="65" height="75" rx="10" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="0.5"/>
+        <rect x="73" y="159" width="63" height="35" rx="9" fill="${COLORS.emerald}" opacity="0.2"/>
+        <text x="104" y="180" font-family="Arial" font-size="16" text-anchor="middle">&#x1F9D8;</text>
+        <text x="78" y="208" font-family="Arial" font-size="7" font-weight="bold" fill="${COLORS.white}">Mindfulness</text>
+        <text x="78" y="220" font-family="Arial" font-size="6" fill="${COLORS.rose}">&#x2764; 203</text>
+
+        <!-- Use Plan / Customize button -->
+        <rect x="0" y="242" width="137" height="26" rx="13" fill="url(#btnGrad)" opacity="0.85"/>
+        <text x="68" y="259" font-family="Arial" font-size="9" font-weight="bold" fill="white" text-anchor="middle">&#x2728; Use Plan &amp; Customize</text>
       </g>
     </g>
 
-    <!-- Bottom branding -->
-    <text x="${width/2}" y="1860" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="${COLORS.textMuted}" text-anchor="middle" opacity="0.6">
-      JournalMate.ai
-    </text>
+    <!-- Second phone: Activities (Share view) -->
+    <g filter="url(#phoneShadow)">
+      <rect x="740" y="55" width="${phoneW - 10}" height="${phoneH - 30}" rx="16" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="1.5"/>
+      <rect x="746" y="72" width="${phoneW - 22}" height="${phoneH - 62}" rx="13" fill="${COLORS.dark}"/>
+      <rect x="${740 + (phoneW - 10) / 2 - 24}" y="60" width="48" height="11" rx="5.5" fill="#000"/>
+
+      <g transform="translate(752, 80)">
+        <text x="4" y="12" font-family="Arial" font-size="9" fill="${COLORS.textMuted}">9:41</text>
+        <text x="4" y="28" font-family="Arial" font-size="12" font-weight="bold" fill="${COLORS.white}">My Adventures</text>
+        <text x="4" y="42" font-family="Arial" font-size="8" fill="${COLORS.textMuted}">4 active plans</text>
+
+        ${[
+          { title: 'Morning Fitness', pct: 70, color: COLORS.emerald },
+          { title: 'Japan Trip', pct: 25, color: COLORS.sky },
+          { title: 'Product Launch', pct: 63, color: COLORS.primary },
+          { title: 'Date Night', pct: 20, color: COLORS.rose },
+        ].map((a, i) => {
+          const y = 52 + i * 48;
+          return `
+            <rect x="0" y="${y}" width="131" height="40" rx="8" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="0.5"/>
+            <rect x="0" y="${y}" width="3" height="40" rx="1.5" fill="${a.color}"/>
+            <text x="10" y="${y + 16}" font-family="Arial" font-size="9" font-weight="bold" fill="${COLORS.white}">${a.title}</text>
+            <rect x="10" y="${y + 22}" width="90" height="3" rx="1.5" fill="#2A2D45"/>
+            <rect x="10" y="${y + 22}" width="${Math.round(90 * a.pct / 100)}" height="3" rx="1.5" fill="${a.color}"/>
+            <text x="120" y="${y + 27}" font-family="Arial" font-size="8" fill="${a.color}" text-anchor="end">${a.pct}%</text>
+
+            <!-- Share icon on each card -->
+            <circle cx="120" cy="${y + 11}" r="7" fill="${a.color}" opacity="0.15"/>
+            <text x="120" y="${y + 14}" font-family="Arial" font-size="7" fill="${a.color}" text-anchor="middle">&#x2197;</text>
+          `;
+        }).join('')}
+      </g>
+    </g>
+
+    <!-- Third phone hint: Social share toast -->
+    <g opacity="0.5" transform="translate(895, 120)">
+      <rect x="0" y="0" width="110" height="${phoneH - 80}" rx="14" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="1"/>
+      <rect x="5" y="16" width="100" height="${phoneH - 100}" rx="11" fill="${COLORS.dark}"/>
+      <rect x="30" y="5" width="40" height="10" rx="5" fill="#000"/>
+
+      <!-- Share modal content -->
+      <g transform="translate(12, 30)">
+        <text x="38" y="14" font-family="Arial" font-size="9" font-weight="bold" fill="${COLORS.white}" text-anchor="middle">Share Plan</text>
+
+        <!-- Social icons -->
+        <circle cx="15" cy="40" r="12" fill="#1877F2" opacity="0.8"/>
+        <text x="15" y="44" font-family="Arial" font-size="9" fill="white" text-anchor="middle">f</text>
+
+        <circle cx="45" cy="40" r="12" fill="#25D366" opacity="0.8"/>
+        <text x="45" y="44" font-family="Arial" font-size="9" fill="white" text-anchor="middle">W</text>
+
+        <circle cx="75" cy="40" r="12" fill="#E4405F" opacity="0.8"/>
+        <text x="75" y="44" font-family="Arial" font-size="9" fill="white" text-anchor="middle">IG</text>
+
+        <circle cx="15" cy="72" r="12" fill="#1DA1F2" opacity="0.8"/>
+        <text x="15" y="76" font-family="Arial" font-size="9" fill="white" text-anchor="middle">X</text>
+
+        <circle cx="45" cy="72" r="12" fill="${COLORS.primary}" opacity="0.8"/>
+        <text x="45" y="76" font-family="Arial" font-size="8" fill="white" text-anchor="middle">&#x1F517;</text>
+
+        <circle cx="75" cy="72" r="12" fill="${COLORS.teal}" opacity="0.8"/>
+        <text x="75" y="76" font-family="Arial" font-size="8" fill="white" text-anchor="middle">&#x2709;</text>
+
+        <!-- Copy link -->
+        <rect x="0" y="96" width="76" height="22" rx="11" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="0.5"/>
+        <text x="38" y="110" font-family="Arial" font-size="7" fill="${COLORS.textMuted}" text-anchor="middle">&#x1F517; Copy Link</text>
+      </g>
+    </g>
   </svg>`;
-}
 
-// Screenshot 1: AI Goal Input
-function screenshot1_GoalInput() {
-  const body = `
-    <!-- Status bar -->
-    <text x="8" y="18" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">9:41</text>
-
-    <!-- Header -->
-    <text x="8" y="55" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="bold" fill="${COLORS.white}">What's your goal?</text>
-    <text x="8" y="78" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">Tell us what you want to achieve</text>
-
-    <!-- Input area -->
-    <rect x="0" y="96" width="332" height="110" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="125" font-family="Arial" font-size="15" fill="${COLORS.white}">I want to start a morning</text>
-    <text x="16" y="145" font-family="Arial" font-size="15" fill="${COLORS.white}">workout routine and eat</text>
-    <text x="16" y="165" font-family="Arial" font-size="15" fill="${COLORS.white}">healthier this month</text>
-    <rect x="250" y="172" width="16" height="2" fill="${COLORS.primary}">
-      <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>
-    </rect>
-
-    <!-- Voice button -->
-    <circle cx="296" y="186" r="22" fill="${COLORS.primary}"/>
-    <text x="296" y="192" font-family="Arial" font-size="18" fill="white" text-anchor="middle">🎙</text>
-
-    <!-- Category selector -->
-    <text x="8" y="245" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">Choose a theme</text>
-
-    <!-- Category pills -->
-    <rect x="0" y="258" width="85" height="38" rx="19" fill="${COLORS.green}" opacity="0.2" stroke="${COLORS.green}" stroke-opacity="0.4" stroke-width="1"/>
-    <text x="42" y="282" font-family="Arial" font-size="13" fill="${COLORS.greenLight}" text-anchor="middle">Wellness</text>
-
-    <rect x="95" y="258" width="85" height="38" rx="19" fill="${COLORS.primary}" opacity="0.2" stroke="${COLORS.primary}" stroke-opacity="0.4" stroke-width="1"/>
-    <text x="137" y="282" font-family="Arial" font-size="13" fill="${COLORS.accent}" text-anchor="middle">Work</text>
-
-    <rect x="190" y="258" width="85" height="38" rx="19" fill="${COLORS.cyan}" opacity="0.2" stroke="${COLORS.cyan}" stroke-opacity="0.4" stroke-width="1"/>
-    <text x="232" y="282" font-family="Arial" font-size="13" fill="${COLORS.cyan}" text-anchor="middle">Travel</text>
-
-    <rect x="0" y="306" width="105" height="38" rx="19" fill="${COLORS.amber}" opacity="0.15" stroke="${COLORS.amber}" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="52" y="330" font-family="Arial" font-size="13" fill="${COLORS.amber}" text-anchor="middle">Adventure</text>
-
-    <rect x="115" y="306" width="100" height="38" rx="19" fill="${COLORS.pink}" opacity="0.15" stroke="${COLORS.pink}" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="165" y="330" font-family="Arial" font-size="13" fill="${COLORS.pink}" text-anchor="middle">Romance</text>
-
-    <rect x="225" y="306" width="100" height="38" rx="19" fill="${COLORS.indigo}" opacity="0.15" stroke="${COLORS.indigo}" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="275" y="330" font-family="Arial" font-size="13" fill="${COLORS.indigo}" text-anchor="middle">Spiritual</text>
-
-    <!-- Planning mode selector -->
-    <text x="8" y="380" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">Planning mode</text>
-
-    <rect x="0" y="394" width="160" height="52" rx="14" fill="${COLORS.primary}" opacity="0.15" stroke="${COLORS.primary}" stroke-width="1.5"/>
-    <text x="80" y="416" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.primary}" text-anchor="middle">Quick Plan</text>
-    <text x="80" y="432" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">5 AI questions</text>
-
-    <rect x="170" y="394" width="160" height="52" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="250" y="416" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}" text-anchor="middle">Smart Plan</text>
-    <text x="250" y="432" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">7 deep questions</text>
-
-    <!-- Generate button -->
-    <rect x="0" y="470" width="332" height="54" rx="27" fill="url(#purpleGrad)"/>
-    <text x="166" y="503" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="white" text-anchor="middle">Generate My Plan</text>
-
-    <!-- Recent plans -->
-    <text x="8" y="560" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">Recent plans</text>
-    <rect x="0" y="572" width="332" height="50" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="596" font-family="Arial" font-size="13" fill="${COLORS.white}">Weekend Meal Prep</text>
-    <text x="16" y="612" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Completed yesterday</text>
-    <text x="310" y="598" font-family="Arial" font-size="12" fill="${COLORS.green}" text-anchor="end">✓</text>
-  `;
-
-  return phoneScreenSvg(1080, 1920, 'Plan Any Goal with AI', 'Voice or text — your AI planner handles the rest', body);
-}
-
-// Screenshot 2: Activities Dashboard
-function screenshot2_Activities() {
-  const body = `
-    <text x="8" y="18" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">9:41</text>
-
-    <text x="8" y="55" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="bold" fill="${COLORS.white}">My Activities</text>
-    <text x="8" y="78" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">4 active plans</text>
-
-    <!-- Search bar -->
-    <rect x="0" y="94" width="332" height="44" rx="22" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="40" y="121" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">Search activities...</text>
-    <text x="20" y="122" font-family="Arial" font-size="16" fill="${COLORS.textMuted}">🔍</text>
-
-    <!-- Activity Card 1 - Wellness -->
-    <rect x="0" y="152" width="332" height="120" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1" filter="url(#cardShadow)"/>
-    <rect x="0" y="152" width="6" height="120" rx="3" fill="${COLORS.green}"/>
-    <circle cx="36" cy="188" r="20" fill="${COLORS.green}" opacity="0.2"/>
-    <text x="36" y="194" font-family="Arial" font-size="18" text-anchor="middle">💪</text>
-    <text x="66" y="184" font-family="Arial" font-size="16" font-weight="bold" fill="${COLORS.white}">Morning Fitness Routine</text>
-    <text x="66" y="204" font-family="Arial" font-size="12" fill="${COLORS.textMuted}">7 of 10 tasks complete</text>
-    <rect x="66" y="216" width="240" height="6" rx="3" fill="#2A2D45"/>
-    <rect x="66" y="216" width="168" height="6" rx="3" fill="${COLORS.green}"/>
-    <text x="312" y="225" font-family="Arial" font-size="12" fill="${COLORS.green}" text-anchor="end">70%</text>
-    <text x="66" y="253" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Due: Today  •  Wellness</text>
-
-    <!-- Activity Card 2 - Travel -->
-    <rect x="0" y="286" width="332" height="120" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1" filter="url(#cardShadow)"/>
-    <rect x="0" y="286" width="6" height="120" rx="3" fill="${COLORS.cyan}"/>
-    <circle cx="36" cy="322" r="20" fill="${COLORS.cyan}" opacity="0.2"/>
-    <text x="36" y="328" font-family="Arial" font-size="18" text-anchor="middle">✈️</text>
-    <text x="66" y="318" font-family="Arial" font-size="16" font-weight="bold" fill="${COLORS.white}">Japan Trip Planning</text>
-    <text x="66" y="338" font-family="Arial" font-size="12" fill="${COLORS.textMuted}">3 of 12 tasks complete</text>
-    <rect x="66" y="350" width="240" height="6" rx="3" fill="#2A2D45"/>
-    <rect x="66" y="350" width="60" height="6" rx="3" fill="${COLORS.cyan}"/>
-    <text x="312" y="359" font-family="Arial" font-size="12" fill="${COLORS.cyan}" text-anchor="end">25%</text>
-    <text x="66" y="387" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Due: Mar 15  •  Travel</text>
-
-    <!-- Activity Card 3 - Work -->
-    <rect x="0" y="420" width="332" height="120" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1" filter="url(#cardShadow)"/>
-    <rect x="0" y="420" width="6" height="120" rx="3" fill="${COLORS.primary}"/>
-    <circle cx="36" cy="456" r="20" fill="${COLORS.primary}" opacity="0.2"/>
-    <text x="36" y="462" font-family="Arial" font-size="18" text-anchor="middle">📋</text>
-    <text x="66" y="452" font-family="Arial" font-size="16" font-weight="bold" fill="${COLORS.white}">Product Launch Prep</text>
-    <text x="66" y="472" font-family="Arial" font-size="12" fill="${COLORS.textMuted}">5 of 8 tasks complete</text>
-    <rect x="66" y="484" width="240" height="6" rx="3" fill="#2A2D45"/>
-    <rect x="66" y="484" width="150" height="6" rx="3" fill="${COLORS.primary}"/>
-    <text x="312" y="493" font-family="Arial" font-size="12" fill="${COLORS.primary}" text-anchor="end">63%</text>
-    <text x="66" y="521" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Due: This week  •  Work</text>
-
-    <!-- Activity Card 4 - Romance -->
-    <rect x="0" y="554" width="332" height="120" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1" filter="url(#cardShadow)"/>
-    <rect x="0" y="554" width="6" height="120" rx="3" fill="${COLORS.pink}"/>
-    <circle cx="36" cy="590" r="20" fill="${COLORS.pink}" opacity="0.2"/>
-    <text x="36" y="596" font-family="Arial" font-size="18" text-anchor="middle">💝</text>
-    <text x="66" y="586" font-family="Arial" font-size="16" font-weight="bold" fill="${COLORS.white}">Date Night Ideas</text>
-    <text x="66" y="606" font-family="Arial" font-size="12" fill="${COLORS.textMuted}">1 of 5 tasks complete</text>
-    <rect x="66" y="618" width="240" height="6" rx="3" fill="#2A2D45"/>
-    <rect x="66" y="618" width="48" height="6" rx="3" fill="${COLORS.pink}"/>
-    <text x="312" y="627" font-family="Arial" font-size="12" fill="${COLORS.pink}" text-anchor="end">20%</text>
-    <text x="66" y="655" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Due: Saturday  •  Romance</text>
-  `;
-
-  return phoneScreenSvg(1080, 1920, 'Track All Your Plans', 'Organized activities with real-time progress', body);
-}
-
-// Screenshot 3: Tasks View
-function screenshot3_Tasks() {
-  const body = `
-    <text x="8" y="18" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">9:41</text>
-
-    <text x="8" y="55" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="bold" fill="${COLORS.white}">Today's Tasks</text>
-    <text x="8" y="78" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">8 tasks remaining</text>
-
-    <!-- Priority filter pills -->
-    <rect x="0" y="94" width="60" height="30" rx="15" fill="${COLORS.primary}" opacity="0.25" stroke="${COLORS.primary}" stroke-opacity="0.5" stroke-width="1"/>
-    <text x="30" y="114" font-family="Arial" font-size="12" fill="${COLORS.accent}" text-anchor="middle">All</text>
-    <rect x="68" y="94" width="70" height="30" rx="15" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="103" y="114" font-family="Arial" font-size="12" fill="${COLORS.textMuted}" text-anchor="middle">High</text>
-    <rect x="146" y="94" width="80" height="30" rx="15" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="186" y="114" font-family="Arial" font-size="12" fill="${COLORS.textMuted}" text-anchor="middle">Medium</text>
-
-    <!-- Completed task -->
-    <rect x="0" y="140" width="332" height="64" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.green}" stroke-opacity="0.3" stroke-width="1" opacity="0.6"/>
-    <circle cx="28" cy="172" r="14" fill="${COLORS.green}" opacity="0.3"/>
-    <text x="28" y="177" font-family="Arial" font-size="14" fill="${COLORS.green}" text-anchor="middle">✓</text>
-    <text x="52" y="166" font-family="Arial" font-size="14" fill="${COLORS.textMuted}" text-decoration="line-through">Wake up at 6:00 AM</text>
-    <text x="52" y="186" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Morning Routine  •  Done</text>
-
-    <!-- Task 1 - High priority -->
-    <rect x="0" y="214" width="332" height="64" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <circle cx="28" cy="246" r="14" fill="none" stroke="${COLORS.red}" stroke-opacity="0.5" stroke-width="2"/>
-    <text x="52" y="240" font-family="Arial" font-size="14" fill="${COLORS.white}">30-min HIIT workout</text>
-    <text x="52" y="260" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Morning Fitness  •  </text>
-    <text x="165" y="260" font-family="Arial" font-size="11" fill="${COLORS.red}">High</text>
-    <rect x="290" y="236" width="32" height="20" rx="10" fill="${COLORS.red}" opacity="0.2"/>
-    <text x="306" y="250" font-family="Arial" font-size="9" fill="${COLORS.red}" text-anchor="middle">!</text>
-
-    <!-- Task 2 -->
-    <rect x="0" y="288" width="332" height="64" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <circle cx="28" cy="320" r="14" fill="none" stroke="${COLORS.amber}" stroke-opacity="0.5" stroke-width="2"/>
-    <text x="52" y="314" font-family="Arial" font-size="14" fill="${COLORS.white}">Prepare healthy breakfast</text>
-    <text x="52" y="334" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Morning Routine  •  </text>
-    <text x="157" y="334" font-family="Arial" font-size="11" fill="${COLORS.amber}">Medium</text>
-
-    <!-- Task 3 -->
-    <rect x="0" y="362" width="332" height="64" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <circle cx="28" cy="394" r="14" fill="none" stroke="${COLORS.primary}" stroke-opacity="0.5" stroke-width="2"/>
-    <text x="52" y="388" font-family="Arial" font-size="14" fill="${COLORS.white}">Review product roadmap</text>
-    <text x="52" y="408" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Product Launch  •  </text>
-    <text x="155" y="408" font-family="Arial" font-size="11" fill="${COLORS.primary}">Normal</text>
-
-    <!-- Task 4 -->
-    <rect x="0" y="436" width="332" height="64" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <circle cx="28" cy="468" r="14" fill="none" stroke="${COLORS.cyan}" stroke-opacity="0.5" stroke-width="2"/>
-    <text x="52" y="462" font-family="Arial" font-size="14" fill="${COLORS.white}">Book flight to Tokyo</text>
-    <text x="52" y="482" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Japan Trip  •  </text>
-    <text x="120" y="482" font-family="Arial" font-size="11" fill="${COLORS.cyan}">Normal</text>
-
-    <!-- Task 5 -->
-    <rect x="0" y="510" width="332" height="64" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <circle cx="28" cy="542" r="14" fill="none" stroke="${COLORS.pink}" stroke-opacity="0.5" stroke-width="2"/>
-    <text x="52" y="536" font-family="Arial" font-size="14" fill="${COLORS.white}">Research restaurant options</text>
-    <text x="52" y="556" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Date Night  •  </text>
-    <text x="130" y="556" font-family="Arial" font-size="11" fill="${COLORS.pink}">Normal</text>
-
-    <!-- Task 6 -->
-    <rect x="0" y="584" width="332" height="64" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <circle cx="28" cy="616" r="14" fill="none" stroke="${COLORS.primary}" stroke-opacity="0.5" stroke-width="2"/>
-    <text x="52" y="610" font-family="Arial" font-size="14" fill="${COLORS.white}">Write team update email</text>
-    <text x="52" y="630" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Product Launch  •  </text>
-    <text x="155" y="630" font-family="Arial" font-size="11" fill="${COLORS.primary}">Normal</text>
-
-    <!-- Swipe hint -->
-    <text x="166" y="672" font-family="Arial" font-size="11" fill="${COLORS.textMuted}" text-anchor="middle" opacity="0.6">Swipe right to complete • Swipe left to skip</text>
-  `;
-
-  return phoneScreenSvg(1080, 1920, 'Manage Every Task', 'Swipe to complete, prioritize, and conquer your day', body);
-}
-
-// Screenshot 4: Reports & Analytics
-function screenshot4_Reports() {
-  const body = `
-    <text x="8" y="18" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">9:41</text>
-
-    <text x="8" y="55" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="bold" fill="${COLORS.white}">Reports</text>
-    <text x="8" y="78" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">Your progress this week</text>
-
-    <!-- Summary stat cards -->
-    <rect x="0" y="96" width="105" height="80" rx="14" fill="${COLORS.primary}" opacity="0.15" stroke="${COLORS.primary}" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="52" y="130" font-family="Arial" font-size="30" font-weight="bold" fill="${COLORS.primary}" text-anchor="middle">87%</text>
-    <text x="52" y="152" font-family="Arial" font-size="11" fill="${COLORS.textMuted}" text-anchor="middle">Completion</text>
-
-    <rect x="113" y="96" width="105" height="80" rx="14" fill="${COLORS.green}" opacity="0.12" stroke="${COLORS.green}" stroke-opacity="0.25" stroke-width="1"/>
-    <text x="165" y="130" font-family="Arial" font-size="30" font-weight="bold" fill="${COLORS.green}" text-anchor="middle">12</text>
-    <text x="165" y="152" font-family="Arial" font-size="11" fill="${COLORS.textMuted}" text-anchor="middle">Day Streak 🔥</text>
-
-    <rect x="226" y="96" width="105" height="80" rx="14" fill="${COLORS.cyan}" opacity="0.12" stroke="${COLORS.cyan}" stroke-opacity="0.25" stroke-width="1"/>
-    <text x="278" y="130" font-family="Arial" font-size="30" font-weight="bold" fill="${COLORS.cyan}" text-anchor="middle">48</text>
-    <text x="278" y="152" font-family="Arial" font-size="11" fill="${COLORS.textMuted}" text-anchor="middle">Tasks Done</text>
-
-    <!-- Weekly chart -->
-    <rect x="0" y="192" width="332" height="180" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="220" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">Weekly Progress</text>
-
-    <!-- Chart bars -->
-    <rect x="30" y="320" width="30" height="38" rx="4" fill="${COLORS.primary}" opacity="0.7"/>
-    <text x="45" y="348" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">Mon</text>
-
-    <rect x="75" y="295" width="30" height="63" rx="4" fill="${COLORS.primary}" opacity="0.8"/>
-    <text x="90" y="348" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">Tue</text>
-
-    <rect x="120" y="278" width="30" height="80" rx="4" fill="${COLORS.primary}" opacity="0.85"/>
-    <text x="135" y="348" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">Wed</text>
-
-    <rect x="165" y="260" width="30" height="98" rx="4" fill="${COLORS.primary}" opacity="0.9"/>
-    <text x="180" y="348" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">Thu</text>
-
-    <rect x="210" y="248" width="30" height="110" rx="4" fill="${COLORS.primary}"/>
-    <text x="225" y="348" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">Fri</text>
-
-    <rect x="255" y="270" width="30" height="88" rx="4" fill="${COLORS.primary}" opacity="0.85"/>
-    <text x="270" y="348" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">Sat</text>
-
-    <rect x="300" y="290" width="30" height="68" rx="4" fill="${COLORS.accent}" opacity="0.5"/>
-    <text x="315" y="348" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">Sun</text>
-
-    <!-- Category breakdown -->
-    <text x="8" y="400" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">By Category</text>
-
-    <rect x="0" y="414" width="332" height="54" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="438" font-family="Arial" font-size="13" fill="${COLORS.white}">Wellness</text>
-    <rect x="120" y="432" width="160" height="6" rx="3" fill="#2A2D45"/>
-    <rect x="120" y="432" width="128" height="6" rx="3" fill="${COLORS.green}"/>
-    <text x="312" y="440" font-family="Arial" font-size="12" fill="${COLORS.green}" text-anchor="end">80%</text>
-
-    <rect x="0" y="476" width="332" height="54" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="500" font-family="Arial" font-size="13" fill="${COLORS.white}">Work</text>
-    <rect x="120" y="494" width="160" height="6" rx="3" fill="#2A2D45"/>
-    <rect x="120" y="494" width="144" height="6" rx="3" fill="${COLORS.primary}"/>
-    <text x="312" y="502" font-family="Arial" font-size="12" fill="${COLORS.primary}" text-anchor="end">90%</text>
-
-    <rect x="0" y="538" width="332" height="54" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="562" font-family="Arial" font-size="13" fill="${COLORS.white}">Travel</text>
-    <rect x="120" y="556" width="160" height="6" rx="3" fill="#2A2D45"/>
-    <rect x="120" y="556" width="56" height="6" rx="3" fill="${COLORS.cyan}"/>
-    <text x="312" y="564" font-family="Arial" font-size="12" fill="${COLORS.cyan}" text-anchor="end">35%</text>
-
-    <!-- Achievements -->
-    <text x="8" y="622" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">Achievements</text>
-
-    <rect x="0" y="636" width="105" height="48" rx="12" fill="${COLORS.amber}" opacity="0.15" stroke="${COLORS.amber}" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="52" y="665" font-family="Arial" font-size="12" fill="${COLORS.amber}" text-anchor="middle">🏆 First 50</text>
-
-    <rect x="113" y="636" width="105" height="48" rx="12" fill="${COLORS.primary}" opacity="0.15" stroke="${COLORS.primary}" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="165" y="665" font-family="Arial" font-size="12" fill="${COLORS.accent}" text-anchor="middle">🔥 10 Streak</text>
-
-    <rect x="226" y="636" width="105" height="48" rx="12" fill="${COLORS.green}" opacity="0.12" stroke="${COLORS.green}" stroke-opacity="0.25" stroke-width="1"/>
-    <text x="278" y="665" font-family="Arial" font-size="12" fill="${COLORS.greenLight}" text-anchor="middle">⭐ Top 5%</text>
-  `;
-
-  return phoneScreenSvg(1080, 1920, 'See Your Progress', 'Streaks, analytics, and achievements at a glance', body);
-}
-
-// Screenshot 5: Discover Plans
-function screenshot5_Discover() {
-  const body = `
-    <text x="8" y="18" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">9:41</text>
-
-    <text x="8" y="55" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="bold" fill="${COLORS.white}">Discover</text>
-    <text x="8" y="78" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">Trending community plans</text>
-
-    <!-- Category filter -->
-    <rect x="0" y="94" width="70" height="30" rx="15" fill="${COLORS.primary}" opacity="0.25" stroke="${COLORS.primary}" stroke-opacity="0.5" stroke-width="1"/>
-    <text x="35" y="114" font-family="Arial" font-size="12" fill="${COLORS.accent}" text-anchor="middle">Trending</text>
-    <rect x="78" y="94" width="70" height="30" rx="15" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="113" y="114" font-family="Arial" font-size="12" fill="${COLORS.textMuted}" text-anchor="middle">Travel</text>
-    <rect x="156" y="94" width="70" height="30" rx="15" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="191" y="114" font-family="Arial" font-size="12" fill="${COLORS.textMuted}" text-anchor="middle">Fitness</text>
-    <rect x="234" y="94" width="70" height="30" rx="15" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="269" y="114" font-family="Arial" font-size="12" fill="${COLORS.textMuted}" text-anchor="middle">Career</text>
-
-    <!-- Plan Card 1 - Large -->
-    <rect x="0" y="138" width="332" height="180" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <!-- Gradient overlay for image area -->
-    <rect x="1" y="139" width="330" height="110" rx="15" fill="${COLORS.primary}" opacity="0.3"/>
-    <text x="166" y="190" font-family="Arial" font-size="40" text-anchor="middle">🏔️</text>
-    <text x="16" y="280" font-family="Arial" font-size="16" font-weight="bold" fill="${COLORS.white}">Ultimate Hiking Adventure</text>
-    <text x="16" y="300" font-family="Arial" font-size="12" fill="${COLORS.textMuted}">12 tasks  •  3.2k views  •  Adventure</text>
-    <text x="300" y="296" font-family="Arial" font-size="14" fill="${COLORS.pink}">♥ 284</text>
-
-    <!-- Plan Card 2 -->
-    <rect x="0" y="330" width="160" height="165" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <rect x="1" y="331" width="158" height="80" rx="13" fill="${COLORS.cyan}" opacity="0.25"/>
-    <text x="80" y="375" font-family="Arial" font-size="32" text-anchor="middle">🍳</text>
-    <text x="12" y="434" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.white}">Meal Prep Sunday</text>
-    <text x="12" y="452" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">8 tasks  •  1.5k views</text>
-    <text x="12" y="470" font-family="Arial" font-size="11" fill="${COLORS.pink}">♥ 156</text>
-
-    <!-- Plan Card 3 -->
-    <rect x="170" y="330" width="162" height="165" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <rect x="171" y="331" width="160" height="80" rx="13" fill="${COLORS.green}" opacity="0.2"/>
-    <text x="251" y="375" font-family="Arial" font-size="32" text-anchor="middle">🧘</text>
-    <text x="182" y="434" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.white}">30-Day Mindfulness</text>
-    <text x="182" y="452" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">30 tasks  •  2.1k views</text>
-    <text x="182" y="470" font-family="Arial" font-size="11" fill="${COLORS.pink}">♥ 203</text>
-
-    <!-- Plan Card 4 -->
-    <rect x="0" y="505" width="160" height="165" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <rect x="1" y="506" width="158" height="80" rx="13" fill="${COLORS.amber}" opacity="0.2"/>
-    <text x="80" y="550" font-family="Arial" font-size="32" text-anchor="middle">💼</text>
-    <text x="12" y="609" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.white}">Interview Mastery</text>
-    <text x="12" y="627" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">10 tasks  •  890 views</text>
-    <text x="12" y="645" font-family="Arial" font-size="11" fill="${COLORS.pink}">♥ 98</text>
-
-    <!-- Plan Card 5 -->
-    <rect x="170" y="505" width="162" height="165" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <rect x="171" y="506" width="160" height="80" rx="13" fill="${COLORS.pink}" opacity="0.2"/>
-    <text x="251" y="550" font-family="Arial" font-size="32" text-anchor="middle">💑</text>
-    <text x="182" y="609" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.white}">Perfect Date Night</text>
-    <text x="182" y="627" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">6 tasks  •  1.8k views</text>
-    <text x="182" y="645" font-family="Arial" font-size="11" fill="${COLORS.pink}">♥ 175</text>
-  `;
-
-  return phoneScreenSvg(1080, 1920, 'Discover &amp; Remix Plans', 'Browse trending plans from the community', body);
-}
-
-// Screenshot 6: Groups & Collaboration
-function screenshot6_Groups() {
-  const body = `
-    <text x="8" y="18" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">9:41</text>
-
-    <text x="8" y="55" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="bold" fill="${COLORS.white}">Groups</text>
-    <text x="8" y="78" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">Collaborate on shared goals</text>
-
-    <!-- Create group button -->
-    <rect x="0" y="96" width="332" height="48" rx="24" fill="url(#purpleGrad)"/>
-    <text x="166" y="126" font-family="Arial" font-size="15" font-weight="bold" fill="white" text-anchor="middle">+ Create New Group</text>
-
-    <!-- Group Card 1 -->
-    <rect x="0" y="160" width="332" height="140" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="190" font-family="Arial" font-size="16" font-weight="bold" fill="${COLORS.white}">Fitness Squad</text>
-    <text x="16" y="210" font-family="Arial" font-size="12" fill="${COLORS.textMuted}">5 members  •  3 shared goals</text>
-
-    <!-- Member avatars -->
-    <circle cx="28" cy="240" r="14" fill="${COLORS.primary}"/>
-    <text x="28" y="245" font-family="Arial" font-size="12" fill="white" text-anchor="middle">JM</text>
-    <circle cx="52" cy="240" r="14" fill="${COLORS.cyan}"/>
-    <text x="52" y="245" font-family="Arial" font-size="12" fill="white" text-anchor="middle">SK</text>
-    <circle cx="76" cy="240" r="14" fill="${COLORS.green}"/>
-    <text x="76" y="245" font-family="Arial" font-size="12" fill="white" text-anchor="middle">AR</text>
-    <circle cx="100" cy="240" r="14" fill="${COLORS.amber}"/>
-    <text x="100" y="245" font-family="Arial" font-size="12" fill="white" text-anchor="middle">LP</text>
-    <circle cx="124" cy="240" r="14" fill="${COLORS.darkCardBorder}"/>
-    <text x="124" y="245" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">+1</text>
-
-    <!-- Group progress -->
-    <text x="16" y="278" font-family="Arial" font-size="12" fill="${COLORS.textMuted}">Team progress</text>
-    <rect x="16" y="284" width="300" height="6" rx="3" fill="#2A2D45"/>
-    <rect x="16" y="284" width="210" height="6" rx="3" fill="${COLORS.green}"/>
-    <text x="316" y="293" font-family="Arial" font-size="11" fill="${COLORS.green}" text-anchor="end">70%</text>
-
-    <!-- Group Card 2 -->
-    <rect x="0" y="316" width="332" height="140" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="346" font-family="Arial" font-size="16" font-weight="bold" fill="${COLORS.white}">Book Club</text>
-    <text x="16" y="366" font-family="Arial" font-size="12" fill="${COLORS.textMuted}">8 members  •  2 shared goals</text>
-
-    <circle cx="28" cy="396" r="14" fill="${COLORS.pink}"/>
-    <text x="28" y="401" font-family="Arial" font-size="12" fill="white" text-anchor="middle">EM</text>
-    <circle cx="52" cy="396" r="14" fill="${COLORS.indigo}"/>
-    <text x="52" y="401" font-family="Arial" font-size="12" fill="white" text-anchor="middle">TC</text>
-    <circle cx="76" cy="396" r="14" fill="${COLORS.amber}"/>
-    <text x="76" y="401" font-family="Arial" font-size="12" fill="white" text-anchor="middle">RD</text>
-    <circle cx="100" cy="396" r="14" fill="${COLORS.darkCardBorder}"/>
-    <text x="100" y="401" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">+5</text>
-
-    <text x="16" y="434" font-family="Arial" font-size="12" fill="${COLORS.textMuted}">Team progress</text>
-    <rect x="16" y="440" width="300" height="6" rx="3" fill="#2A2D45"/>
-    <rect x="16" y="440" width="135" height="6" rx="3" fill="${COLORS.primary}"/>
-    <text x="316" y="449" font-family="Arial" font-size="11" fill="${COLORS.primary}" text-anchor="end">45%</text>
-
-    <!-- Activity Feed -->
-    <text x="8" y="492" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">Recent Activity</text>
-
-    <rect x="0" y="506" width="332" height="52" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <circle cx="24" cy="532" r="12" fill="${COLORS.green}" opacity="0.3"/>
-    <text x="24" y="536" font-family="Arial" font-size="10" fill="${COLORS.green}" text-anchor="middle">✓</text>
-    <text x="44" y="528" font-family="Arial" font-size="12" fill="${COLORS.white}">Sarah completed "5K Run"</text>
-    <text x="44" y="546" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">Fitness Squad  •  2h ago</text>
-
-    <rect x="0" y="566" width="332" height="52" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <circle cx="24" cy="592" r="12" fill="${COLORS.primary}" opacity="0.3"/>
-    <text x="24" y="596" font-family="Arial" font-size="10" fill="${COLORS.primary}" text-anchor="middle">+</text>
-    <text x="44" y="588" font-family="Arial" font-size="12" fill="${COLORS.white}">Alex shared "Read Ch. 5"</text>
-    <text x="44" y="606" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">Book Club  •  5h ago</text>
-
-    <rect x="0" y="626" width="332" height="52" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <circle cx="24" cy="652" r="12" fill="${COLORS.amber}" opacity="0.3"/>
-    <text x="24" y="656" font-family="Arial" font-size="10" fill="${COLORS.amber}" text-anchor="middle">🎯</text>
-    <text x="44" y="648" font-family="Arial" font-size="12" fill="${COLORS.white}">New goal: "Run 50 miles"</text>
-    <text x="44" y="666" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">Fitness Squad  •  1d ago</text>
-  `;
-
-  return phoneScreenSvg(1080, 1920, 'Achieve Together', 'Create groups and collaborate on shared goals', body);
+  // Generate the SVG as PNG base
+  const bgBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
+
+  // Load and resize the actual app logo
+  const logoPath = path.join(__dirname, '..', 'client/public/icons/android/android-play-store-512.png');
+  const logoBuffer = await sharp(logoPath)
+    .resize(80, 80)
+    .png()
+    .toBuffer();
+
+  // Composite the logo onto the feature graphic
+  await sharp(bgBuffer)
+    .composite([
+      { input: logoBuffer, top: 42, left: 50 }
+    ])
+    .png()
+    .toFile(path.join(OUTPUT_DIR, 'feature-graphic-1024x500.png'));
+  console.log('  Feature Graphic (1024x500) - with logo + share features');
 }
 
 // ============================================
-// Tablet Screenshots
+// TABLET SCREENSHOTS
 // ============================================
-
-function tabletScreenSvg(width, height, headerText, subtitleText, bodyContent) {
+function tabletScreenSvg(width, height, theme, headerText, subtitleText, bodyContent) {
   return `
   <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#0B0F1A;stop-opacity:1" />
-        <stop offset="50%" style="stop-color:#111528;stop-opacity:1" />
-        <stop offset="100%" style="stop-color:#0D1225;stop-opacity:1" />
-      </linearGradient>
-      <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${COLORS.primaryLight};stop-opacity:1" />
-      </linearGradient>
-      <linearGradient id="accentLine" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${COLORS.cyan};stop-opacity:1" />
-      </linearGradient>
-      <radialGradient id="glow1" cx="30%" cy="20%" r="50%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:0.15" />
-        <stop offset="100%" style="stop-color:${COLORS.primary};stop-opacity:0" />
-      </radialGradient>
-      <radialGradient id="glow2" cx="70%" cy="80%" r="40%">
-        <stop offset="0%" style="stop-color:${COLORS.cyan};stop-opacity:0.08" />
-        <stop offset="100%" style="stop-color:${COLORS.cyan};stop-opacity:0" />
-      </radialGradient>
-      <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="110%">
-        <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#000" flood-opacity="0.3"/>
-      </filter>
-    </defs>
-
-    <rect width="100%" height="100%" fill="url(#bg)"/>
-    <rect width="100%" height="100%" fill="url(#glow1)"/>
-    <rect width="100%" height="100%" fill="url(#glow2)"/>
+    ${createThemedBackground(width, height, theme)}
 
     <!-- Header -->
-    <text x="${width/2}" y="80" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="bold" fill="${COLORS.white}" text-anchor="middle">
+    <text x="${width / 2}" y="${Math.round(height * 0.06)}" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="44" font-weight="800" fill="${COLORS.white}" text-anchor="middle" letter-spacing="-1" filter="url(#textShadow)">
       ${headerText}
     </text>
-    <text x="${width/2}" y="118" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="${COLORS.textMuted}" text-anchor="middle">
+    <text x="${width / 2}" y="${Math.round(height * 0.09)}" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="20" fill="${theme.accent}" text-anchor="middle">
       ${subtitleText}
     </text>
-    <rect x="${width/2 - 50}" y="135" width="100" height="3" rx="1.5" fill="url(#accentLine)"/>
+    <rect x="${(width - 80) / 2}" y="${Math.round(height * 0.1)}" width="80" height="4" rx="2" fill="url(#accentGrad)"/>
 
-    <!-- Body content -->
-    <g transform="translate(${(width - Math.min(width * 0.9, 1000)) / 2}, 170)">
+    <!-- Content -->
+    <g transform="translate(${(width - Math.min(width * 0.9, 1000)) / 2}, ${Math.round(height * 0.13)})">
       ${bodyContent}
     </g>
 
     <!-- Bottom branding -->
-    <text x="${width/2}" y="${height - 30}" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="${COLORS.textMuted}" text-anchor="middle" opacity="0.5">
-      JournalMate.ai — AI-Powered Lifestyle Planner
+    <rect x="${(width - 280) / 2}" y="${height - 55}" width="280" height="36" rx="18" fill="${theme.glow1}" opacity="0.12"/>
+    <text x="${width / 2}" y="${height - 30}" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="${COLORS.white}" text-anchor="middle" opacity="0.7">
+      JournalMate.ai — AI Lifestyle Planner
     </text>
   </svg>`;
 }
 
-// Tablet: Activities overview
 function tabletScreenshot1_Overview(width, height) {
   const cw = Math.min(width * 0.9, 1000);
-  const cardW = (cw - 24) / 3;
+  const cardW = Math.round((cw - 24) / 3);
 
   const body = `
-    <!-- Three-column activity cards -->
+    <!-- Three activity cards -->
     ${[
-      { emoji: '💪', title: 'Morning Fitness', tasks: '7/10', pct: 70, color: COLORS.green, cat: 'Wellness' },
-      { emoji: '✈️', title: 'Japan Trip', tasks: '3/12', pct: 25, color: COLORS.cyan, cat: 'Travel' },
-      { emoji: '📋', title: 'Product Launch', tasks: '5/8', pct: 63, color: COLORS.primary, cat: 'Work' },
+      { emoji: '&#x1F4AA;', title: 'Morning Fitness', tasks: '7/10', pct: 70, color: COLORS.emerald, cat: 'Wellness' },
+      { emoji: '&#x2708;', title: 'Japan Trip', tasks: '3/12', pct: 25, color: COLORS.sky, cat: 'Travel' },
+      { emoji: '&#x1F4CB;', title: 'Product Launch', tasks: '5/8', pct: 63, color: COLORS.primary, cat: 'Work' },
     ].map((item, i) => `
-      <rect x="${i * (cardW + 12)}" y="0" width="${cardW}" height="150" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-      <rect x="${i * (cardW + 12)}" y="0" width="6" height="150" rx="3" fill="${item.color}"/>
-      <circle cx="${i * (cardW + 12) + 36}" cy="40" r="20" fill="${item.color}" opacity="0.2"/>
-      <text x="${i * (cardW + 12) + 36}" y="46" font-family="Arial" font-size="18" text-anchor="middle">${item.emoji}</text>
-      <text x="${i * (cardW + 12) + 66}" y="36" font-family="Arial" font-size="15" font-weight="bold" fill="${COLORS.white}">${item.title}</text>
-      <text x="${i * (cardW + 12) + 66}" y="56" font-family="Arial" font-size="12" fill="${COLORS.textMuted}">${item.tasks} tasks  •  ${item.cat}</text>
-      <rect x="${i * (cardW + 12) + 16}" y="80" width="${cardW - 32}" height="6" rx="3" fill="#2A2D45"/>
-      <rect x="${i * (cardW + 12) + 16}" y="80" width="${(cardW - 32) * item.pct / 100}" height="6" rx="3" fill="${item.color}"/>
-      <text x="${i * (cardW + 12) + cardW - 16}" y="90" font-family="Arial" font-size="12" fill="${item.color}" text-anchor="end">${item.pct}%</text>
-      <!-- Quick tasks preview -->
-      <text x="${i * (cardW + 12) + 16}" y="115" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Next: ${['30-min HIIT', 'Book flight', 'Review roadmap'][i]}</text>
-      <text x="${i * (cardW + 12) + 16}" y="135" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Due: ${['Today', 'Mar 15', 'This week'][i]}</text>
+      <rect x="${i * (cardW + 12)}" y="0" width="${cardW}" height="140" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+      <rect x="${i * (cardW + 12)}" y="0" width="5" height="140" rx="2.5" fill="${item.color}"/>
+      <circle cx="${i * (cardW + 12) + 36}" cy="36" r="18" fill="${item.color}" opacity="0.2"/>
+      <text x="${i * (cardW + 12) + 36}" y="42" font-family="Arial" font-size="16" text-anchor="middle">${item.emoji}</text>
+      <text x="${i * (cardW + 12) + 64}" y="32" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">${item.title}</text>
+      <text x="${i * (cardW + 12) + 64}" y="50" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">${item.tasks} tasks &#183; ${item.cat}</text>
+      <rect x="${i * (cardW + 12) + 16}" y="70" width="${cardW - 32}" height="5" rx="2.5" fill="#2A2D45"/>
+      <rect x="${i * (cardW + 12) + 16}" y="70" width="${Math.round((cardW - 32) * item.pct / 100)}" height="5" rx="2.5" fill="${item.color}"/>
+      <text x="${i * (cardW + 12) + cardW - 16}" y="80" font-family="Arial" font-size="11" fill="${item.color}" text-anchor="end">${item.pct}%</text>
+      <text x="${i * (cardW + 12) + 16}" y="105" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">Next: ${['30-min HIIT', 'Book flight', 'Review roadmap'][i]}</text>
+      <text x="${i * (cardW + 12) + 16}" y="125" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">Due: ${['Today', 'Mar 15', 'This week'][i]}</text>
     `).join('')}
 
     <!-- Stats row -->
     ${[
-      { label: 'Completion Rate', value: '87%', color: COLORS.primary },
-      { label: 'Current Streak', value: '12 days', color: COLORS.green },
-      { label: 'Tasks Today', value: '5 left', color: COLORS.amber },
-      { label: 'Total Plans', value: '14', color: COLORS.cyan },
+      { label: 'Completion', value: '87%', color: COLORS.primary },
+      { label: 'Streak', value: '12 days', color: COLORS.emerald },
+      { label: 'Today', value: '5 left', color: COLORS.amber },
+      { label: 'Plans', value: '14', color: COLORS.sky },
     ].map((s, i) => `
-      <rect x="${i * (cw/4 + 1)}" y="175" width="${cw/4 - 8}" height="70" rx="14" fill="${s.color}" opacity="0.12" stroke="${s.color}" stroke-opacity="0.25" stroke-width="1"/>
-      <text x="${i * (cw/4 + 1) + (cw/4 - 8)/2}" y="210" font-family="Arial" font-size="22" font-weight="bold" fill="${s.color}" text-anchor="middle">${s.value}</text>
-      <text x="${i * (cw/4 + 1) + (cw/4 - 8)/2}" y="230" font-family="Arial" font-size="11" fill="${COLORS.textMuted}" text-anchor="middle">${s.label}</text>
+      <rect x="${i * (cw / 4 + 1)}" y="165" width="${cw / 4 - 8}" height="65" rx="14" fill="${s.color}" opacity="0.12" stroke="${s.color}" stroke-opacity="0.25" stroke-width="1"/>
+      <text x="${i * (cw / 4 + 1) + (cw / 4 - 8) / 2}" y="198" font-family="Arial" font-size="20" font-weight="bold" fill="${s.color}" text-anchor="middle">${s.value}</text>
+      <text x="${i * (cw / 4 + 1) + (cw / 4 - 8) / 2}" y="218" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">${s.label}</text>
     `).join('')}
 
-    <!-- Weekly chart -->
-    <rect x="0" y="270" width="${cw}" height="160" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="20" y="300" font-family="Arial" font-size="16" font-weight="bold" fill="${COLORS.white}">Weekly Progress</text>
-
-    <!-- Chart bars -->
+    <!-- Chart area -->
+    <rect x="0" y="255" width="${cw}" height="150" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="20" y="282" font-family="Arial" font-size="15" font-weight="bold" fill="${COLORS.white}">Weekly Progress</text>
     ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => {
-      const barH = [38, 63, 80, 98, 110, 88, 68][i];
-      const x = 40 + i * ((cw - 80) / 7);
-      const barW = (cw - 120) / 9;
+      const barH = [32, 52, 68, 85, 95, 75, 55][i];
+      const barW = Math.round((cw - 80) / 9);
+      const x = 40 + i * (barW + Math.round(barW * 0.3));
       return `
-        <rect x="${x}" y="${410 - barH}" width="${barW}" height="${barH}" rx="4" fill="${COLORS.primary}" opacity="${0.5 + i * 0.07}"/>
-        <text x="${x + barW/2}" y="${420}" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">${day}</text>
+        <rect x="${x}" y="${385 - barH}" width="${barW}" height="${barH}" rx="4" fill="${COLORS.primary}" opacity="${0.4 + i * 0.08}"/>
+        <text x="${x + barW / 2}" y="395" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">${day}</text>
       `;
     }).join('')}
 
-    <!-- Bottom row: Tasks + Discover preview -->
-    <rect x="0" y="450" width="${cw * 0.55 - 6}" height="200" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="478" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">Today's Tasks</text>
+    <!-- Bottom sections -->
+    <rect x="0" y="425" width="${Math.round(cw * 0.55 - 6)}" height="190" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="16" y="452" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">Today's Tasks</text>
     ${['Wake up at 6 AM', '30-min HIIT workout', 'Healthy breakfast', 'Review roadmap'].map((task, i) => `
-      <circle cx="28" cy="${502 + i * 34}" r="10" fill="${i === 0 ? COLORS.green : 'none'}" ${i > 0 ? `stroke="${COLORS.darkCardBorder}" stroke-width="1.5"` : ''}/>
-      ${i === 0 ? `<text x="28" y="506" font-family="Arial" font-size="10" fill="${COLORS.green}" text-anchor="middle">✓</text>` : ''}
-      <text x="46" y="${506 + i * 34}" font-family="Arial" font-size="12" fill="${i === 0 ? COLORS.textMuted : COLORS.white}" ${i === 0 ? 'text-decoration="line-through"' : ''}>${task}</text>
+      <circle cx="28" cy="${474 + i * 32}" r="9" fill="${i === 0 ? COLORS.emerald : 'none'}" ${i > 0 ? `stroke="${COLORS.darkCardBorder}" stroke-width="1.5"` : ''}/>
+      ${i === 0 ? `<text x="28" y="${478 + i * 32}" font-family="Arial" font-size="9" fill="${COLORS.emerald}" text-anchor="middle">&#10003;</text>` : ''}
+      <text x="44" y="${478 + i * 32}" font-family="Arial" font-size="11" fill="${i === 0 ? COLORS.textMuted : COLORS.white}" ${i === 0 ? 'text-decoration="line-through"' : ''}>${task}</text>
     `).join('')}
 
-    <rect x="${cw * 0.55 + 6}" y="450" width="${cw * 0.45 - 6}" height="200" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="${cw * 0.55 + 22}" y="478" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">Trending Plans</text>
+    <rect x="${Math.round(cw * 0.55 + 6)}" y="425" width="${Math.round(cw * 0.45 - 6)}" height="190" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+    <text x="${Math.round(cw * 0.55 + 22)}" y="452" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">Trending Plans</text>
     ${['Ultimate Hiking', '30-Day Mindfulness', 'Interview Mastery'].map((plan, i) => `
-      <rect x="${cw * 0.55 + 16}" y="${492 + i * 46}" width="${cw * 0.45 - 32}" height="38" rx="10" fill="${COLORS.dark}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-      <text x="${cw * 0.55 + 36}" y="${516 + i * 46}" font-family="Arial" font-size="12" fill="${COLORS.white}">${plan}</text>
-      <text x="${cw - 16}" y="${516 + i * 46}" font-family="Arial" font-size="11" fill="${COLORS.pink}" text-anchor="end">${['♥ 284', '♥ 203', '♥ 98'][i]}</text>
+      <rect x="${Math.round(cw * 0.55 + 16)}" y="${466 + i * 44}" width="${Math.round(cw * 0.45 - 32)}" height="36" rx="10" fill="${COLORS.dark}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
+      <text x="${Math.round(cw * 0.55 + 34)}" y="${489 + i * 44}" font-family="Arial" font-size="11" fill="${COLORS.white}">${plan}</text>
+      <text x="${cw - 16}" y="${489 + i * 44}" font-family="Arial" font-size="10" fill="${COLORS.rose}" text-anchor="end">${['&#x2764; 284', '&#x2764; 203', '&#x2764; 98'][i]}</text>
     `).join('')}
   `;
 
-  return tabletScreenSvg(width, height, 'Your AI Lifestyle Planner', 'Plan, track, and achieve your goals with JournalMate.ai', body);
+  return tabletScreenSvg(width, height, THEMES.activities,
+    'Your AI Lifestyle Planner',
+    'Plan, track, and achieve your goals with JournalMate.ai',
+    body
+  );
 }
 
 // ============================================
-// Main generation function
+// APP ICON
+// ============================================
+async function generateAppIcon() {
+  const src = path.join(__dirname, '..', 'client/public/icons/android/android-play-store-512.png');
+  const dest = path.join(OUTPUT_DIR, 'app-icon-512x512.png');
+  fs.copyFileSync(src, dest);
+  console.log('  App Icon (512x512) - copied');
+}
+
+// ============================================
+// MAIN
 // ============================================
 async function main() {
-  console.log('Generating Google Play Store assets...\n');
-  console.log(`Output directory: ${OUTPUT_DIR}\n`);
+  console.log('\nGenerating vibrant Google Play Store assets...\n');
 
-  // Ensure output directory exists
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  // Ensure directories
   fs.mkdirSync(path.join(OUTPUT_DIR, 'phone'), { recursive: true });
   fs.mkdirSync(path.join(OUTPUT_DIR, 'tablet-7inch'), { recursive: true });
   fs.mkdirSync(path.join(OUTPUT_DIR, 'tablet-10inch'), { recursive: true });
@@ -958,7 +1092,7 @@ async function main() {
   // 2. Feature Graphic
   await generateFeatureGraphic();
 
-  // 3. Phone Screenshots (1080x1920 = 9:16)
+  // 3. Phone Screenshots (1080x1920)
   const phoneScreenshots = [
     { fn: screenshot1_GoalInput, name: '01-goal-input' },
     { fn: screenshot2_Activities, name: '02-activities' },
@@ -973,34 +1107,32 @@ async function main() {
     await sharp(Buffer.from(svg))
       .png()
       .toFile(path.join(OUTPUT_DIR, 'phone', `${ss.name}-1080x1920.png`));
-    console.log(`✓ Phone Screenshot: ${ss.name} (1080x1920)`);
+    console.log(`  Phone: ${ss.name} (1080x1920)`);
   }
 
-  // 4. 7-inch Tablet Screenshots (1200x1920)
+  // 4. 7-inch Tablet (1200x1920)
   const tablet7Svg = tabletScreenshot1_Overview(1200, 1920);
   await sharp(Buffer.from(tablet7Svg))
     .png()
     .toFile(path.join(OUTPUT_DIR, 'tablet-7inch', '01-overview-1200x1920.png'));
-  console.log('✓ 7-inch Tablet Screenshot: overview (1200x1920)');
+  console.log('  7" Tablet: overview (1200x1920)');
 
-  // Generate additional tablet screenshots by reusing phone designs at tablet aspect ratio
   for (const ss of phoneScreenshots.slice(0, 3)) {
-    const svg = ss.fn().replace(/width="1080"/g, 'width="1200"');
+    const svg = ss.fn().replace(/width="1080"/, 'width="1200"');
     await sharp(Buffer.from(svg))
       .resize(1200, 1920)
       .png()
       .toFile(path.join(OUTPUT_DIR, 'tablet-7inch', `${ss.name}-1200x1920.png`));
-    console.log(`✓ 7-inch Tablet Screenshot: ${ss.name} (1200x1920)`);
+    console.log(`  7" Tablet: ${ss.name} (1200x1920)`);
   }
 
-  // 5. 10-inch Tablet Screenshots (1200x1920, min 1080px each side)
+  // 5. 10-inch Tablet (1920x1200)
   const tablet10Svg = tabletScreenshot1_Overview(1920, 1200);
   await sharp(Buffer.from(tablet10Svg))
     .png()
     .toFile(path.join(OUTPUT_DIR, 'tablet-10inch', '01-overview-1920x1200.png'));
-  console.log('✓ 10-inch Tablet Screenshot: overview (1920x1200)');
+  console.log('  10" Tablet: overview (1920x1200)');
 
-  // Landscape versions for 10-inch
   for (const ss of phoneScreenshots.slice(0, 3)) {
     const svg = ss.fn()
       .replace(/width="1080"/, 'width="1920"')
@@ -1009,17 +1141,17 @@ async function main() {
       .resize(1920, 1200)
       .png()
       .toFile(path.join(OUTPUT_DIR, 'tablet-10inch', `${ss.name}-1920x1200.png`));
-    console.log(`✓ 10-inch Tablet Screenshot: ${ss.name} (1920x1200)`);
+    console.log(`  10" Tablet: ${ss.name} (1920x1200)`);
   }
 
   console.log('\n=== Generation Complete ===');
-  console.log(`\nAll assets saved to: ${OUTPUT_DIR}`);
-  console.log('\nAsset Summary:');
-  console.log('  - App Icon: app-icon-512x512.png (512x512, PNG)');
-  console.log('  - Feature Graphic: feature-graphic-1024x500.png (1024x500, PNG)');
-  console.log('  - Phone Screenshots: phone/*.png (1080x1920, 9:16) x 6');
-  console.log('  - 7-inch Tablet: tablet-7inch/*.png (1200x1920) x 4');
-  console.log('  - 10-inch Tablet: tablet-10inch/*.png (1920x1200) x 4');
+  console.log(`\nOutput: ${OUTPUT_DIR}`);
+  console.log('\nAssets:');
+  console.log('  - App Icon: 512x512');
+  console.log('  - Feature Graphic: 1024x500');
+  console.log('  - Phone Screenshots: 1080x1920 x 6');
+  console.log('  - 7" Tablet: 1200x1920 x 4');
+  console.log('  - 10" Tablet: 1920x1200 x 4');
 }
 
 main().catch(console.error);
