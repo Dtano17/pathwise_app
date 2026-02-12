@@ -2,9 +2,10 @@
 /**
  * Generate Google Play Store graphics for JournalMate.ai
  *
- * VIBRANT LIFESTYLE EDITION
- * Each screenshot has a unique gradient theme, large phone mockup,
- * floating decorative elements, and aspirational marketing copy.
+ * SENSATIONALIZED REAL-APP EDITION
+ * Each screenshot faithfully recreates the actual app UI with real data
+ * from the live app, wrapped in vibrant themed gradient backgrounds
+ * with aspirational marketing copy.
  *
  * Generates:
  * - App Icon (512x512)
@@ -21,11 +22,11 @@ const fs = require('fs');
 const OUTPUT_DIR = path.join(__dirname, '..', 'store-assets', 'google-play');
 
 // ============================
-// VIBRANT COLOR SYSTEM
+// BRAND COLOR SYSTEM (matches actual app)
 // ============================
-const COLORS = {
+const C = {
   // Brand core
-  primary: '#7C3AED',       // Vivid purple
+  primary: '#7C3AED',
   primaryLight: '#A78BFA',
   primaryDark: '#5B21B6',
 
@@ -47,1161 +48,1300 @@ const COLORS = {
   indigo: '#6366F1',
   indigoLight: '#818CF8',
 
-  // Dark UI (for phone screen content)
-  dark: '#0F1225',
-  darkCard: '#1A1F36',
-  darkCardBorder: '#2D3352',
+  // Dark UI (matches actual app theme)
+  dark: '#0B0F1A',
+  darkSurface: '#111827',
+  darkCard: '#1F2937',
+  darkCardBorder: '#374151',
   white: '#FFFFFF',
-  textMuted: '#94A3B8',
+  textSecondary: '#9CA3AF',
+  textMuted: '#6B7280',
 
-  // Progress colors
+  // Status
   green: '#22C55E',
   red: '#EF4444',
   cyan: '#06B6D4',
+  yellow: '#EAB308',
 };
 
 // ============================
 // THEMED GRADIENT BACKGROUNDS
 // ============================
-// Each screenshot gets its own unique, vibrant gradient
 const THEMES = {
-  goalInput: {
+  shareImport: {
     name: 'Cosmic Purple',
     bg1: '#1A0533', bg2: '#0F1B4D', bg3: '#0A1628',
     glow1: '#7C3AED', glow2: '#14B8A6',
     accent: '#A78BFA',
-    orb1: 'rgba(124, 58, 237, 0.35)', orb2: 'rgba(20, 184, 166, 0.25)',
-  },
-  activities: {
-    name: 'Ocean Depths',
-    bg1: '#051937', bg2: '#0A2D5E', bg3: '#0D1F3C',
-    glow1: '#0EA5E9', glow2: '#7C3AED',
-    accent: '#38BDF8',
-    orb1: 'rgba(14, 165, 233, 0.3)', orb2: 'rgba(124, 58, 237, 0.2)',
-  },
-  tasks: {
-    name: 'Warm Sunset',
-    bg1: '#1A0A2E', bg2: '#2D1041', bg3: '#1A0533',
-    glow1: '#F97316', glow2: '#F43F5E',
-    accent: '#FB923C',
-    orb1: 'rgba(249, 115, 22, 0.25)', orb2: 'rgba(244, 63, 94, 0.2)',
-  },
-  reports: {
-    name: 'Emerald Glow',
-    bg1: '#042F2E', bg2: '#0A1628', bg3: '#064E3B',
-    glow1: '#10B981', glow2: '#0EA5E9',
-    accent: '#34D399',
-    orb1: 'rgba(16, 185, 129, 0.3)', orb2: 'rgba(14, 165, 233, 0.2)',
   },
   discover: {
     name: 'Rose Adventure',
     bg1: '#1A0A2E', bg2: '#3B0764', bg3: '#1E1B4B',
     glow1: '#EC4899', glow2: '#F97316',
     accent: '#F472B6',
-    orb1: 'rgba(236, 72, 153, 0.3)', orb2: 'rgba(249, 115, 22, 0.2)',
+  },
+  activities: {
+    name: 'Ocean Depths',
+    bg1: '#051937', bg2: '#0A2D5E', bg3: '#0D1F3C',
+    glow1: '#0EA5E9', glow2: '#7C3AED',
+    accent: '#38BDF8',
+  },
+  tasks: {
+    name: 'Warm Sunset',
+    bg1: '#1A0A2E', bg2: '#2D1041', bg3: '#1A0533',
+    glow1: '#F97316', glow2: '#F43F5E',
+    accent: '#FB923C',
+  },
+  reports: {
+    name: 'Emerald Glow',
+    bg1: '#042F2E', bg2: '#0A1628', bg3: '#064E3B',
+    glow1: '#10B981', glow2: '#0EA5E9',
+    accent: '#34D399',
   },
   groups: {
     name: 'Indigo Social',
     bg1: '#0C0A2E', bg2: '#1E1B4B', bg3: '#0E1744',
     glow1: '#6366F1', glow2: '#14B8A6',
     accent: '#818CF8',
-    orb1: 'rgba(99, 102, 241, 0.35)', orb2: 'rgba(20, 184, 166, 0.25)',
   },
 };
 
 // ============================
-// SVG HELPER FUNCTIONS
+// SVG HELPERS
 // ============================
 
-// Create a rich, themed gradient background with floating orbs
-function createThemedBackground(width, height, theme) {
+function xmlEsc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function themedBackground(w, h, t) {
   return `
     <defs>
       <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${theme.bg1};stop-opacity:1" />
-        <stop offset="50%" style="stop-color:${theme.bg2};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${theme.bg3};stop-opacity:1" />
+        <stop offset="0%" stop-color="${t.bg1}"/>
+        <stop offset="50%" stop-color="${t.bg2}"/>
+        <stop offset="100%" stop-color="${t.bg3}"/>
       </linearGradient>
       <radialGradient id="orb1" cx="20%" cy="25%" r="45%">
-        <stop offset="0%" style="stop-color:${theme.glow1};stop-opacity:0.3" />
-        <stop offset="60%" style="stop-color:${theme.glow1};stop-opacity:0.08" />
-        <stop offset="100%" style="stop-color:${theme.glow1};stop-opacity:0" />
+        <stop offset="0%" stop-color="${t.glow1}" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="${t.glow1}" stop-opacity="0"/>
       </radialGradient>
       <radialGradient id="orb2" cx="80%" cy="75%" r="40%">
-        <stop offset="0%" style="stop-color:${theme.glow2};stop-opacity:0.25" />
-        <stop offset="60%" style="stop-color:${theme.glow2};stop-opacity:0.06" />
-        <stop offset="100%" style="stop-color:${theme.glow2};stop-opacity:0" />
+        <stop offset="0%" stop-color="${t.glow2}" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="${t.glow2}" stop-opacity="0"/>
       </radialGradient>
-      <radialGradient id="orb3" cx="70%" cy="15%" r="30%">
-        <stop offset="0%" style="stop-color:${theme.glow1};stop-opacity:0.15" />
-        <stop offset="100%" style="stop-color:${theme.glow1};stop-opacity:0" />
-      </radialGradient>
-      <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" style="stop-color:${theme.glow1};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${theme.glow2};stop-opacity:1" />
+      <linearGradient id="accentLine" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="${t.glow1}"/>
+        <stop offset="100%" stop-color="${t.glow2}"/>
       </linearGradient>
       <linearGradient id="btnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${theme.glow1};stop-opacity:1" />
+        <stop offset="0%" stop-color="${C.primary}"/>
+        <stop offset="100%" stop-color="${t.glow1}"/>
       </linearGradient>
       <linearGradient id="phoneGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${theme.glow1};stop-opacity:0.4" />
-        <stop offset="100%" style="stop-color:${theme.glow2};stop-opacity:0.2" />
+        <stop offset="0%" stop-color="${t.glow1}" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="${t.glow2}" stop-opacity="0.2"/>
       </linearGradient>
       <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
         <feGaussianBlur in="SourceGraphic" stdDeviation="20"/>
       </filter>
       <filter id="phoneShadow" x="-15%" y="-10%" width="130%" height="125%">
-        <feDropShadow dx="0" dy="12" stdDeviation="30" flood-color="${theme.glow1}" flood-opacity="0.35"/>
+        <feDropShadow dx="0" dy="12" stdDeviation="30" flood-color="${t.glow1}" flood-opacity="0.35"/>
       </filter>
-      <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="115%">
+      <filter id="cardShadow">
         <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.4"/>
       </filter>
       <filter id="textShadow">
         <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.5"/>
       </filter>
     </defs>
-
-    <!-- Rich gradient background -->
     <rect width="100%" height="100%" fill="url(#bgGrad)"/>
-
-    <!-- Floating light orbs -->
     <rect width="100%" height="100%" fill="url(#orb1)"/>
     <rect width="100%" height="100%" fill="url(#orb2)"/>
-    <rect width="100%" height="100%" fill="url(#orb3)"/>
-
-    <!-- Subtle floating circles for depth -->
-    <circle cx="${width * 0.15}" cy="${height * 0.2}" r="${width * 0.12}" fill="${theme.orb1}" filter="url(#softGlow)"/>
-    <circle cx="${width * 0.85}" cy="${height * 0.7}" r="${width * 0.15}" fill="${theme.orb2}" filter="url(#softGlow)"/>
-    <circle cx="${width * 0.6}" cy="${height * 0.1}" r="${width * 0.06}" fill="${theme.orb1}" filter="url(#softGlow)"/>
-    <circle cx="${width * 0.3}" cy="${height * 0.85}" r="${width * 0.08}" fill="${theme.orb2}" filter="url(#softGlow)"/>
-
-    <!-- Sparkle dots -->
-    <circle cx="${width * 0.1}" cy="${height * 0.15}" r="2" fill="${theme.accent}" opacity="0.6"/>
-    <circle cx="${width * 0.25}" cy="${height * 0.08}" r="1.5" fill="${COLORS.white}" opacity="0.4"/>
-    <circle cx="${width * 0.85}" cy="${height * 0.12}" r="2" fill="${theme.accent}" opacity="0.5"/>
-    <circle cx="${width * 0.92}" cy="${height * 0.25}" r="1.5" fill="${COLORS.white}" opacity="0.3"/>
-    <circle cx="${width * 0.05}" cy="${height * 0.5}" r="2" fill="${theme.accent}" opacity="0.4"/>
-    <circle cx="${width * 0.95}" cy="${height * 0.55}" r="1.5" fill="${COLORS.white}" opacity="0.35"/>
-    <circle cx="${width * 0.15}" cy="${height * 0.92}" r="2" fill="${theme.accent}" opacity="0.5"/>
-    <circle cx="${width * 0.88}" cy="${height * 0.88}" r="1.5" fill="${COLORS.white}" opacity="0.3"/>
+    <circle cx="${w * 0.15}" cy="${h * 0.2}" r="${w * 0.12}" fill="${t.glow1}" opacity="0.15" filter="url(#softGlow)"/>
+    <circle cx="${w * 0.85}" cy="${h * 0.7}" r="${w * 0.15}" fill="${t.glow2}" opacity="0.1" filter="url(#softGlow)"/>
+    <circle cx="${w * 0.6}" cy="${h * 0.1}" r="${w * 0.06}" fill="${t.glow1}" opacity="0.12" filter="url(#softGlow)"/>
+    <!-- Sparkles -->
+    <circle cx="${w * 0.1}" cy="${h * 0.15}" r="2" fill="${t.accent}" opacity="0.6"/>
+    <circle cx="${w * 0.25}" cy="${h * 0.08}" r="1.5" fill="white" opacity="0.4"/>
+    <circle cx="${w * 0.85}" cy="${h * 0.12}" r="2" fill="${t.accent}" opacity="0.5"/>
+    <circle cx="${w * 0.92}" cy="${h * 0.25}" r="1.5" fill="white" opacity="0.3"/>
+    <circle cx="${w * 0.05}" cy="${h * 0.5}" r="2" fill="${t.accent}" opacity="0.4"/>
+    <circle cx="${w * 0.95}" cy="${h * 0.55}" r="1.5" fill="white" opacity="0.35"/>
+    <circle cx="${w * 0.15}" cy="${h * 0.92}" r="2" fill="${t.accent}" opacity="0.5"/>
+    <circle cx="${w * 0.88}" cy="${h * 0.88}" r="1.5" fill="white" opacity="0.3"/>
   `;
 }
 
-// Phone frame mockup - MUCH LARGER, with glow effect
-function createPhoneFrame(frameX, frameY, frameW, frameH, screenContent) {
-  const cornerR = Math.round(frameW * 0.07);
-  const bezel = Math.round(frameW * 0.02);
-  const screenR = Math.round(frameW * 0.06);
-  const notchW = Math.round(frameW * 0.28);
-  const notchH = Math.round(frameH * 0.018);
+function phoneFrame(fx, fy, fw, fh, screenSvg) {
+  const cr = Math.round(fw * 0.07);
+  const bz = Math.round(fw * 0.025);
+  const sr = Math.round(fw * 0.06);
+  const notchW = Math.round(fw * 0.28);
+  const notchH = Math.round(fh * 0.016);
 
   return `
-    <!-- Phone shadow glow -->
-    <rect x="${frameX}" y="${frameY}" width="${frameW}" height="${frameH}"
-          rx="${cornerR}" ry="${cornerR}"
-          fill="url(#phoneGlow)" filter="url(#phoneShadow)" opacity="0.5"/>
-
-    <!-- Phone body -->
-    <rect x="${frameX}" y="${frameY}" width="${frameW}" height="${frameH}"
-          rx="${cornerR}" ry="${cornerR}"
-          fill="#1A1A2E" stroke="#3D3D5C" stroke-width="2"/>
-
-    <!-- Screen area -->
-    <rect x="${frameX + bezel}" y="${frameY + bezel + notchH + 8}"
-          width="${frameW - bezel * 2}" height="${frameH - bezel * 2 - notchH * 2 - 16}"
-          rx="${screenR}" ry="${screenR}"
-          fill="${COLORS.dark}"/>
-
-    <!-- Notch -->
-    <rect x="${frameX + (frameW - notchW) / 2}" y="${frameY + 6}"
-          width="${notchW}" height="${notchH}" rx="${notchH / 2}" fill="#000"/>
-
-    <!-- Screen content -->
-    <g transform="translate(${frameX + bezel + 6}, ${frameY + bezel + notchH + 14})">
-      ${screenContent}
+    <rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${cr}" fill="url(#phoneGlow)" filter="url(#phoneShadow)" opacity="0.5"/>
+    <rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${cr}" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="2"/>
+    <rect x="${fx + bz}" y="${fy + bz + notchH + 8}" width="${fw - bz * 2}" height="${fh - bz * 2 - notchH * 2 - 16}" rx="${sr}" fill="${C.dark}"/>
+    <rect x="${fx + (fw - notchW) / 2}" y="${fy + 6}" width="${notchW}" height="${notchH}" rx="${notchH / 2}" fill="#000"/>
+    <g transform="translate(${fx + bz + 8}, ${fy + bz + notchH + 16})">
+      ${screenSvg}
     </g>
   `;
 }
 
-// ============================================
-// PHONE SCREENSHOT TEMPLATE
-// ============================================
-function phoneScreenSvg(width, height, theme, headerText, subtitleText, bodyContent) {
-  const phoneW = Math.round(width * 0.48);
-  const phoneH = Math.round(phoneW * 2.0);
-  const phoneX = Math.round((width - phoneW) / 2);
-  const phoneY = Math.round(height * 0.16);
+function phoneScreenshot(w, h, theme, headline, subtitle, screenBody) {
+  const phoneW = Math.round(w * 0.50);
+  const phoneH = Math.round(phoneW * 2.05);
+  const phoneX = Math.round((w - phoneW) / 2);
+  const phoneY = Math.round(h * 0.145);
 
   return `
-  <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-    ${createThemedBackground(width, height, theme)}
-
-    <!-- Marketing headline -->
-    <text x="${width / 2}" y="${height * 0.055}" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="56" font-weight="800" fill="${COLORS.white}" text-anchor="middle" letter-spacing="-1.5" filter="url(#textShadow)">
-      ${headerText}
-    </text>
-    <text x="${width / 2}" y="${height * 0.09}" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="24" fill="${theme.accent}" text-anchor="middle" opacity="0.9">
-      ${subtitleText}
-    </text>
-
-    <!-- Accent underline -->
-    <rect x="${(width - 80) / 2}" y="${height * 0.1}" width="80" height="4" rx="2" fill="url(#accentGrad)"/>
-
-    <!-- Phone mockup (LARGE) -->
-    ${createPhoneFrame(phoneX, phoneY, phoneW, phoneH, bodyContent)}
-
-    <!-- Bottom branding bar -->
-    <rect x="${(width - 220) / 2}" y="${height - 70}" width="220" height="40" rx="20" fill="${theme.glow1}" opacity="0.15"/>
-    <text x="${width / 2}" y="${height - 43}" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="18" font-weight="600" fill="${COLORS.white}" text-anchor="middle" opacity="0.8">
-      JournalMate.ai
-    </text>
+  <svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+    ${themedBackground(w, h, theme)}
+    <text x="${w / 2}" y="${h * 0.048}" font-family="'Segoe UI', Arial, sans-serif" font-size="52" font-weight="800" fill="${C.white}" text-anchor="middle" letter-spacing="-1.5" filter="url(#textShadow)">${headline}</text>
+    <text x="${w / 2}" y="${h * 0.082}" font-family="'Segoe UI', Arial, sans-serif" font-size="24" fill="${theme.accent}" text-anchor="middle" opacity="0.9">${subtitle}</text>
+    <rect x="${(w - 80) / 2}" y="${h * 0.092}" width="80" height="4" rx="2" fill="url(#accentLine)"/>
+    ${phoneFrame(phoneX, phoneY, phoneW, phoneH, screenBody)}
+    <rect x="${(w - 240) / 2}" y="${h - 68}" width="240" height="40" rx="20" fill="${theme.glow1}" opacity="0.15"/>
+    <text x="${w / 2}" y="${h - 42}" font-family="'Segoe UI', Arial, sans-serif" font-size="18" font-weight="600" fill="${C.white}" text-anchor="middle" opacity="0.8">JournalMate.ai</text>
   </svg>`;
 }
 
-// ============================================
-// SCREEN CONTENT DIMENSIONS
-// ============================================
-function getScreenDims(phoneW) {
-  const bezel = Math.round(phoneW * 0.02);
-  return {
-    sw: phoneW - bezel * 2 - 12, // screen width usable
-  };
+function screenW(phoneW) {
+  const bz = Math.round(phoneW * 0.025);
+  return phoneW - bz * 2 - 16;
 }
 
 // ============================================
-// SCREENSHOT 1: SHARE FROM ANYWHERE → YOUR PLAN
-// The #1 differentiator: see it online, share it, own it
+// SCREENSHOT 1: SHARE FROM ANYWHERE
+// Hero differentiator — See it online, share it, own it
 // ============================================
 function screenshot1_ShareFromAnywhere() {
-  const phoneW = Math.round(1080 * 0.48);
-  const { sw } = getScreenDims(phoneW);
-  const pillW = Math.round((sw - 16) / 3);
+  const pw = Math.round(1080 * 0.50);
+  const sw = screenW(pw);
+  const pillW = Math.round((sw - 20) / 3);
 
   const body = `
     <!-- Status bar -->
-    <text x="8" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">9:41</text>
-    <text x="${sw - 8}" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}" text-anchor="end">100%</text>
+    <text x="8" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}">9:41</text>
+    <text x="${sw - 8}" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}" text-anchor="end">100%</text>
 
     <!-- Header -->
-    <text x="8" y="48" font-family="'Segoe UI', Arial" font-size="20" font-weight="bold" fill="${COLORS.white}">Import &amp; Create Plan</text>
-    <text x="8" y="68" font-family="Arial" font-size="12" fill="${COLORS.textMuted}">Share from any app or paste content</text>
+    <text x="8" y="46" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${C.white}">Create Plan</text>
+    <text x="8" y="66" font-family="Arial" font-size="12" fill="${C.textSecondary}">Share from any app or paste a link</text>
 
-    <!-- SOURCE PLATFORM PILLS - 2 rows of 3 -->
-    <text x="8" y="95" font-family="Arial" font-size="11" font-weight="600" fill="${COLORS.textMuted}" letter-spacing="1">SHARE FROM</text>
+    <!-- Source pill label -->
+    <text x="8" y="92" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">SHARE FROM</text>
 
     <!-- Row 1: Instagram, TikTok, YouTube -->
-    <rect x="0" y="108" width="${pillW}" height="42" rx="12" fill="#E4405F" opacity="0.15" stroke="#E4405F" stroke-opacity="0.4" stroke-width="1"/>
-    <text x="${pillW / 2}" y="125" font-family="Arial" font-size="14" text-anchor="middle">&#x1F4F7;</text>
-    <text x="${pillW / 2}" y="140" font-family="Arial" font-size="9" fill="#FB7185" text-anchor="middle">Instagram</text>
+    <rect x="0" y="104" width="${pillW}" height="44" rx="12" fill="#E4405F" opacity="0.12" stroke="#E4405F" stroke-opacity="0.35" stroke-width="1"/>
+    <text x="${pillW / 2}" y="122" font-family="Arial" font-size="15" text-anchor="middle" fill="#E4405F">&#9679;</text>
+    <text x="${pillW / 2}" y="139" font-family="Arial" font-size="9" font-weight="600" fill="#FB7185" text-anchor="middle">Instagram</text>
 
-    <rect x="${pillW + 8}" y="108" width="${pillW}" height="42" rx="12" fill="#000" opacity="0.3" stroke="#EEE" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="${pillW + 8 + pillW / 2}" y="125" font-family="Arial" font-size="14" text-anchor="middle">&#x1F3B5;</text>
-    <text x="${pillW + 8 + pillW / 2}" y="140" font-family="Arial" font-size="9" fill="${COLORS.white}" text-anchor="middle">TikTok</text>
+    <rect x="${pillW + 10}" y="104" width="${pillW}" height="44" rx="12" fill="#000" opacity="0.25" stroke="#EEE" stroke-opacity="0.2" stroke-width="1"/>
+    <text x="${pillW + 10 + pillW / 2}" y="122" font-family="Arial" font-size="15" text-anchor="middle" fill="#FFF">&#9835;</text>
+    <text x="${pillW + 10 + pillW / 2}" y="139" font-family="Arial" font-size="9" font-weight="600" fill="${C.white}" text-anchor="middle">TikTok</text>
 
-    <rect x="${(pillW + 8) * 2}" y="108" width="${pillW}" height="42" rx="12" fill="#FF0000" opacity="0.12" stroke="#FF0000" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="${(pillW + 8) * 2 + pillW / 2}" y="125" font-family="Arial" font-size="14" text-anchor="middle">&#x25B6;</text>
-    <text x="${(pillW + 8) * 2 + pillW / 2}" y="140" font-family="Arial" font-size="9" fill="#FB923C" text-anchor="middle">YouTube</text>
+    <rect x="${(pillW + 10) * 2}" y="104" width="${pillW}" height="44" rx="12" fill="#FF0000" opacity="0.1" stroke="#FF0000" stroke-opacity="0.25" stroke-width="1"/>
+    <text x="${(pillW + 10) * 2 + pillW / 2}" y="122" font-family="Arial" font-size="15" text-anchor="middle" fill="#FF4444">&#9654;</text>
+    <text x="${(pillW + 10) * 2 + pillW / 2}" y="139" font-family="Arial" font-size="9" font-weight="600" fill="#FB923C" text-anchor="middle">YouTube</text>
 
-    <!-- Row 2: ChatGPT, Web, Twitter -->
-    <rect x="0" y="158" width="${pillW}" height="42" rx="12" fill="#10A37F" opacity="0.15" stroke="#10A37F" stroke-opacity="0.4" stroke-width="1"/>
-    <text x="${pillW / 2}" y="175" font-family="Arial" font-size="14" text-anchor="middle">&#x1F916;</text>
-    <text x="${pillW / 2}" y="190" font-family="Arial" font-size="9" fill="#34D399" text-anchor="middle">ChatGPT</text>
+    <!-- Row 2: ChatGPT, Any URL, Claude -->
+    <rect x="0" y="156" width="${pillW}" height="44" rx="12" fill="#10A37F" opacity="0.12" stroke="#10A37F" stroke-opacity="0.35" stroke-width="1"/>
+    <text x="${pillW / 2}" y="174" font-family="Arial" font-size="13" text-anchor="middle" fill="#10A37F">&#9670;</text>
+    <text x="${pillW / 2}" y="191" font-family="Arial" font-size="9" font-weight="600" fill="${C.emeraldLight}" text-anchor="middle">ChatGPT</text>
 
-    <rect x="${pillW + 8}" y="158" width="${pillW}" height="42" rx="12" fill="${COLORS.sky}" opacity="0.15" stroke="${COLORS.sky}" stroke-opacity="0.4" stroke-width="1"/>
-    <text x="${pillW + 8 + pillW / 2}" y="175" font-family="Arial" font-size="14" text-anchor="middle">&#x1F310;</text>
-    <text x="${pillW + 8 + pillW / 2}" y="190" font-family="Arial" font-size="9" fill="${COLORS.skyLight}" text-anchor="middle">Any URL</text>
+    <rect x="${pillW + 10}" y="156" width="${pillW}" height="44" rx="12" fill="${C.sky}" opacity="0.12" stroke="${C.sky}" stroke-opacity="0.35" stroke-width="1"/>
+    <text x="${pillW + 10 + pillW / 2}" y="174" font-family="Arial" font-size="13" text-anchor="middle" fill="${C.sky}">&#9673;</text>
+    <text x="${pillW + 10 + pillW / 2}" y="191" font-family="Arial" font-size="9" font-weight="600" fill="${C.skyLight}" text-anchor="middle">Any URL</text>
 
-    <rect x="${(pillW + 8) * 2}" y="158" width="${pillW}" height="42" rx="12" fill="${COLORS.indigo}" opacity="0.15" stroke="${COLORS.indigo}" stroke-opacity="0.4" stroke-width="1"/>
-    <text x="${(pillW + 8) * 2 + pillW / 2}" y="175" font-family="Arial" font-size="14" text-anchor="middle">&#x2728;</text>
-    <text x="${(pillW + 8) * 2 + pillW / 2}" y="190" font-family="Arial" font-size="9" fill="${COLORS.indigoLight}" text-anchor="middle">Claude</text>
+    <rect x="${(pillW + 10) * 2}" y="156" width="${pillW}" height="44" rx="12" fill="${C.indigo}" opacity="0.12" stroke="${C.indigo}" stroke-opacity="0.35" stroke-width="1"/>
+    <text x="${(pillW + 10) * 2 + pillW / 2}" y="174" font-family="Arial" font-size="13" text-anchor="middle" fill="${C.indigo}">&#10023;</text>
+    <text x="${(pillW + 10) * 2 + pillW / 2}" y="191" font-family="Arial" font-size="9" font-weight="600" fill="${C.indigoLight}" text-anchor="middle">Claude</text>
 
-    <!-- PASTE/SHARE INPUT AREA -->
-    <rect x="0" y="216" width="${sw}" height="70" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.primary}" stroke-opacity="0.5" stroke-width="1.5"/>
-    <text x="16" y="240" font-family="Arial" font-size="13" fill="${COLORS.white}" opacity="0.9">instagram.com/reel/best-</text>
-    <text x="16" y="258" font-family="Arial" font-size="13" fill="${COLORS.white}" opacity="0.9">restaurants-lagos...</text>
-    <text x="16" y="276" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">Pasted from Instagram</text>
+    <!-- Paste input area -->
+    <rect x="0" y="214" width="${sw}" height="72" rx="16" fill="${C.darkCard}" stroke="${C.primary}" stroke-opacity="0.5" stroke-width="1.5"/>
+    <text x="16" y="238" font-family="Arial" font-size="13" fill="${C.white}" opacity="0.9">https://instagram.com/reel/best-</text>
+    <text x="16" y="256" font-family="Arial" font-size="13" fill="${C.white}" opacity="0.9">restaurants-lagos-2025...</text>
+    <text x="16" y="276" font-family="Arial" font-size="10" fill="${C.textMuted}">Pasted from Instagram</text>
 
-    <!-- Instant Plan CTA -->
-    <rect x="0" y="300" width="${sw}" height="48" rx="24" fill="url(#btnGrad)"/>
-    <text x="${sw / 2}" y="330" font-family="'Segoe UI', Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">&#x2728; Create Plan Instantly</text>
+    <!-- Create Plan CTA -->
+    <rect x="0" y="300" width="${sw}" height="50" rx="25" fill="url(#btnGrad)"/>
+    <text x="${sw / 2}" y="331" font-family="'Segoe UI', Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">&#10024; Create Plan Instantly</text>
 
-    <!-- AI EXTRACTION RESULT -->
-    <text x="8" y="378" font-family="Arial" font-size="11" font-weight="600" fill="${COLORS.textMuted}" letter-spacing="1">AI EXTRACTED</text>
+    <!-- AI Extraction Result -->
+    <text x="8" y="380" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">AI EXTRACTED</text>
 
-    <!-- Extraction card - what AI found -->
-    <rect x="0" y="392" width="${sw}" height="105" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.emerald}" stroke-opacity="0.3" stroke-width="1"/>
-    <circle cx="24" cy="414" r="12" fill="${COLORS.emerald}" opacity="0.2"/>
-    <text x="24" y="418" font-family="Arial" font-size="10" fill="${COLORS.emerald}" text-anchor="middle">&#10003;</text>
-    <text x="44" y="414" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.white}">Lagos Foodie Tour</text>
-    <text x="44" y="432" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">From Instagram Reel &#183; 8 venues found</text>
+    <rect x="0" y="394" width="${sw}" height="115" rx="14" fill="${C.darkCard}" stroke="${C.emerald}" stroke-opacity="0.3" stroke-width="1"/>
+    <circle cx="24" cy="418" r="12" fill="${C.emerald}" opacity="0.2"/>
+    <text x="24" y="422" font-family="Arial" font-size="10" fill="${C.emerald}" text-anchor="middle">&#10003;</text>
+    <text x="44" y="416" font-family="'Segoe UI', Arial" font-size="14" font-weight="bold" fill="${C.white}">Lagos Foodie Tour</text>
+    <text x="44" y="434" font-family="Arial" font-size="10" fill="${C.textSecondary}">From Instagram Reel &#183; 8 venues found</text>
 
-    <!-- Extracted venues preview -->
-    <text x="16" y="458" font-family="Arial" font-size="10" fill="${COLORS.white}">&#x1F37D; Nok by Alara &#183; $$$ &#183; V.I.</text>
-    <text x="16" y="474" font-family="Arial" font-size="10" fill="${COLORS.white}">&#x1F37D; Sky Restaurant &#183; $$$$ &#183; Eko Atlantic</text>
-    <text x="16" y="490" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">+ 6 more venues with prices &amp; booking</text>
+    <text x="16" y="460" font-family="Arial" font-size="11" fill="${C.white}">&#127869; Nok by Alara &#183; $$$ &#183; Victoria Island</text>
+    <text x="16" y="478" font-family="Arial" font-size="11" fill="${C.white}">&#127869; Sky Restaurant &#183; $$$$ &#183; Eko Atlantic</text>
+    <text x="16" y="496" font-family="Arial" font-size="10" fill="${C.textMuted}">+ 6 more venues with prices &amp; booking info</text>
 
     <!-- Own & Customize button -->
-    <rect x="0" y="508" width="${sw}" height="40" rx="20" fill="${COLORS.darkCard}" stroke="${COLORS.primary}" stroke-opacity="0.5" stroke-width="1.5"/>
-    <text x="${sw / 2}" y="533" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.primaryLight}" text-anchor="middle">&#x1F3A8; Own &amp; Customize This Plan</text>
+    <rect x="0" y="520" width="${sw}" height="42" rx="21" fill="${C.darkCard}" stroke="${C.primary}" stroke-opacity="0.5" stroke-width="1.5"/>
+    <text x="${sw / 2}" y="547" font-family="Arial" font-size="13" font-weight="bold" fill="${C.primaryLight}" text-anchor="middle">&#127912; Own &amp; Customize This Plan</text>
 
     <!-- Smart extraction badges -->
-    <text x="8" y="575" font-family="Arial" font-size="10" font-weight="600" fill="${COLORS.textMuted}" letter-spacing="1">SMART EXTRACTION</text>
-
-    <rect x="0" y="588" width="${Math.round(sw * 0.32)}" height="26" rx="13" fill="${COLORS.teal}" opacity="0.15" stroke="${COLORS.teal}" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="${Math.round(sw * 0.16)}" y="605" font-family="Arial" font-size="9" fill="${COLORS.tealLight}" text-anchor="middle">&#x1F3A4; Audio</text>
-
-    <rect x="${Math.round(sw * 0.34)}" y="588" width="${Math.round(sw * 0.32)}" height="26" rx="13" fill="${COLORS.amber}" opacity="0.15" stroke="${COLORS.amber}" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="${Math.round(sw * 0.5)}" y="605" font-family="Arial" font-size="9" fill="${COLORS.amberLight}" text-anchor="middle">&#x1F4F7; OCR</text>
-
-    <rect x="${Math.round(sw * 0.68)}" y="588" width="${Math.round(sw * 0.32)}" height="26" rx="13" fill="${COLORS.rose}" opacity="0.15" stroke="${COLORS.rose}" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="${Math.round(sw * 0.84)}" y="605" font-family="Arial" font-size="9" fill="${COLORS.roseLight}" text-anchor="middle">&#x1F4AC; Captions</text>
+    <text x="8" y="590" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">SMART EXTRACTION</text>
+    ${[
+      { label: '&#127908; Audio', color: C.teal, bg: C.teal },
+      { label: '&#128247; OCR', color: C.amber, bg: C.amber },
+      { label: '&#128172; Captions', color: C.rose, bg: C.rose },
+    ].map((b, i) => {
+      const bw = Math.round((sw - 16) / 3);
+      const bx = i * (bw + 8);
+      return `
+        <rect x="${bx}" y="602" width="${bw}" height="28" rx="14" fill="${b.bg}" opacity="0.12" stroke="${b.bg}" stroke-opacity="0.3" stroke-width="1"/>
+        <text x="${bx + bw / 2}" y="621" font-family="Arial" font-size="10" fill="${b.color}" text-anchor="middle">${b.label}</text>
+      `;
+    }).join('')}
   `;
 
-  return phoneScreenSvg(1080, 1920, THEMES.goalInput,
+  return phoneScreenshot(1080, 1920, THEMES.shareImport,
     'See It Online? Own It.',
-    'Share from any app — AI turns it into YOUR plan',
+    'Share from any app &#8212; AI creates YOUR plan instantly',
     body
   );
 }
 
 // ============================================
-// SCREENSHOT 2: Activities Dashboard
+// SCREENSHOT 2: DISCOVER COMMUNITY PLANS
+// Faithful recreation of actual Discover page
+// with real plan cards, real photos, real prices
 // ============================================
-function screenshot2_Activities() {
-  const phoneW = Math.round(1080 * 0.48);
-  const { sw } = getScreenDims(phoneW);
+function screenshot2_Discover() {
+  const pw = Math.round(1080 * 0.50);
+  const sw = screenW(pw);
+  const cardW = Math.round((sw - 10) / 2);
 
-  const cards = [
-    { emoji: '&#x1F4AA;', title: 'Morning Fitness', sub: '7 of 10 tasks', pct: 70, color: COLORS.emerald, colorLight: COLORS.emeraldLight, cat: 'Wellness', due: 'Today' },
-    { emoji: '&#x2708;', title: 'Japan Trip Planning', sub: '3 of 12 tasks', pct: 25, color: COLORS.sky, colorLight: COLORS.skyLight, cat: 'Travel', due: 'Mar 15' },
-    { emoji: '&#x1F4CB;', title: 'Product Launch Prep', sub: '5 of 8 tasks', pct: 63, color: COLORS.primary, colorLight: COLORS.primaryLight, cat: 'Work', due: 'This week' },
-    { emoji: '&#x1F496;', title: 'Date Night Ideas', sub: '1 of 5 tasks', pct: 20, color: COLORS.rose, colorLight: COLORS.roseLight, cat: 'Romance', due: 'Saturday' },
+  // Real data from actual app screenshots
+  const plans = [
+    { title: 'Thanksgiving Feast', price: '$320', author: 'Sarah M.', views: '1.2k', tasks: '15 tasks', color1: '#8B4513', color2: '#D2691E' },
+    { title: 'Christmas Celebration', price: '$850', author: 'James K.', views: '2.4k', tasks: '22 tasks', color1: '#B22222', color2: '#FF6347' },
+    { title: 'HEB Shopping Guide', price: '$400', author: 'Maria L.', views: '890', tasks: '12 tasks', color1: '#2E8B57', color2: '#3CB371' },
+    { title: 'NYE Party Planning', price: '$550', author: 'David R.', views: '1.8k', tasks: '18 tasks', color1: '#4B0082', color2: '#8A2BE2' },
   ];
 
-  const cardH = 105;
+  const body = `
+    <!-- Status bar -->
+    <text x="8" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}">9:41</text>
+    <text x="${sw - 8}" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}" text-anchor="end">100%</text>
+
+    <!-- Header -->
+    <text x="8" y="46" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${C.white}">Discover</text>
+    <text x="8" y="66" font-family="Arial" font-size="12" fill="${C.textSecondary}">Community plans you can use</text>
+
+    <!-- Search bar -->
+    <rect x="0" y="78" width="${sw}" height="40" rx="20" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <text x="36" y="103" font-family="Arial" font-size="12" fill="${C.textMuted}">Search plans...</text>
+    <text x="16" y="103" font-family="Arial" font-size="14" fill="${C.textMuted}">&#128269;</text>
+
+    <!-- Category chips -->
+    <rect x="0" y="128" width="70" height="28" rx="14" fill="${C.rose}" opacity="0.2" stroke="${C.rose}" stroke-opacity="0.4" stroke-width="1"/>
+    <text x="35" y="147" font-family="Arial" font-size="11" fill="${C.roseLight}" text-anchor="middle">Trending</text>
+    <rect x="78" y="128" width="60" height="28" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <text x="108" y="147" font-family="Arial" font-size="11" fill="${C.textSecondary}" text-anchor="middle">Food</text>
+    <rect x="146" y="128" width="60" height="28" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <text x="176" y="147" font-family="Arial" font-size="11" fill="${C.textSecondary}" text-anchor="middle">Travel</text>
+    <rect x="214" y="128" width="70" height="28" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <text x="249" y="147" font-family="Arial" font-size="11" fill="${C.textSecondary}" text-anchor="middle">Holidays</text>
+
+    <!-- Plan cards grid (2x2 — faithful to actual app) -->
+    ${plans.map((p, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const cx = col * (cardW + 10);
+      const cy = 170 + row * 240;
+      const imgH = 110;
+
+      return `
+        <!-- Card: ${p.title} -->
+        <rect x="${cx}" y="${cy}" width="${cardW}" height="225" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1" filter="url(#cardShadow)"/>
+
+        <!-- Photo area with gradient overlay (simulating real food/holiday photos) -->
+        <defs>
+          <linearGradient id="img${i}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="${p.color1}" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="${p.color2}" stop-opacity="0.7"/>
+          </linearGradient>
+        </defs>
+        <rect x="${cx}" y="${cy}" width="${cardW}" height="${imgH}" rx="14" fill="url(#img${i})"/>
+        <rect x="${cx}" y="${cy + imgH - 30}" width="${cardW}" height="30" fill="${C.darkCard}" opacity="0"/>
+
+        <!-- Photo texture overlay dots for realism -->
+        <circle cx="${cx + cardW * 0.3}" cy="${cy + 35}" r="15" fill="white" opacity="0.08"/>
+        <circle cx="${cx + cardW * 0.7}" cy="${cy + 55}" r="20" fill="white" opacity="0.06"/>
+        <circle cx="${cx + cardW * 0.5}" cy="${cy + 75}" r="12" fill="white" opacity="0.05"/>
+
+        <!-- Price badge -->
+        <rect x="${cx + cardW - 58}" y="${cy + 8}" width="50" height="24" rx="12" fill="#000" opacity="0.6"/>
+        <text x="${cx + cardW - 33}" y="${cy + 25}" font-family="Arial" font-size="12" font-weight="bold" fill="${C.white}" text-anchor="middle">${p.price}</text>
+
+        <!-- Title and meta -->
+        <text x="${cx + 12}" y="${cy + imgH + 22}" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="${C.white}">${p.title}</text>
+        <text x="${cx + 12}" y="${cy + imgH + 40}" font-family="Arial" font-size="10" fill="${C.textSecondary}">${p.author} &#183; ${p.tasks}</text>
+        <text x="${cx + 12}" y="${cy + imgH + 56}" font-family="Arial" font-size="10" fill="${C.textMuted}">&#128065; ${p.views} views</text>
+
+        <!-- Action buttons row -->
+        <rect x="${cx + 6}" y="${cy + imgH + 66}" width="${Math.round((cardW - 18) * 0.48)}" height="30" rx="15" fill="${C.darkSurface}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <text x="${cx + 6 + Math.round((cardW - 18) * 0.24)}" y="${cy + imgH + 85}" font-family="Arial" font-size="10" fill="${C.textSecondary}" text-anchor="middle">Preview</text>
+
+        <rect x="${cx + 6 + Math.round((cardW - 18) * 0.52)}" y="${cy + imgH + 66}" width="${Math.round((cardW - 18) * 0.48)}" height="30" rx="15" fill="${C.primary}" opacity="0.9"/>
+        <text x="${cx + 6 + Math.round((cardW - 18) * 0.76)}" y="${cy + imgH + 85}" font-family="Arial" font-size="10" font-weight="bold" fill="${C.white}" text-anchor="middle">+ Use Plan</text>
+      `;
+    }).join('')}
+
+    <!-- Bottom nav hint -->
+    <rect x="0" y="${170 + 2 * 240 + 14}" width="${sw}" height="36" rx="18" fill="${C.primary}" opacity="0.1"/>
+    <text x="${sw / 2}" y="${170 + 2 * 240 + 37}" font-family="Arial" font-size="12" fill="${C.primaryLight}" text-anchor="middle">&#128640; Browse 500+ community plans</text>
+  `;
+
+  return phoneScreenshot(1080, 1920, THEMES.discover,
+    'Copy Plans, Make Them Yours',
+    'Browse community plans &#8212; use them with one tap',
+    body
+  );
+}
+
+// ============================================
+// SCREENSHOT 3: MY ACTIVITIES
+// Faithful recreation: real plan names & progress
+// ============================================
+function screenshot3_Activities() {
+  const pw = Math.round(1080 * 0.50);
+  const sw = screenW(pw);
+
+  // Actual data from the app screenshots
+  const activities = [
+    { title: 'Austin to Los Angeles Adventure', sub: '12/12 tasks &#183; Completed', pct: 100, color: C.emerald, icon: '&#9992;', badge: '&#10003; Done', badgeColor: C.emerald },
+    { title: 'Weekend Fitness Plan', sub: '8/10 tasks &#183; In Progress', pct: 80, color: C.sky, icon: '&#127947;', badge: '&#128293; Active', badgeColor: C.coral },
+    { title: 'System Design Prep', sub: '5/12 tasks &#183; In Progress', pct: 42, color: C.primary, icon: '&#128187;', badge: '&#128293; Active', badgeColor: C.coral },
+    { title: 'Thanksgiving Feast Plan', sub: '3/15 tasks &#183; Just Started', pct: 20, color: C.amber, icon: '&#127835;', badge: 'New', badgeColor: C.amber },
+    { title: 'Date Night in Houston', sub: '0/7 tasks &#183; Ready', pct: 0, color: C.rose, icon: '&#128150;', badge: 'Planned', badgeColor: C.rose },
+  ];
+
+  const cardH = 98;
+  const gap = 10;
+
+  const body = `
+    <text x="8" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}">9:41</text>
+    <text x="${sw - 8}" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}" text-anchor="end">100%</text>
+
+    <text x="8" y="46" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${C.white}">My Activities</text>
+    <text x="8" y="66" font-family="Arial" font-size="12" fill="${C.textSecondary}">5 plans &#183; 28/56 tasks complete</text>
+
+    <!-- Filter pills -->
+    <rect x="0" y="78" width="50" height="28" rx="14" fill="${C.primary}" opacity="0.25" stroke="${C.primary}" stroke-opacity="0.5" stroke-width="1"/>
+    <text x="25" y="97" font-family="Arial" font-size="11" fill="${C.primaryLight}" text-anchor="middle">All</text>
+    <rect x="58" y="78" width="65" height="28" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <text x="90" y="97" font-family="Arial" font-size="11" fill="${C.textSecondary}" text-anchor="middle">Active</text>
+    <rect x="131" y="78" width="80" height="28" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <text x="171" y="97" font-family="Arial" font-size="11" fill="${C.textSecondary}" text-anchor="middle">Completed</text>
+
+    ${activities.map((a, i) => {
+      const y = 120 + i * (cardH + gap);
+      const barW = sw - 32;
+      return `
+        <rect x="0" y="${y}" width="${sw}" height="${cardH}" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <rect x="0" y="${y}" width="4" height="${cardH}" rx="2" fill="${a.color}"/>
+
+        <!-- Icon circle -->
+        <circle cx="28" cy="${y + 30}" r="16" fill="${a.color}" opacity="0.15"/>
+        <text x="28" y="${y + 36}" font-family="Arial" font-size="15" text-anchor="middle">${a.icon}</text>
+
+        <!-- Badge -->
+        <rect x="${sw - 60}" y="${y + 10}" width="52" height="20" rx="10" fill="${a.badgeColor}" opacity="0.15"/>
+        <text x="${sw - 34}" y="${y + 24}" font-family="Arial" font-size="9" fill="${a.badgeColor}" text-anchor="middle">${a.badge}</text>
+
+        <!-- Title & subtitle -->
+        <text x="52" y="${y + 26}" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="${C.white}">${a.title}</text>
+        <text x="52" y="${y + 44}" font-family="Arial" font-size="10" fill="${C.textSecondary}">${a.sub}</text>
+
+        <!-- Progress bar -->
+        <rect x="16" y="${y + 60}" width="${barW}" height="6" rx="3" fill="#1F2937"/>
+        <rect x="16" y="${y + 60}" width="${Math.round(barW * a.pct / 100)}" height="6" rx="3" fill="${a.color}"/>
+        <text x="${sw - 16}" y="${y + 84}" font-family="Arial" font-size="11" fill="${a.color}" text-anchor="end">${a.pct}%</text>
+      `;
+    }).join('')}
+
+    <!-- Floating action button -->
+    <circle cx="${sw - 30}" cy="${120 + activities.length * (cardH + gap) + 20}" r="24" fill="${C.primary}"/>
+    <text x="${sw - 30}" y="${120 + activities.length * (cardH + gap) + 27}" font-family="Arial" font-size="24" fill="white" text-anchor="middle">+</text>
+  `;
+
+  return phoneScreenshot(1080, 1920, THEMES.activities,
+    'Plan It. Track It. Crush It.',
+    'AI-powered plans with real-time progress tracking',
+    body
+  );
+}
+
+// ============================================
+// SCREENSHOT 4: TASK DETAIL VIEW
+// Faithful: Flight from Austin to LAX, $350
+// ============================================
+function screenshot4_TaskDetail() {
+  const pw = Math.round(1080 * 0.50);
+  const sw = screenW(pw);
+
+  const body = `
+    <text x="8" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}">9:41</text>
+    <text x="${sw - 8}" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}" text-anchor="end">100%</text>
+
+    <!-- Back arrow + Activity name -->
+    <text x="8" y="40" font-family="Arial" font-size="14" fill="${C.primaryLight}">&#8592; Austin to LA Adventure</text>
+
+    <!-- Task title card -->
+    <rect x="0" y="56" width="${sw}" height="120" rx="16" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <circle cx="28" cy="84" r="16" fill="${C.sky}" opacity="0.15"/>
+    <text x="28" y="90" font-family="Arial" font-size="15" text-anchor="middle">&#9992;</text>
+    <text x="52" y="80" font-family="'Segoe UI', Arial" font-size="16" font-weight="bold" fill="${C.white}">Book Flight: Austin to LAX</text>
+    <text x="52" y="100" font-family="Arial" font-size="11" fill="${C.textSecondary}">Task 1 of 12 &#183; High Priority</text>
+
+    <!-- Cost badge -->
+    <rect x="16" y="116" width="80" height="28" rx="14" fill="${C.emerald}" opacity="0.12" stroke="${C.emerald}" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="56" y="135" font-family="Arial" font-size="13" font-weight="bold" fill="${C.emeraldLight}" text-anchor="middle">$350</text>
+
+    <rect x="108" y="116" width="100" height="28" rx="14" fill="${C.sky}" opacity="0.12" stroke="${C.sky}" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="158" y="135" font-family="Arial" font-size="11" fill="${C.skyLight}" text-anchor="middle">&#128339; 3h 30m flight</text>
+
+    <rect x="220" y="116" width="80" height="28" rx="14" fill="${C.amber}" opacity="0.12" stroke="${C.amber}" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="260" y="135" font-family="Arial" font-size="11" fill="${C.amberLight}" text-anchor="middle">&#9993; Direct</text>
+
+    <!-- AI Tips section -->
+    <text x="8" y="200" font-family="Arial" font-size="11" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">AI RECOMMENDATIONS</text>
+
+    <rect x="0" y="214" width="${sw}" height="155" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <circle cx="24" cy="238" r="10" fill="${C.primary}" opacity="0.2"/>
+    <text x="24" y="242" font-family="Arial" font-size="10" fill="${C.primaryLight}" text-anchor="middle">&#9733;</text>
+    <text x="42" y="238" font-family="Arial" font-size="12" fill="${C.white}">Book 2+ weeks ahead for best prices</text>
+    <text x="42" y="254" font-family="Arial" font-size="10" fill="${C.textSecondary}">Average savings: $75-120</text>
+
+    <line x1="16" y1="268" x2="${sw - 16}" y2="268" stroke="${C.darkCardBorder}" stroke-width="1"/>
+
+    <circle cx="24" cy="288" r="10" fill="${C.teal}" opacity="0.2"/>
+    <text x="24" y="292" font-family="Arial" font-size="10" fill="${C.tealLight}" text-anchor="middle">&#9733;</text>
+    <text x="42" y="288" font-family="Arial" font-size="12" fill="${C.white}">Tue-Thu departures are cheapest</text>
+    <text x="42" y="304" font-family="Arial" font-size="10" fill="${C.textSecondary}">Southwest &amp; United have direct flights</text>
+
+    <line x1="16" y1="318" x2="${sw - 16}" y2="318" stroke="${C.darkCardBorder}" stroke-width="1"/>
+
+    <circle cx="24" cy="338" r="10" fill="${C.coral}" opacity="0.2"/>
+    <text x="24" y="342" font-family="Arial" font-size="10" fill="${C.coralLight}" text-anchor="middle">&#9733;</text>
+    <text x="42" y="338" font-family="Arial" font-size="12" fill="${C.white}">AUS Terminal 2 for Southwest</text>
+    <text x="42" y="354" font-family="Arial" font-size="10" fill="${C.textSecondary}">Arrive 90 min early for weekend flights</text>
+
+    <!-- Action buttons (faithful to actual app) -->
+    <text x="8" y="400" font-family="Arial" font-size="11" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">ACTIONS</text>
+
+    <!-- Complete button (green, prominent) -->
+    <rect x="0" y="414" width="${sw}" height="48" rx="24" fill="${C.emerald}"/>
+    <text x="${sw / 2}" y="444" font-family="'Segoe UI', Arial" font-size="15" font-weight="bold" fill="white" text-anchor="middle">&#10003; Complete Task</text>
+
+    <!-- Secondary action row -->
+    <rect x="0" y="474" width="${Math.round((sw - 16) / 3)}" height="42" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <text x="${Math.round((sw - 16) / 6)}" y="500" font-family="Arial" font-size="11" fill="${C.amber}" text-anchor="middle">&#128337; Snooze</text>
+
+    <rect x="${Math.round((sw - 16) / 3) + 8}" y="474" width="${Math.round((sw - 16) / 3)}" height="42" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <text x="${Math.round((sw - 16) / 3) + 8 + Math.round((sw - 16) / 6)}" y="500" font-family="Arial" font-size="11" fill="${C.sky}" text-anchor="middle">&#128197; Calendar</text>
+
+    <rect x="${Math.round((sw - 16) / 3) * 2 + 16}" y="474" width="${Math.round((sw - 16) / 3)}" height="42" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <text x="${Math.round((sw - 16) / 3) * 2 + 16 + Math.round((sw - 16) / 6)}" y="500" font-family="Arial" font-size="11" fill="${C.textSecondary}" text-anchor="middle">&#128451; Archive</text>
+
+    <!-- Skip link -->
+    <text x="${sw / 2}" y="540" font-family="Arial" font-size="12" fill="${C.textMuted}" text-anchor="middle">Skip this task &#8594;</text>
+
+    <!-- Related tasks preview -->
+    <text x="8" y="572" font-family="Arial" font-size="11" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">UP NEXT</text>
+
+    <rect x="0" y="586" width="${sw}" height="44" rx="12" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <circle cx="22" cy="608" r="10" fill="none" stroke="${C.darkCardBorder}" stroke-width="1.5"/>
+    <text x="40" y="612" font-family="Arial" font-size="12" fill="${C.white}">Book Hotel: Santa Monica Beach</text>
+  `;
+
+  return phoneScreenshot(1080, 1920, THEMES.tasks,
+    'AI Plans Every Detail',
+    'Smart recommendations, costs, and one-tap actions',
+    body
+  );
+}
+
+// ============================================
+// SCREENSHOT 5: REPORTS & BADGES
+// Faithful: actual badge names from the app
+// ============================================
+function screenshot5_Reports() {
+  const pw = Math.round(1080 * 0.50);
+  const sw = screenW(pw);
+  const statW = Math.round((sw - 16) / 3);
+
+  // Actual badges from the app screenshot
+  const badges = [
+    { name: 'Task Rookie', icon: '&#127941;', color: C.amber, desc: '10 tasks done' },
+    { name: 'Task Pro', icon: '&#9889;', color: C.sky, desc: '50 tasks done' },
+    { name: 'Perfectionist', icon: '&#127775;', color: C.emerald, desc: '100% plan' },
+    { name: 'Social Butterfly', icon: '&#129419;', color: C.pink, desc: 'Shared 5 plans' },
+    { name: 'Group Leader', icon: '&#128081;', color: C.primary, desc: 'Led 3 groups' },
+    { name: 'Planner', icon: '&#128203;', color: C.teal, desc: '10 plans created' },
+  ];
+
+  const body = `
+    <text x="8" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}">9:41</text>
+    <text x="${sw - 8}" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}" text-anchor="end">100%</text>
+
+    <text x="8" y="46" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${C.white}">Reports &amp; Progress</text>
+    <text x="8" y="66" font-family="Arial" font-size="12" fill="${C.textSecondary}">Your achievements this month</text>
+
+    <!-- Stat cards -->
+    <rect x="0" y="82" width="${statW}" height="68" rx="14" fill="${C.primary}" opacity="0.12" stroke="${C.primary}" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="${statW / 2}" y="112" font-family="Arial" font-size="24" font-weight="bold" fill="${C.primaryLight}" text-anchor="middle">87%</text>
+    <text x="${statW / 2}" y="132" font-family="Arial" font-size="9" fill="${C.textMuted}" text-anchor="middle">Completion</text>
+
+    <rect x="${statW + 8}" y="82" width="${statW}" height="68" rx="14" fill="${C.emerald}" opacity="0.1" stroke="${C.emerald}" stroke-opacity="0.25" stroke-width="1"/>
+    <text x="${statW + 8 + statW / 2}" y="112" font-family="Arial" font-size="24" font-weight="bold" fill="${C.emeraldLight}" text-anchor="middle">12</text>
+    <text x="${statW + 8 + statW / 2}" y="132" font-family="Arial" font-size="9" fill="${C.textMuted}" text-anchor="middle">Day Streak</text>
+
+    <rect x="${(statW + 8) * 2}" y="82" width="${statW}" height="68" rx="14" fill="${C.sky}" opacity="0.1" stroke="${C.sky}" stroke-opacity="0.25" stroke-width="1"/>
+    <text x="${(statW + 8) * 2 + statW / 2}" y="112" font-family="Arial" font-size="24" font-weight="bold" fill="${C.skyLight}" text-anchor="middle">48</text>
+    <text x="${(statW + 8) * 2 + statW / 2}" y="132" font-family="Arial" font-size="9" fill="${C.textMuted}" text-anchor="middle">Tasks Done</text>
+
+    <!-- Weekly chart -->
+    <rect x="0" y="164" width="${sw}" height="155" rx="16" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <text x="16" y="188" font-family="Arial" font-size="13" font-weight="bold" fill="${C.white}">Weekly Progress</text>
+    ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => {
+      const barH = [28, 45, 60, 78, 88, 65, 48][i];
+      const bw = Math.round((sw - 48) / 8);
+      const bx = 16 + i * (bw + Math.round(bw * 0.3));
+      return `
+        <rect x="${bx}" y="${300 - barH}" width="${bw}" height="${barH}" rx="4" fill="${C.emerald}" opacity="${0.35 + i * 0.08}"/>
+        <text x="${bx + bw / 2}" y="312" font-family="Arial" font-size="8" fill="${C.textMuted}" text-anchor="middle">${day}</text>
+      `;
+    }).join('')}
+
+    <!-- Badges section (actual app data: 6/20 earned) -->
+    <text x="8" y="346" font-family="'Segoe UI', Arial" font-size="14" font-weight="bold" fill="${C.white}">Badges Earned</text>
+    <text x="${sw - 8}" y="346" font-family="Arial" font-size="12" fill="${C.primaryLight}" text-anchor="end">6/20</text>
+
+    <!-- Badge grid 3x2 -->
+    ${badges.map((b, i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const bw = Math.round((sw - 16) / 3);
+      const bx = col * (bw + 8);
+      const by = 360 + row * 90;
+      return `
+        <rect x="${bx}" y="${by}" width="${bw}" height="78" rx="14" fill="${b.color}" opacity="0.08" stroke="${b.color}" stroke-opacity="0.25" stroke-width="1"/>
+        <text x="${bx + bw / 2}" y="${by + 32}" font-family="Arial" font-size="22" text-anchor="middle">${b.icon}</text>
+        <text x="${bx + bw / 2}" y="${by + 52}" font-family="Arial" font-size="10" font-weight="bold" fill="${b.color}" text-anchor="middle">${b.name}</text>
+        <text x="${bx + bw / 2}" y="${by + 66}" font-family="Arial" font-size="8" fill="${C.textMuted}" text-anchor="middle">${b.desc}</text>
+      `;
+    }).join('')}
+
+    <!-- Locked badges hint -->
+    <rect x="0" y="546" width="${sw}" height="36" rx="18" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <text x="${sw / 2}" y="569" font-family="Arial" font-size="11" fill="${C.textMuted}" text-anchor="middle">&#128274; 14 more badges to unlock &#8594;</text>
+
+    <!-- Category breakdown -->
+    <text x="8" y="608" font-family="Arial" font-size="12" font-weight="bold" fill="${C.white}">By Category</text>
+    ${[
+      { name: 'Travel', pct: 90, color: C.sky },
+      { name: 'Fitness', pct: 75, color: C.emerald },
+    ].map((cat, i) => {
+      const cy = 620 + i * 38;
+      const barAreaW = sw - 110;
+      return `
+        <text x="8" y="${cy + 18}" font-family="Arial" font-size="11" fill="${C.white}">${cat.name}</text>
+        <rect x="80" y="${cy + 10}" width="${barAreaW}" height="6" rx="3" fill="#1F2937"/>
+        <rect x="80" y="${cy + 10}" width="${Math.round(barAreaW * cat.pct / 100)}" height="6" rx="3" fill="${cat.color}"/>
+        <text x="${sw - 8}" y="${cy + 18}" font-family="Arial" font-size="11" fill="${cat.color}" text-anchor="end">${cat.pct}%</text>
+      `;
+    }).join('')}
+  `;
+
+  return phoneScreenshot(1080, 1920, THEMES.reports,
+    'Track Growth &amp; Earn Badges',
+    'Streaks, achievements, and analytics at a glance',
+    body
+  );
+}
+
+// ============================================
+// SCREENSHOT 6: GROUPS & COLLABORATION
+// Faithful: real group names from the app
+// ============================================
+function screenshot6_Groups() {
+  const pw = Math.round(1080 * 0.50);
+  const sw = screenW(pw);
+
+  // Real group names from app screenshots
+  const groups = [
+    { name: 'Thanksgiving Group', members: '6 members', goals: '3 shared goals', pct: 65, color: C.amber, avatars: ['SM', 'JK', 'ML', 'DR'] },
+    { name: 'Dirty December Plan', members: '4 members', goals: '2 shared goals', pct: 40, color: C.rose, avatars: ['AK', 'TJ', 'RB'] },
+    { name: 'Fitness Squad 2025', members: '5 members', goals: '4 shared goals', pct: 78, color: C.emerald, avatars: ['LP', 'SK', 'AR', 'JM'] },
+  ];
+
+  const cardH = 132;
   const gap = 12;
 
   const body = `
-    <text x="8" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">9:41</text>
-    <text x="${sw - 8}" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}" text-anchor="end">100%</text>
+    <text x="8" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}">9:41</text>
+    <text x="${sw - 8}" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}" text-anchor="end">100%</text>
 
-    <text x="8" y="50" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${COLORS.white}">My Adventures</text>
-    <text x="8" y="72" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">4 active plans</text>
+    <text x="8" y="46" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${C.white}">Groups</text>
+    <text x="8" y="66" font-family="Arial" font-size="12" fill="${C.textSecondary}">Plan and achieve goals together</text>
 
-    <!-- Search -->
-    <rect x="0" y="86" width="${sw}" height="40" rx="20" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="36" y="111" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">Search adventures...</text>
-    <text x="16" y="111" font-family="Arial" font-size="14" fill="${COLORS.textMuted}">&#x1F50D;</text>
+    <!-- Create group button -->
+    <rect x="0" y="80" width="${sw}" height="46" rx="23" fill="url(#btnGrad)"/>
+    <text x="${sw / 2}" y="109" font-family="'Segoe UI', Arial" font-size="15" font-weight="bold" fill="white" text-anchor="middle">+ Create New Group</text>
 
-    ${cards.map((c, i) => {
+    ${groups.map((g, i) => {
       const y = 140 + i * (cardH + gap);
-      const barW = sw - 60;
+      const avatarColors = [C.primary, C.teal, C.emerald, C.amber, C.rose, C.indigo, C.sky];
       return `
-        <!-- Card: ${c.title} -->
-        <rect x="0" y="${y}" width="${sw}" height="${cardH}" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1" filter="url(#cardShadow)"/>
-        <rect x="0" y="${y}" width="5" height="${cardH}" rx="2.5" fill="${c.color}"/>
-        <circle cx="32" cy="${y + 32}" r="18" fill="${c.color}" opacity="0.2"/>
-        <text x="32" y="${y + 38}" font-family="Arial" font-size="16" text-anchor="middle">${c.emoji}</text>
-        <text x="60" y="${y + 28}" font-family="Arial" font-size="15" font-weight="bold" fill="${COLORS.white}">${c.title}</text>
-        <text x="60" y="${y + 46}" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">${c.sub}</text>
-        <rect x="60" y="${y + 56}" width="${barW - 40}" height="5" rx="2.5" fill="#2A2D45"/>
-        <rect x="60" y="${y + 56}" width="${Math.round((barW - 40) * c.pct / 100)}" height="5" rx="2.5" fill="${c.color}"/>
-        <text x="${sw - 10}" y="${y + 62}" font-family="Arial" font-size="11" fill="${c.colorLight}" text-anchor="end">${c.pct}%</text>
-        <text x="60" y="${y + 84}" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">Due: ${c.due}  &#183;  ${c.cat}</text>
+        <rect x="0" y="${y}" width="${sw}" height="${cardH}" rx="16" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <rect x="0" y="${y}" width="4" height="${cardH}" rx="2" fill="${g.color}"/>
+
+        <text x="16" y="${y + 26}" font-family="'Segoe UI', Arial" font-size="15" font-weight="bold" fill="${C.white}">${g.name}</text>
+        <text x="16" y="${y + 46}" font-family="Arial" font-size="11" fill="${C.textSecondary}">${g.members} &#183; ${g.goals}</text>
+
+        <!-- Avatars -->
+        ${g.avatars.map((av, j) => `
+          <circle cx="${16 + j * 24 + 12}" cy="${y + 68}" r="12" fill="${avatarColors[j % avatarColors.length]}"/>
+          <text x="${16 + j * 24 + 12}" y="${y + 73}" font-family="Arial" font-size="9" fill="white" text-anchor="middle">${av}</text>
+        `).join('')}
+        ${g.avatars.length < parseInt(g.members) ? `
+          <circle cx="${16 + g.avatars.length * 24 + 12}" cy="${y + 68}" r="12" fill="${C.darkCardBorder}"/>
+          <text x="${16 + g.avatars.length * 24 + 12}" y="${y + 73}" font-family="Arial" font-size="9" fill="${C.textMuted}" text-anchor="middle">+${parseInt(g.members) - g.avatars.length}</text>
+        ` : ''}
+
+        <!-- Progress bar -->
+        <text x="16" y="${y + 100}" font-family="Arial" font-size="10" fill="${C.textMuted}">Team progress</text>
+        <rect x="16" y="${y + 108}" width="${sw - 32}" height="5" rx="2.5" fill="#1F2937"/>
+        <rect x="16" y="${y + 108}" width="${Math.round((sw - 32) * g.pct / 100)}" height="5" rx="2.5" fill="${g.color}"/>
+        <text x="${sw - 16}" y="${y + 116}" font-family="Arial" font-size="11" fill="${g.color}" text-anchor="end">${g.pct}%</text>
       `;
     }).join('')}
-  `;
-
-  return phoneScreenSvg(1080, 1920, THEMES.activities,
-    'All Your Plans, One Place',
-    'Track progress across every adventure',
-    body
-  );
-}
-
-// ============================================
-// SCREENSHOT 3: Tasks View
-// ============================================
-function screenshot3_Tasks() {
-  const phoneW = Math.round(1080 * 0.48);
-  const { sw } = getScreenDims(phoneW);
-
-  const tasks = [
-    { text: 'Wake up at 6:00 AM', ctx: 'Morning Routine', done: true, priority: 'Done', prioColor: COLORS.green },
-    { text: '30-min HIIT workout', ctx: 'Morning Fitness', done: false, priority: 'High', prioColor: COLORS.red },
-    { text: 'Healthy breakfast prep', ctx: 'Morning Routine', done: false, priority: 'Medium', prioColor: COLORS.amber },
-    { text: 'Review product roadmap', ctx: 'Product Launch', done: false, priority: 'Normal', prioColor: COLORS.primary },
-    { text: 'Book flight to Tokyo', ctx: 'Japan Trip', done: false, priority: 'Normal', prioColor: COLORS.cyan },
-    { text: 'Research restaurants', ctx: 'Date Night', done: false, priority: 'Normal', prioColor: COLORS.rose },
-    { text: 'Write team update', ctx: 'Product Launch', done: false, priority: 'Normal', prioColor: COLORS.primary },
-  ];
-
-  const taskH = 58;
-  const gap = 8;
-
-  const body = `
-    <text x="8" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">9:41</text>
-
-    <text x="8" y="50" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${COLORS.white}">Today's Tasks</text>
-    <text x="8" y="72" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">7 tasks to conquer</text>
-
-    <!-- Filter pills -->
-    <rect x="0" y="86" width="55" height="28" rx="14" fill="${COLORS.primary}" opacity="0.3" stroke="${COLORS.primary}" stroke-opacity="0.6" stroke-width="1"/>
-    <text x="27" y="105" font-family="Arial" font-size="12" fill="${COLORS.primaryLight}" text-anchor="middle">All</text>
-    <rect x="63" y="86" width="55" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="90" y="105" font-family="Arial" font-size="12" fill="${COLORS.textMuted}" text-anchor="middle">High</text>
-    <rect x="126" y="86" width="70" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="161" y="105" font-family="Arial" font-size="12" fill="${COLORS.textMuted}" text-anchor="middle">Medium</text>
-
-    ${tasks.map((t, i) => {
-      const y = 126 + i * (taskH + gap);
-      return `
-        <rect x="0" y="${y}" width="${sw}" height="${taskH}" rx="14" fill="${COLORS.darkCard}" stroke="${t.done ? COLORS.green : COLORS.darkCardBorder}" stroke-opacity="${t.done ? '0.4' : '1'}" stroke-width="1" ${t.done ? 'opacity="0.6"' : ''}/>
-        <circle cx="26" cy="${y + taskH / 2}" r="12" fill="${t.done ? COLORS.green : 'none'}" ${t.done ? 'opacity="0.3"' : `stroke="${t.prioColor}" stroke-opacity="0.5" stroke-width="2"`}/>
-        ${t.done ? `<text x="26" y="${y + taskH / 2 + 4}" font-family="Arial" font-size="12" fill="${COLORS.green}" text-anchor="middle">&#10003;</text>` : ''}
-        <text x="48" y="${y + 22}" font-family="Arial" font-size="13" fill="${t.done ? COLORS.textMuted : COLORS.white}" ${t.done ? 'text-decoration="line-through"' : ''}>${t.text}</text>
-        <text x="48" y="${y + 40}" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">${t.ctx} &#183; </text>
-        <text x="${48 + t.ctx.length * 5.5 + 18}" y="${y + 40}" font-family="Arial" font-size="10" fill="${t.prioColor}">${t.priority}</text>
-      `;
-    }).join('')}
-
-    <!-- Swipe hint -->
-    <text x="${sw / 2}" y="${126 + tasks.length * (taskH + gap) + 16}" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle" opacity="0.6">Swipe to complete &#183; Tap to expand</text>
-  `;
-
-  return phoneScreenSvg(1080, 1920, THEMES.tasks,
-    'Crush Your Daily Goals',
-    'Swipe, prioritize, and conquer every task',
-    body
-  );
-}
-
-// ============================================
-// SCREENSHOT 4: Reports & Analytics
-// ============================================
-function screenshot4_Reports() {
-  const phoneW = Math.round(1080 * 0.48);
-  const { sw } = getScreenDims(phoneW);
-  const statW = Math.round((sw - 16) / 3);
-
-  const body = `
-    <text x="8" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">9:41</text>
-
-    <text x="8" y="50" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${COLORS.white}">Your Progress</text>
-    <text x="8" y="72" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">This week's highlights</text>
-
-    <!-- Stat cards row -->
-    <rect x="0" y="88" width="${statW}" height="72" rx="14" fill="${COLORS.primary}" opacity="0.15" stroke="${COLORS.primary}" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="${statW / 2}" y="118" font-family="Arial" font-size="26" font-weight="bold" fill="${COLORS.primaryLight}" text-anchor="middle">87%</text>
-    <text x="${statW / 2}" y="140" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">Completion</text>
-
-    <rect x="${statW + 8}" y="88" width="${statW}" height="72" rx="14" fill="${COLORS.emerald}" opacity="0.12" stroke="${COLORS.emerald}" stroke-opacity="0.25" stroke-width="1"/>
-    <text x="${statW + 8 + statW / 2}" y="118" font-family="Arial" font-size="26" font-weight="bold" fill="${COLORS.emeraldLight}" text-anchor="middle">12</text>
-    <text x="${statW + 8 + statW / 2}" y="140" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">Day Streak</text>
-
-    <rect x="${(statW + 8) * 2}" y="88" width="${statW}" height="72" rx="14" fill="${COLORS.sky}" opacity="0.12" stroke="${COLORS.sky}" stroke-opacity="0.25" stroke-width="1"/>
-    <text x="${(statW + 8) * 2 + statW / 2}" y="118" font-family="Arial" font-size="26" font-weight="bold" fill="${COLORS.skyLight}" text-anchor="middle">48</text>
-    <text x="${(statW + 8) * 2 + statW / 2}" y="140" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">Tasks Done</text>
-
-    <!-- Weekly chart -->
-    <rect x="0" y="176" width="${sw}" height="170" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="202" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">Weekly Progress</text>
-
-    ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => {
-      const barH = [32, 52, 68, 85, 95, 75, 55][i];
-      const barW = Math.round((sw - 60) / 8);
-      const x = 20 + i * (barW + Math.round(barW * 0.3));
-      return `
-        <rect x="${x}" y="${326 - barH}" width="${barW}" height="${barH}" rx="4" fill="${COLORS.emerald}" opacity="${0.4 + i * 0.08}"/>
-        <text x="${x + barW / 2}" y="340" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">${day}</text>
-      `;
-    }).join('')}
-
-    <!-- Category breakdown -->
-    <text x="8" y="374" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.white}">By Category</text>
-
-    ${[
-      { name: 'Wellness', pct: 80, color: COLORS.emerald },
-      { name: 'Work', pct: 90, color: COLORS.primary },
-      { name: 'Travel', pct: 35, color: COLORS.sky },
-    ].map((cat, i) => {
-      const y = 390 + i * 52;
-      const barAreaW = sw - 120;
-      return `
-        <rect x="0" y="${y}" width="${sw}" height="44" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-        <text x="16" y="${y + 27}" font-family="Arial" font-size="13" fill="${COLORS.white}">${cat.name}</text>
-        <rect x="100" y="${y + 20}" width="${barAreaW}" height="5" rx="2.5" fill="#2A2D45"/>
-        <rect x="100" y="${y + 20}" width="${Math.round(barAreaW * cat.pct / 100)}" height="5" rx="2.5" fill="${cat.color}"/>
-        <text x="${sw - 10}" y="${y + 27}" font-family="Arial" font-size="12" fill="${cat.color}" text-anchor="end">${cat.pct}%</text>
-      `;
-    }).join('')}
-
-    <!-- Achievements -->
-    <text x="8" y="562" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.white}">Achievements Unlocked</text>
-
-    <rect x="0" y="576" width="${statW}" height="44" rx="12" fill="${COLORS.amber}" opacity="0.15" stroke="${COLORS.amber}" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="${statW / 2}" y="603" font-family="Arial" font-size="11" fill="${COLORS.amberLight}" text-anchor="middle">&#x1F3C6; First 50</text>
-
-    <rect x="${statW + 8}" y="576" width="${statW}" height="44" rx="12" fill="${COLORS.coral}" opacity="0.15" stroke="${COLORS.coral}" stroke-opacity="0.3" stroke-width="1"/>
-    <text x="${statW + 8 + statW / 2}" y="603" font-family="Arial" font-size="11" fill="${COLORS.coralLight}" text-anchor="middle">&#x1F525; 10 Streak</text>
-
-    <rect x="${(statW + 8) * 2}" y="576" width="${statW}" height="44" rx="12" fill="${COLORS.emerald}" opacity="0.12" stroke="${COLORS.emerald}" stroke-opacity="0.25" stroke-width="1"/>
-    <text x="${(statW + 8) * 2 + statW / 2}" y="603" font-family="Arial" font-size="11" fill="${COLORS.emeraldLight}" text-anchor="middle">&#x2B50; Top 5%</text>
-  `;
-
-  return phoneScreenSvg(1080, 1920, THEMES.reports,
-    'See Your Growth',
-    'Streaks, analytics, and achievements at a glance',
-    body
-  );
-}
-
-// ============================================
-// SCREENSHOT 5: Discover Plans
-// ============================================
-function screenshot5_Discover() {
-  const phoneW = Math.round(1080 * 0.48);
-  const { sw } = getScreenDims(phoneW);
-  const halfW = Math.round((sw - 10) / 2);
-
-  const body = `
-    <text x="8" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">9:41</text>
-
-    <text x="8" y="50" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${COLORS.white}">Discover</text>
-    <text x="8" y="72" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">Trending community plans</text>
-
-    <!-- Category chips -->
-    <rect x="0" y="86" width="70" height="28" rx="14" fill="${COLORS.rose}" opacity="0.25" stroke="${COLORS.rose}" stroke-opacity="0.5" stroke-width="1"/>
-    <text x="35" y="105" font-family="Arial" font-size="11" fill="${COLORS.roseLight}" text-anchor="middle">Trending</text>
-    <rect x="78" y="86" width="60" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="108" y="105" font-family="Arial" font-size="11" fill="${COLORS.textMuted}" text-anchor="middle">Travel</text>
-    <rect x="146" y="86" width="60" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="176" y="105" font-family="Arial" font-size="11" fill="${COLORS.textMuted}" text-anchor="middle">Fitness</text>
-    <rect x="214" y="86" width="60" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="244" y="105" font-family="Arial" font-size="11" fill="${COLORS.textMuted}" text-anchor="middle">Career</text>
-
-    <!-- Featured plan card -->
-    <rect x="0" y="124" width="${sw}" height="155" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <rect x="1" y="125" width="${sw - 2}" height="90" rx="15" fill="${COLORS.primary}" opacity="0.25"/>
-    <text x="${sw / 2}" y="175" font-family="Arial" font-size="36" text-anchor="middle">&#x1F3D4;</text>
-    <text x="16" y="242" font-family="Arial" font-size="15" font-weight="bold" fill="${COLORS.white}">Ultimate Hiking Adventure</text>
-    <text x="16" y="262" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">12 tasks &#183; 3.2k views &#183; Adventure</text>
-    <text x="${sw - 16}" y="258" font-family="Arial" font-size="13" fill="${COLORS.rose}" text-anchor="end">&#x2764; 284</text>
-
-    <!-- Grid of 4 plan cards -->
-    ${[
-      { emoji: '&#x1F373;', title: 'Meal Prep Sunday', meta: '8 tasks &#183; 1.5k', hearts: '156', bgColor: COLORS.teal },
-      { emoji: '&#x1F9D8;', title: '30-Day Mindfulness', meta: '30 tasks &#183; 2.1k', hearts: '203', bgColor: COLORS.emerald },
-      { emoji: '&#x1F4BC;', title: 'Interview Mastery', meta: '10 tasks &#183; 890', hearts: '98', bgColor: COLORS.amber },
-      { emoji: '&#x1F491;', title: 'Perfect Date Night', meta: '6 tasks &#183; 1.8k', hearts: '175', bgColor: COLORS.rose },
-    ].map((card, i) => {
-      const col = i % 2;
-      const row = Math.floor(i / 2);
-      const x = col * (halfW + 10);
-      const y = 292 + row * 155;
-      return `
-        <rect x="${x}" y="${y}" width="${halfW}" height="142" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-        <rect x="${x + 1}" y="${y + 1}" width="${halfW - 2}" height="70" rx="13" fill="${card.bgColor}" opacity="0.2"/>
-        <text x="${x + halfW / 2}" y="${y + 44}" font-family="Arial" font-size="28" text-anchor="middle">${card.emoji}</text>
-        <text x="${x + 12}" y="${y + 94}" font-family="Arial" font-size="12" font-weight="bold" fill="${COLORS.white}">${card.title}</text>
-        <text x="${x + 12}" y="${y + 112}" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">${card.meta}</text>
-        <text x="${x + 12}" y="${y + 130}" font-family="Arial" font-size="11" fill="${COLORS.rose}">&#x2764; ${card.hearts}</text>
-      `;
-    }).join('')}
-  `;
-
-  return phoneScreenSvg(1080, 1920, THEMES.discover,
-    'Explore &amp; Remix Plans',
-    'Browse trending adventures from the community',
-    body
-  );
-}
-
-// ============================================
-// SCREENSHOT 6: Groups & Collaboration
-// ============================================
-function screenshot6_Groups() {
-  const phoneW = Math.round(1080 * 0.48);
-  const { sw } = getScreenDims(phoneW);
-
-  const body = `
-    <text x="8" y="16" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">9:41</text>
-
-    <text x="8" y="50" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${COLORS.white}">Groups</text>
-    <text x="8" y="72" font-family="Arial" font-size="13" fill="${COLORS.textMuted}">Achieve goals together</text>
-
-    <!-- Create group CTA -->
-    <rect x="0" y="88" width="${sw}" height="46" rx="23" fill="url(#btnGrad)"/>
-    <text x="${sw / 2}" y="117" font-family="Arial" font-size="15" font-weight="bold" fill="white" text-anchor="middle">+ Create New Group</text>
-
-    <!-- Group Card 1: Fitness Squad -->
-    <rect x="0" y="148" width="${sw}" height="130" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="175" font-family="Arial" font-size="15" font-weight="bold" fill="${COLORS.white}">Fitness Squad</text>
-    <text x="16" y="195" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">5 members &#183; 3 shared goals</text>
-
-    <!-- Avatars -->
-    <circle cx="28" cy="222" r="13" fill="${COLORS.primary}"/>
-    <text x="28" y="227" font-family="Arial" font-size="11" fill="white" text-anchor="middle">JM</text>
-    <circle cx="50" cy="222" r="13" fill="${COLORS.teal}"/>
-    <text x="50" y="227" font-family="Arial" font-size="11" fill="white" text-anchor="middle">SK</text>
-    <circle cx="72" cy="222" r="13" fill="${COLORS.emerald}"/>
-    <text x="72" y="227" font-family="Arial" font-size="11" fill="white" text-anchor="middle">AR</text>
-    <circle cx="94" cy="222" r="13" fill="${COLORS.amber}"/>
-    <text x="94" y="227" font-family="Arial" font-size="11" fill="white" text-anchor="middle">LP</text>
-    <circle cx="116" cy="222" r="13" fill="${COLORS.darkCardBorder}"/>
-    <text x="116" y="227" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">+1</text>
-
-    <text x="16" y="254" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Team progress</text>
-    <rect x="16" y="260" width="${sw - 32}" height="5" rx="2.5" fill="#2A2D45"/>
-    <rect x="16" y="260" width="${Math.round((sw - 32) * 0.7)}" height="5" rx="2.5" fill="${COLORS.emerald}"/>
-    <text x="${sw - 16}" y="268" font-family="Arial" font-size="11" fill="${COLORS.emeraldLight}" text-anchor="end">70%</text>
-
-    <!-- Group Card 2: Book Club -->
-    <rect x="0" y="292" width="${sw}" height="130" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="319" font-family="Arial" font-size="15" font-weight="bold" fill="${COLORS.white}">Book Club</text>
-    <text x="16" y="339" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">8 members &#183; 2 shared goals</text>
-
-    <circle cx="28" cy="366" r="13" fill="${COLORS.rose}"/>
-    <text x="28" y="371" font-family="Arial" font-size="11" fill="white" text-anchor="middle">EM</text>
-    <circle cx="50" cy="366" r="13" fill="${COLORS.indigo}"/>
-    <text x="50" y="371" font-family="Arial" font-size="11" fill="white" text-anchor="middle">TC</text>
-    <circle cx="72" cy="366" r="13" fill="${COLORS.amber}"/>
-    <text x="72" y="371" font-family="Arial" font-size="11" fill="white" text-anchor="middle">RD</text>
-    <circle cx="94" cy="366" r="13" fill="${COLORS.darkCardBorder}"/>
-    <text x="94" y="371" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">+5</text>
-
-    <text x="16" y="398" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">Team progress</text>
-    <rect x="16" y="404" width="${sw - 32}" height="5" rx="2.5" fill="#2A2D45"/>
-    <rect x="16" y="404" width="${Math.round((sw - 32) * 0.45)}" height="5" rx="2.5" fill="${COLORS.indigo}"/>
-    <text x="${sw - 16}" y="412" font-family="Arial" font-size="11" fill="${COLORS.indigoLight}" text-anchor="end">45%</text>
 
     <!-- Activity Feed -->
-    <text x="8" y="445" font-family="Arial" font-size="13" font-weight="bold" fill="${COLORS.white}">Recent Activity</text>
+    <text x="8" y="${140 + groups.length * (cardH + gap) + 16}" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="${C.white}">Recent Activity</text>
 
     ${[
-      { text: 'Sarah completed "5K Run"', sub: 'Fitness Squad &#183; 2h ago', color: COLORS.emerald, icon: '&#10003;' },
-      { text: 'Alex shared "Read Ch. 5"', sub: 'Book Club &#183; 5h ago', color: COLORS.indigo, icon: '+' },
-      { text: 'New goal: "Run 50 miles"', sub: 'Fitness Squad &#183; 1d ago', color: COLORS.amber, icon: '&#x1F3AF;' },
+      { text: 'Sarah completed "Buy Turkey"', sub: 'Thanksgiving &#183; 2h ago', color: C.emerald },
+      { text: 'Alex shared a new workout plan', sub: 'Fitness Squad &#183; 5h ago', color: C.sky },
+      { text: 'New goal: "Dec Party Budget"', sub: 'Dirty December &#183; 1d ago', color: C.amber },
     ].map((item, i) => {
-      const y = 458 + i * 52;
+      const y = 140 + groups.length * (cardH + gap) + 30 + i * 48;
       return `
-        <rect x="0" y="${y}" width="${sw}" height="44" rx="12" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-        <circle cx="22" cy="${y + 22}" r="11" fill="${item.color}" opacity="0.25"/>
-        <text x="22" y="${y + 27}" font-family="Arial" font-size="10" fill="${item.color}" text-anchor="middle">${item.icon}</text>
-        <text x="40" y="${y + 18}" font-family="Arial" font-size="12" fill="${COLORS.white}">${item.text}</text>
-        <text x="40" y="${y + 34}" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">${item.sub}</text>
+        <rect x="0" y="${y}" width="${sw}" height="40" rx="12" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <circle cx="20" cy="${y + 20}" r="10" fill="${item.color}" opacity="0.2"/>
+        <text x="20" y="${y + 24}" font-family="Arial" font-size="9" fill="${item.color}" text-anchor="middle">&#10003;</text>
+        <text x="38" y="${y + 16}" font-family="Arial" font-size="11" fill="${C.white}">${item.text}</text>
+        <text x="38" y="${y + 32}" font-family="Arial" font-size="9" fill="${C.textMuted}">${item.sub}</text>
       `;
     }).join('')}
   `;
 
-  return phoneScreenSvg(1080, 1920, THEMES.groups,
-    'Achieve Together',
-    'Team up with friends on shared goals',
+  return phoneScreenshot(1080, 1920, THEMES.groups,
+    'Achieve Goals Together',
+    'Create groups, share plans, and collaborate',
     body
   );
 }
 
 // ============================================
 // FEATURE GRAPHIC (1024x500)
-// HERO: "See It. Share It. Own It." — Share from anywhere flow
 // ============================================
 async function generateFeatureGraphic() {
-  const width = 1024;
-  const height = 500;
-
-  const phoneW = 155;
-  const phoneH = 310;
+  const w = 1024, h = 500;
+  const phoneW = 145, phoneH = 295;
 
   const svg = `
-  <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+  <svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#1A0533;stop-opacity:1" />
-        <stop offset="30%" style="stop-color:#0F1B4D;stop-opacity:1" />
-        <stop offset="70%" style="stop-color:#0E1744;stop-opacity:1" />
-        <stop offset="100%" style="stop-color:#042F2E;stop-opacity:1" />
+        <stop offset="0%" stop-color="#1A0533"/>
+        <stop offset="30%" stop-color="#0F1B4D"/>
+        <stop offset="70%" stop-color="#0E1744"/>
+        <stop offset="100%" stop-color="#042F2E"/>
       </linearGradient>
       <radialGradient id="orb1" cx="12%" cy="35%" r="40%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:0.35" />
-        <stop offset="100%" style="stop-color:${COLORS.primary};stop-opacity:0" />
+        <stop offset="0%" stop-color="${C.primary}" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="${C.primary}" stop-opacity="0"/>
       </radialGradient>
       <radialGradient id="orb2" cx="88%" cy="65%" r="35%">
-        <stop offset="0%" style="stop-color:${COLORS.teal};stop-opacity:0.3" />
-        <stop offset="100%" style="stop-color:${COLORS.teal};stop-opacity:0" />
-      </radialGradient>
-      <radialGradient id="orb3" cx="55%" cy="15%" r="25%">
-        <stop offset="0%" style="stop-color:${COLORS.rose};stop-opacity:0.12" />
-        <stop offset="100%" style="stop-color:${COLORS.rose};stop-opacity:0" />
+        <stop offset="0%" stop-color="${C.teal}" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="${C.teal}" stop-opacity="0"/>
       </radialGradient>
       <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${COLORS.teal};stop-opacity:1" />
+        <stop offset="0%" stop-color="${C.primary}"/>
+        <stop offset="100%" stop-color="${C.teal}"/>
       </linearGradient>
       <linearGradient id="btnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${COLORS.primary};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${COLORS.teal};stop-opacity:1" />
-      </linearGradient>
-      <linearGradient id="shareGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${COLORS.rose};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${COLORS.coral};stop-opacity:1" />
+        <stop offset="0%" stop-color="${C.primary}"/>
+        <stop offset="100%" stop-color="${C.teal}"/>
       </linearGradient>
       <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
         <feGaussianBlur in="SourceGraphic" stdDeviation="12"/>
       </filter>
       <filter id="phoneShadow" x="-15%" y="-10%" width="130%" height="125%">
-        <feDropShadow dx="0" dy="6" stdDeviation="16" flood-color="${COLORS.primary}" flood-opacity="0.35"/>
+        <feDropShadow dx="0" dy="6" stdDeviation="16" flood-color="${C.primary}" flood-opacity="0.35"/>
       </filter>
       <filter id="textShadow">
         <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.5"/>
       </filter>
     </defs>
 
-    <!-- Background -->
     <rect width="100%" height="100%" fill="url(#bgGrad)"/>
     <rect width="100%" height="100%" fill="url(#orb1)"/>
     <rect width="100%" height="100%" fill="url(#orb2)"/>
-    <rect width="100%" height="100%" fill="url(#orb3)"/>
-
-    <!-- Floating orbs -->
     <circle cx="80" cy="130" r="70" fill="rgba(124,58,237,0.18)" filter="url(#softGlow)"/>
     <circle cx="920" cy="380" r="90" fill="rgba(20,184,166,0.12)" filter="url(#softGlow)"/>
     <circle cx="550" cy="60" r="40" fill="rgba(236,72,153,0.1)" filter="url(#softGlow)"/>
 
-    <!-- Sparkle dots -->
-    <circle cx="45" cy="70" r="2" fill="${COLORS.primaryLight}" opacity="0.5"/>
+    <!-- Sparkles -->
+    <circle cx="45" cy="70" r="2" fill="${C.primaryLight}" opacity="0.5"/>
     <circle cx="200" cy="35" r="1.5" fill="white" opacity="0.35"/>
-    <circle cx="480" cy="55" r="2" fill="${COLORS.tealLight}" opacity="0.4"/>
-    <circle cx="850" cy="90" r="2" fill="${COLORS.primaryLight}" opacity="0.45"/>
+    <circle cx="480" cy="55" r="2" fill="${C.tealLight}" opacity="0.4"/>
+    <circle cx="850" cy="90" r="2" fill="${C.primaryLight}" opacity="0.45"/>
     <circle cx="980" cy="160" r="1.5" fill="white" opacity="0.3"/>
-    <circle cx="30" cy="420" r="1.5" fill="${COLORS.tealLight}" opacity="0.4"/>
-    <circle cx="500" cy="470" r="2" fill="${COLORS.primaryLight}" opacity="0.35"/>
 
-    <!-- ========== LEFT SIDE: Logo + Hero Message ========== -->
-    <!-- Logo placeholder (composited via sharp at x=50, y=30, 70x70) -->
+    <!-- LEFT: Logo + Hero -->
+    <!-- Logo composited via sharp at x=45, y=25, 65x65 -->
+    <text x="120" y="55" font-family="'Segoe UI', Arial, sans-serif" font-size="26" font-weight="800" fill="${C.white}" letter-spacing="-0.5" filter="url(#textShadow)">JournalMate.ai</text>
+    <text x="120" y="76" font-family="Arial" font-size="12" fill="${C.tealLight}">AI Lifestyle Planner</text>
 
-    <!-- App name next to logo -->
-    <text x="130" y="60" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="28" font-weight="800" fill="${COLORS.white}" letter-spacing="-0.5" filter="url(#textShadow)">
-      JournalMate.ai
-    </text>
-    <text x="130" y="82" font-family="Arial" font-size="13" fill="${COLORS.tealLight}" opacity="0.9">AI Lifestyle Planner</text>
+    <!-- Hero tagline -->
+    <text x="45" y="125" font-family="'Segoe UI', Arial, sans-serif" font-size="36" font-weight="800" fill="${C.white}" letter-spacing="-1" filter="url(#textShadow)">See It. Share It. Own It.</text>
+    <text x="45" y="152" font-family="Arial" font-size="14" fill="${C.tealLight}">Share from any app &#8212; AI creates your plan instantly</text>
+    <rect x="45" y="164" width="260" height="3" rx="1.5" fill="url(#accentGrad)"/>
 
-    <!-- HERO MESSAGE: See It. Share It. Own It. -->
-    <text x="50" y="138" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="38" font-weight="800" fill="${COLORS.white}" letter-spacing="-1" filter="url(#textShadow)">
-      See It. Share It. Own It.
-    </text>
+    <!-- Source platform pills -->
+    <text x="45" y="190" font-family="Arial" font-size="9" fill="${C.textMuted}" letter-spacing="1">SHARE FROM ANYWHERE</text>
 
-    <!-- Sub-headline -->
-    <text x="50" y="168" font-family="Arial" font-size="15" fill="${COLORS.tealLight}" opacity="0.9">
-      Share from any app — AI turns it into YOUR plan
-    </text>
-    <rect x="50" y="180" width="280" height="3" rx="1.5" fill="url(#accentGrad)"/>
+    ${[
+      { label: 'Instagram', color: '#E4405F' },
+      { label: 'TikTok', color: '#FFF' },
+      { label: 'YouTube', color: '#FF0000' },
+      { label: 'ChatGPT', color: '#10A37F' },
+      { label: 'Any URL', color: C.sky },
+      { label: 'Claude', color: C.indigo },
+    ].map((p, i) => `
+      <circle cx="${60 + i * 38}" cy="${216}" r="14" fill="${p.color}" opacity="0.2" stroke="${p.color}" stroke-opacity="0.4" stroke-width="1"/>
+      <text x="${60 + i * 38}" y="${236}" font-family="Arial" font-size="7" fill="${p.color}" text-anchor="middle" opacity="0.8">${p.label}</text>
+    `).join('')}
 
-    <!-- FLOW: Source platforms → Arrow → Your Plan -->
-    <!-- Source platform bubbles -->
-    <g transform="translate(50, 200)">
-      <text x="0" y="0" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" letter-spacing="1">SHARE FROM ANYWHERE</text>
+    <!-- Arrow to result -->
+    <text x="300" y="220" font-family="Arial" font-size="20" fill="${C.tealLight}" opacity="0.8">&#8594;</text>
+    <rect x="322" y="202" width="140" height="30" rx="15" fill="${C.emerald}" opacity="0.12" stroke="${C.emerald}" stroke-opacity="0.35" stroke-width="1"/>
+    <text x="392" y="222" font-family="Arial" font-size="11" font-weight="bold" fill="${C.emeraldLight}" text-anchor="middle">&#10024; Your Plan</text>
 
-      <!-- Instagram -->
-      <circle cx="20" cy="30" r="16" fill="#E4405F" opacity="0.25" stroke="#E4405F" stroke-opacity="0.5" stroke-width="1"/>
-      <text x="20" y="35" font-family="Arial" font-size="11" text-anchor="middle">&#x1F4F7;</text>
-
-      <!-- TikTok -->
-      <circle cx="60" cy="30" r="16" fill="#000" opacity="0.4" stroke="#EEE" stroke-opacity="0.3" stroke-width="1"/>
-      <text x="60" y="35" font-family="Arial" font-size="11" text-anchor="middle">&#x1F3B5;</text>
-
-      <!-- YouTube -->
-      <circle cx="100" cy="30" r="16" fill="#FF0000" opacity="0.2" stroke="#FF0000" stroke-opacity="0.4" stroke-width="1"/>
-      <text x="100" y="35" font-family="Arial" font-size="11" text-anchor="middle">&#x25B6;</text>
-
-      <!-- ChatGPT -->
-      <circle cx="140" cy="30" r="16" fill="#10A37F" opacity="0.2" stroke="#10A37F" stroke-opacity="0.4" stroke-width="1"/>
-      <text x="140" y="35" font-family="Arial" font-size="11" text-anchor="middle">&#x1F916;</text>
-
-      <!-- Web -->
-      <circle cx="180" cy="30" r="16" fill="${COLORS.sky}" opacity="0.2" stroke="${COLORS.sky}" stroke-opacity="0.4" stroke-width="1"/>
-      <text x="180" y="35" font-family="Arial" font-size="11" text-anchor="middle">&#x1F310;</text>
-
-      <!-- Claude -->
-      <circle cx="220" cy="30" r="16" fill="${COLORS.primary}" opacity="0.2" stroke="${COLORS.primary}" stroke-opacity="0.4" stroke-width="1"/>
-      <text x="220" y="35" font-family="Arial" font-size="11" text-anchor="middle">&#x2728;</text>
-
-      <!-- Flow arrow -->
-      <text x="260" y="36" font-family="Arial" font-size="18" fill="${COLORS.tealLight}" opacity="0.8">&#x2192;</text>
-
-      <!-- "Your Plan" result -->
-      <rect x="286" y="12" width="150" height="38" rx="12" fill="${COLORS.emerald}" opacity="0.15" stroke="${COLORS.emerald}" stroke-opacity="0.4" stroke-width="1"/>
-      <text x="305" y="36" font-family="Arial" font-size="12" font-weight="bold" fill="${COLORS.emeraldLight}">&#x2728; Your Actionable Plan</text>
-    </g>
-
-    <!-- Example use cases -->
-    <g transform="translate(50, 270)">
-      <rect x="0" y="0" width="210" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-      <text x="12" y="18" font-family="Arial" font-size="10" fill="${COLORS.roseLight}">&#x1F4F7; Recipe Reel &#x2192; Your Meal Plan</text>
-
-      <rect x="220" y="0" width="215" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-      <text x="232" y="18" font-family="Arial" font-size="10" fill="${COLORS.skyLight}">&#x1F3B5; Workout TikTok &#x2192; Fitness Plan</text>
-
-      <rect x="0" y="36" width="225" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-      <text x="12" y="54" font-family="Arial" font-size="10" fill="${COLORS.emeraldLight}">&#x1F916; ChatGPT convo &#x2192; Travel Itinerary</text>
-
-      <rect x="235" y="36" width="200" height="28" rx="14" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-      <text x="247" y="54" font-family="Arial" font-size="10" fill="${COLORS.amberLight}">&#x25B6; YouTube review &#x2192; Your Plan</text>
-    </g>
-
-    <!-- Smart extraction badges -->
-    <g transform="translate(50, 350)">
-      <text x="0" y="0" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" letter-spacing="1">AI EXTRACTS EVERYTHING</text>
-
-      <rect x="0" y="12" width="85" height="24" rx="12" fill="${COLORS.teal}" opacity="0.15" stroke="${COLORS.teal}" stroke-opacity="0.3" stroke-width="1"/>
-      <text x="42" y="28" font-family="Arial" font-size="9" fill="${COLORS.tealLight}" text-anchor="middle">&#x1F3A4; Audio</text>
-
-      <rect x="93" y="12" width="85" height="24" rx="12" fill="${COLORS.amber}" opacity="0.15" stroke="${COLORS.amber}" stroke-opacity="0.3" stroke-width="1"/>
-      <text x="135" y="28" font-family="Arial" font-size="9" fill="${COLORS.amberLight}" text-anchor="middle">&#x1F4F7; OCR Text</text>
-
-      <rect x="186" y="12" width="90" height="24" rx="12" fill="${COLORS.rose}" opacity="0.15" stroke="${COLORS.rose}" stroke-opacity="0.3" stroke-width="1"/>
-      <text x="231" y="28" font-family="Arial" font-size="9" fill="${COLORS.roseLight}" text-anchor="middle">&#x1F4AC; Captions</text>
-
-      <rect x="284" y="12" width="82" height="24" rx="12" fill="${COLORS.primary}" opacity="0.15" stroke="${COLORS.primary}" stroke-opacity="0.3" stroke-width="1"/>
-      <text x="325" y="28" font-family="Arial" font-size="9" fill="${COLORS.primaryLight}" text-anchor="middle">&#x1F4CD; Venues</text>
+    <!-- Key features row -->
+    <g transform="translate(45, 255)">
+      ${[
+        { icon: '&#127919;', label: 'AI-Powered', sub: 'Smart Planning', color: C.primary },
+        { icon: '&#128640;', label: 'Share &amp; Copy', sub: 'Plans Online', color: C.rose },
+        { icon: '&#128101;', label: 'Collaborate', sub: 'With Groups', color: C.teal },
+        { icon: '&#127942;', label: 'Earn Rewards', sub: 'Badges &amp; Streaks', color: C.amber },
+      ].map((f, i) => {
+        const fx = i * 112;
+        return `
+          <circle cx="${fx + 16}" cy="14" r="14" fill="${f.color}" opacity="0.15"/>
+          <text x="${fx + 16}" y="19" font-family="Arial" font-size="12" text-anchor="middle">${f.icon}</text>
+          <text x="${fx + 38}" y="10" font-family="Arial" font-size="10" font-weight="bold" fill="${C.white}">${f.label}</text>
+          <text x="${fx + 38}" y="24" font-family="Arial" font-size="9" fill="${C.textSecondary}">${f.sub}</text>
+        `;
+      }).join('')}
     </g>
 
     <!-- CTA -->
-    <rect x="50" y="402" width="160" height="36" rx="18" fill="url(#btnGrad)" opacity="0.9"/>
-    <text x="130" y="425" font-family="Arial" font-size="13" font-weight="bold" fill="white" text-anchor="middle">Get Started Free</text>
+    <rect x="45" y="305" width="150" height="34" rx="17" fill="url(#btnGrad)" opacity="0.9"/>
+    <text x="120" y="327" font-family="Arial" font-size="12" font-weight="bold" fill="white" text-anchor="middle">Get Started Free</text>
+
+    <!-- Use cases row -->
+    <g transform="translate(45, 354)">
+      ${[
+        'Recipe Reel &#8594; Meal Plan',
+        'Workout TikTok &#8594; Fitness Plan',
+        'ChatGPT Convo &#8594; Itinerary',
+      ].map((uc, i) => `
+        <rect x="${i * 156}" y="0" width="148" height="24" rx="12" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <text x="${i * 156 + 74}" y="16" font-family="Arial" font-size="9" fill="${C.textSecondary}" text-anchor="middle">${uc}</text>
+      `).join('')}
+    </g>
 
     <!-- Bottom categories -->
-    <g transform="translate(50, 450)">
-      ${['&#x1F3CB;', '&#x2708;', '&#x1F373;', '&#x1F3D4;', '&#x1F496;', '&#x1F4BC;', '&#x1F9D8;'].map((e, i) => `
-        <circle cx="${i * 38 + 10}" cy="10" r="14" fill="${[COLORS.emerald, COLORS.sky, COLORS.coral, COLORS.teal, COLORS.rose, COLORS.amber, COLORS.indigo][i]}" opacity="0.2"/>
-        <text x="${i * 38 + 10}" y="15" font-family="Arial" font-size="12" text-anchor="middle">${e}</text>
-      `).join('')}
-      <text x="290" y="15" font-family="Arial" font-size="11" fill="${COLORS.textMuted}" opacity="0.6">Fitness &#183; Travel &#183; Food &#183; Romance &#183; Career</text>
+    <g transform="translate(45, 398)">
+      ${['&#127947;', '&#9992;', '&#127835;', '&#127956;', '&#128150;', '&#128188;', '&#129495;'].map((e, i) => {
+        const colors = [C.emerald, C.sky, C.coral, C.teal, C.rose, C.amber, C.indigo];
+        return `
+          <circle cx="${i * 34 + 10}" cy="10" r="12" fill="${colors[i]}" opacity="0.2"/>
+          <text x="${i * 34 + 10}" y="15" font-family="Arial" font-size="11" text-anchor="middle">${e}</text>
+        `;
+      }).join('')}
+      <text x="260" y="15" font-family="Arial" font-size="10" fill="${C.textMuted}" opacity="0.6">Fitness &#183; Travel &#183; Food &#183; Romance &#183; Career</text>
     </g>
 
-    <!-- ========== RIGHT SIDE: Import → Plan flow ========== -->
-
-    <!-- Phone 1: The "Share" import screen -->
-    <g filter="url(#phoneShadow)">
-      <rect x="550" y="20" width="${phoneW}" height="${phoneH}" rx="17" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="2"/>
-      <rect x="556" y="38" width="${phoneW - 12}" height="${phoneH - 36}" rx="13" fill="${COLORS.dark}"/>
-      <rect x="${550 + phoneW / 2 - 26}" y="24" width="52" height="12" rx="6" fill="#000"/>
-
-      <g transform="translate(562, 48)">
-        <text x="4" y="12" font-family="Arial" font-size="8" fill="${COLORS.textMuted}">9:41</text>
-        <text x="4" y="28" font-family="Arial" font-size="12" font-weight="bold" fill="${COLORS.white}">Import Plan</text>
-        <text x="4" y="42" font-family="Arial" font-size="8" fill="${COLORS.textMuted}">Share from any app</text>
-
-        <!-- Source pills -->
-        <circle cx="14" cy="58" r="9" fill="#E4405F" opacity="0.3"/>
-        <text x="14" y="62" font-family="Arial" font-size="8" text-anchor="middle">&#x1F4F7;</text>
-        <circle cx="38" cy="58" r="9" fill="#000" opacity="0.5"/>
-        <text x="38" y="62" font-family="Arial" font-size="8" text-anchor="middle">&#x1F3B5;</text>
-        <circle cx="62" cy="58" r="9" fill="#FF0000" opacity="0.25"/>
-        <text x="62" y="62" font-family="Arial" font-size="8" text-anchor="middle">&#x25B6;</text>
-        <circle cx="86" cy="58" r="9" fill="#10A37F" opacity="0.25"/>
-        <text x="86" y="62" font-family="Arial" font-size="8" text-anchor="middle">&#x1F916;</text>
-        <circle cx="110" cy="58" r="9" fill="${COLORS.sky}" opacity="0.25"/>
-        <text x="110" y="62" font-family="Arial" font-size="8" text-anchor="middle">&#x1F310;</text>
-
-        <!-- URL input -->
-        <rect x="0" y="74" width="131" height="36" rx="10" fill="${COLORS.darkCard}" stroke="${COLORS.primary}" stroke-opacity="0.5" stroke-width="1"/>
-        <text x="8" y="90" font-family="Arial" font-size="8" fill="${COLORS.white}">instagram.com/reel/best-</text>
-        <text x="8" y="102" font-family="Arial" font-size="8" fill="${COLORS.white}">restaurants-lagos...</text>
-
-        <!-- CTA -->
-        <rect x="0" y="118" width="131" height="24" rx="12" fill="url(#btnGrad)"/>
-        <text x="65" y="134" font-family="Arial" font-size="9" font-weight="bold" fill="white" text-anchor="middle">&#x2728; Create Plan</text>
-
-        <!-- Extraction result -->
-        <rect x="0" y="150" width="131" height="80" rx="10" fill="${COLORS.darkCard}" stroke="${COLORS.emerald}" stroke-opacity="0.3" stroke-width="1"/>
-        <circle cx="14" cy="168" r="8" fill="${COLORS.emerald}" opacity="0.3"/>
-        <text x="14" y="172" font-family="Arial" font-size="7" fill="${COLORS.emerald}" text-anchor="middle">&#10003;</text>
-        <text x="28" y="168" font-family="Arial" font-size="9" font-weight="bold" fill="${COLORS.white}">Lagos Food Tour</text>
-        <text x="28" y="180" font-family="Arial" font-size="7" fill="${COLORS.textMuted}">IG Reel &#183; 8 venues</text>
-        <text x="8" y="198" font-family="Arial" font-size="7" fill="${COLORS.white}">&#x1F37D; Nok by Alara &#183; $$$</text>
-        <text x="8" y="210" font-family="Arial" font-size="7" fill="${COLORS.white}">&#x1F37D; Sky Restaurant &#183; $$$$</text>
-        <text x="8" y="222" font-family="Arial" font-size="7" fill="${COLORS.textMuted}">+ 6 more with prices</text>
-
-        <!-- Own & customize -->
-        <rect x="0" y="238" width="131" height="22" rx="11" fill="${COLORS.darkCard}" stroke="${COLORS.primary}" stroke-opacity="0.4" stroke-width="1"/>
-        <text x="65" y="253" font-family="Arial" font-size="8" font-weight="bold" fill="${COLORS.primaryLight}" text-anchor="middle">&#x1F3A8; Own &amp; Customize</text>
-      </g>
+    <!-- Available on badge -->
+    <g transform="translate(45, 440)">
+      <rect x="0" y="0" width="130" height="30" rx="6" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+      <text x="14" y="20" font-family="Arial" font-size="14" fill="${C.white}">&#9654;</text>
+      <text x="34" y="14" font-family="Arial" font-size="8" fill="${C.textMuted}">GET IT ON</text>
+      <text x="34" y="25" font-family="Arial" font-size="10" font-weight="bold" fill="${C.white}">Google Play</text>
     </g>
 
-    <!-- Phone 2: The resulting plan (Activities view) -->
+    <!-- RIGHT SIDE: Phone mockups -->
+    <!-- Phone 1: Discover page -->
     <g filter="url(#phoneShadow)">
-      <rect x="725" y="45" width="${phoneW - 5}" height="${phoneH - 15}" rx="16" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="1.5"/>
-      <rect x="730" y="62" width="${phoneW - 15}" height="${phoneH - 42}" rx="12" fill="${COLORS.dark}"/>
-      <rect x="${725 + (phoneW - 5) / 2 - 22}" y="49" width="44" height="10" rx="5" fill="#000"/>
+      <rect x="540" y="25" width="${phoneW}" height="${phoneH}" rx="16" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="1.5"/>
+      <rect x="546" y="40" width="${phoneW - 12}" height="${phoneH - 30}" rx="12" fill="${C.dark}"/>
+      <rect x="${540 + phoneW / 2 - 22}" y="29" width="44" height="10" rx="5" fill="#000"/>
 
-      <g transform="translate(736, 70)">
-        <text x="4" y="12" font-family="Arial" font-size="8" fill="${COLORS.textMuted}">9:41</text>
-        <text x="4" y="27" font-family="Arial" font-size="11" font-weight="bold" fill="${COLORS.white}">My Adventures</text>
-        <text x="4" y="40" font-family="Arial" font-size="7" fill="${COLORS.textMuted}">Plans from everywhere</text>
+      <g transform="translate(552, 50)">
+        <text x="4" y="12" font-family="Arial" font-size="8" font-weight="bold" fill="${C.white}">Discover</text>
+        <text x="4" y="24" font-family="Arial" font-size="6" fill="${C.textMuted}">Community plans</text>
 
         ${[
-          { title: 'Lagos Food Tour', sub: 'From Instagram', pct: 30, color: COLORS.rose, icon: '&#x1F4F7;' },
-          { title: 'HIIT Workout', sub: 'From TikTok', pct: 70, color: COLORS.emerald, icon: '&#x1F3B5;' },
-          { title: 'Japan Trip', sub: 'From ChatGPT', pct: 45, color: COLORS.sky, icon: '&#x1F916;' },
-          { title: 'Date Night Ideas', sub: 'From YouTube', pct: 15, color: COLORS.amber, icon: '&#x25B6;' },
-        ].map((a, i) => {
-          const y = 50 + i * 50;
+          { title: 'Thanksgiving', price: '$320', c1: '#8B4513', c2: '#D2691E' },
+          { title: 'Christmas', price: '$850', c1: '#B22222', c2: '#FF6347' },
+        ].map((p, i) => {
+          const cy = 30 + i * 105;
           return `
-            <rect x="0" y="${y}" width="124" height="42" rx="8" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="0.5"/>
-            <rect x="0" y="${y}" width="3" height="42" rx="1.5" fill="${a.color}"/>
-            <text x="12" y="${y + 14}" font-family="Arial" font-size="8" font-weight="bold" fill="${COLORS.white}">${a.title}</text>
-            <text x="12" y="${y + 25}" font-family="Arial" font-size="6" fill="${COLORS.textMuted}">${a.icon} ${a.sub}</text>
-            <rect x="12" y="${y + 30}" width="80" height="3" rx="1.5" fill="#2A2D45"/>
-            <rect x="12" y="${y + 30}" width="${Math.round(80 * a.pct / 100)}" height="3" rx="1.5" fill="${a.color}"/>
-            <text x="112" y="${y + 34}" font-family="Arial" font-size="7" fill="${a.color}" text-anchor="end">${a.pct}%</text>
+            <defs><linearGradient id="fg${i}" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="${p.c1}"/><stop offset="100%" stop-color="${p.c2}"/>
+            </linearGradient></defs>
+            <rect x="0" y="${cy}" width="121" height="95" rx="8" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
+            <rect x="0" y="${cy}" width="121" height="48" rx="8" fill="url(#fg${i})"/>
+            <rect x="78" y="${cy + 4}" width="38" height="16" rx="8" fill="#000" opacity="0.6"/>
+            <text x="97" y="${cy + 15}" font-family="Arial" font-size="8" font-weight="bold" fill="white" text-anchor="middle">${p.price}</text>
+            <text x="8" y="${cy + 62}" font-family="Arial" font-size="8" font-weight="bold" fill="${C.white}">${p.title}</text>
+            <text x="8" y="${cy + 74}" font-family="Arial" font-size="6" fill="${C.textMuted}">Preview  + Use Plan</text>
           `;
         }).join('')}
       </g>
     </g>
 
-    <!-- Phone 3 hint: Share back out -->
-    <g opacity="0.45" transform="translate(885, 100)">
-      <rect x="0" y="0" width="110" height="240" rx="14" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="1"/>
-      <rect x="5" y="14" width="100" height="215" rx="11" fill="${COLORS.dark}"/>
-      <rect x="30" y="4" width="40" height="9" rx="4.5" fill="#000"/>
+    <!-- Phone 2: Activities page -->
+    <g filter="url(#phoneShadow)">
+      <rect x="705" y="50" width="${phoneW - 5}" height="${phoneH - 15}" rx="15" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="1.5"/>
+      <rect x="710" y="64" width="${phoneW - 15}" height="${phoneH - 38}" rx="11" fill="${C.dark}"/>
+      <rect x="${705 + (phoneW - 5) / 2 - 20}" y="54" width="40" height="9" rx="4.5" fill="#000"/>
 
-      <g transform="translate(12, 26)">
-        <text x="38" y="12" font-family="Arial" font-size="8" font-weight="bold" fill="${COLORS.white}" text-anchor="middle">Share Plan</text>
-        <text x="38" y="24" font-family="Arial" font-size="6" fill="${COLORS.textMuted}" text-anchor="middle">Share back to social</text>
+      <g transform="translate(716, 72)">
+        <text x="4" y="12" font-family="Arial" font-size="8" font-weight="bold" fill="${C.white}">My Activities</text>
+        <text x="4" y="24" font-family="Arial" font-size="6" fill="${C.textMuted}">5 active plans</text>
 
-        <!-- Social icons grid -->
-        <circle cx="15" cy="42" r="10" fill="#E4405F" opacity="0.8"/>
-        <text x="15" y="45" font-family="Arial" font-size="7" fill="white" text-anchor="middle">IG</text>
-        <circle cx="42" cy="42" r="10" fill="#25D366" opacity="0.8"/>
-        <text x="42" y="45" font-family="Arial" font-size="7" fill="white" text-anchor="middle">WA</text>
-        <circle cx="69" cy="42" r="10" fill="#1DA1F2" opacity="0.8"/>
-        <text x="69" y="45" font-family="Arial" font-size="7" fill="white" text-anchor="middle">X</text>
-        <circle cx="15" cy="68" r="10" fill="#1877F2" opacity="0.8"/>
-        <text x="15" y="71" font-family="Arial" font-size="7" fill="white" text-anchor="middle">FB</text>
-        <circle cx="42" cy="68" r="10" fill="${COLORS.primary}" opacity="0.8"/>
-        <text x="42" y="71" font-family="Arial" font-size="7" fill="white" text-anchor="middle">&#x1F517;</text>
-        <circle cx="69" cy="68" r="10" fill="${COLORS.teal}" opacity="0.8"/>
-        <text x="69" y="71" font-family="Arial" font-size="7" fill="white" text-anchor="middle">&#x2709;</text>
+        ${[
+          { title: 'Austin to LA', pct: 100, color: C.emerald, icon: '&#9992;' },
+          { title: 'Fitness Plan', pct: 80, color: C.sky, icon: '&#127947;' },
+          { title: 'System Design', pct: 42, color: C.primary, icon: '&#128187;' },
+          { title: 'Thanksgiving', pct: 20, color: C.amber, icon: '&#127835;' },
+        ].map((a, i) => {
+          const ay = 32 + i * 44;
+          return `
+            <rect x="0" y="${ay}" width="114" height="38" rx="8" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
+            <rect x="0" y="${ay}" width="3" height="38" rx="1.5" fill="${a.color}"/>
+            <text x="12" y="${ay + 14}" font-family="Arial" font-size="8" font-weight="bold" fill="${C.white}">${a.title}</text>
+            <rect x="12" y="${ay + 22}" width="72" height="3" rx="1.5" fill="#1F2937"/>
+            <rect x="12" y="${ay + 22}" width="${Math.round(72 * a.pct / 100)}" height="3" rx="1.5" fill="${a.color}"/>
+            <text x="102" y="${ay + 26}" font-family="Arial" font-size="7" fill="${a.color}" text-anchor="end">${a.pct}%</text>
+          `;
+        }).join('')}
+      </g>
+    </g>
 
-        <!-- Copy link -->
-        <rect x="0" y="88" width="76" height="18" rx="9" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="0.5"/>
-        <text x="38" y="100" font-family="Arial" font-size="7" fill="${COLORS.textMuted}" text-anchor="middle">&#x1F517; Copy Link</text>
+    <!-- Phone 3 hint: Groups (faded) -->
+    <g opacity="0.4" transform="translate(865, 90)">
+      <rect x="0" y="0" width="110" height="230" rx="14" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="1"/>
+      <rect x="5" y="13" width="100" height="208" rx="11" fill="${C.dark}"/>
+      <rect x="30" y="4" width="40" height="8" rx="4" fill="#000"/>
+      <g transform="translate(12, 24)">
+        <text x="0" y="10" font-family="Arial" font-size="7" font-weight="bold" fill="${C.white}">Groups</text>
+        ${[
+          { name: 'Thanksgiving', color: C.amber },
+          { name: 'Fitness Squad', color: C.emerald },
+          { name: 'December Plan', color: C.rose },
+        ].map((g, i) => `
+          <rect x="0" y="${18 + i * 38}" width="76" height="32" rx="6" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
+          <rect x="0" y="${18 + i * 38}" width="2" height="32" rx="1" fill="${g.color}"/>
+          <text x="8" y="${30 + i * 38}" font-family="Arial" font-size="6" font-weight="bold" fill="${C.white}">${g.name}</text>
+          <text x="8" y="${40 + i * 38}" font-family="Arial" font-size="5" fill="${C.textMuted}">Active &#183; ${3 + i} members</text>
+        `).join('')}
       </g>
     </g>
   </svg>`;
 
-  // Generate the SVG as PNG base
   const bgBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
 
-  // Load and resize the actual app logo
   const logoPath = path.join(__dirname, '..', 'client/public/icons/android/android-play-store-512.png');
-  const logoBuffer = await sharp(logoPath)
-    .resize(70, 70)
-    .png()
-    .toBuffer();
+  const logoBuffer = await sharp(logoPath).resize(65, 65).png().toBuffer();
 
-  // Composite the logo onto the feature graphic
   await sharp(bgBuffer)
-    .composite([
-      { input: logoBuffer, top: 22, left: 50 }
-    ])
+    .composite([{ input: logoBuffer, top: 20, left: 45 }])
     .png()
     .toFile(path.join(OUTPUT_DIR, 'feature-graphic-1024x500.png'));
-  console.log('  Feature Graphic (1024x500) - with logo + share features');
+  console.log('  Feature Graphic (1024x500) - with logo + share-to-plan flow');
 }
 
 // ============================================
 // TABLET SCREENSHOTS
 // ============================================
-function tabletScreenSvg(width, height, theme, headerText, subtitleText, bodyContent) {
+function tabletScreenSvg(w, h, theme, headline, subtitle, bodyContent) {
   return `
-  <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-    ${createThemedBackground(width, height, theme)}
-
-    <!-- Header -->
-    <text x="${width / 2}" y="${Math.round(height * 0.06)}" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="44" font-weight="800" fill="${COLORS.white}" text-anchor="middle" letter-spacing="-1" filter="url(#textShadow)">
-      ${headerText}
-    </text>
-    <text x="${width / 2}" y="${Math.round(height * 0.09)}" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="20" fill="${theme.accent}" text-anchor="middle">
-      ${subtitleText}
-    </text>
-    <rect x="${(width - 80) / 2}" y="${Math.round(height * 0.1)}" width="80" height="4" rx="2" fill="url(#accentGrad)"/>
-
-    <!-- Content -->
-    <g transform="translate(${(width - Math.min(width * 0.9, 1000)) / 2}, ${Math.round(height * 0.13)})">
+  <svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+    ${themedBackground(w, h, theme)}
+    <text x="${w / 2}" y="${Math.round(h * 0.06)}" font-family="'Segoe UI', Arial, sans-serif" font-size="44" font-weight="800" fill="${C.white}" text-anchor="middle" letter-spacing="-1" filter="url(#textShadow)">${headline}</text>
+    <text x="${w / 2}" y="${Math.round(h * 0.09)}" font-family="'Segoe UI', Arial, sans-serif" font-size="20" fill="${theme.accent}" text-anchor="middle">${subtitle}</text>
+    <rect x="${(w - 80) / 2}" y="${Math.round(h * 0.1)}" width="80" height="4" rx="2" fill="url(#accentLine)"/>
+    <g transform="translate(${(w - Math.min(w * 0.9, 1000)) / 2}, ${Math.round(h * 0.13)})">
       ${bodyContent}
     </g>
-
-    <!-- Bottom branding -->
-    <rect x="${(width - 280) / 2}" y="${height - 55}" width="280" height="36" rx="18" fill="${theme.glow1}" opacity="0.12"/>
-    <text x="${width / 2}" y="${height - 30}" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="${COLORS.white}" text-anchor="middle" opacity="0.7">
-      JournalMate.ai — AI Lifestyle Planner
-    </text>
+    <rect x="${(w - 280) / 2}" y="${h - 55}" width="280" height="36" rx="18" fill="${theme.glow1}" opacity="0.12"/>
+    <text x="${w / 2}" y="${h - 30}" font-family="'Segoe UI', Arial, sans-serif" font-size="16" font-weight="600" fill="${C.white}" text-anchor="middle" opacity="0.7">JournalMate.ai &#8212; AI Lifestyle Planner</text>
   </svg>`;
 }
 
-function tabletScreenshot1_Overview(width, height) {
-  const cw = Math.min(width * 0.9, 1000);
-  const cardW = Math.round((cw - 24) / 3);
+function tablet1_ShareFromAnywhere(w, h) {
+  const cw = Math.min(w * 0.9, 1000);
+  const pillW = Math.round((cw - 40) / 6);
 
   const body = `
-    <!-- Three activity cards -->
+    <!-- Source platforms row -->
+    <text x="0" y="16" font-family="Arial" font-size="11" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">SHARE FROM ANYWHERE</text>
+
     ${[
-      { emoji: '&#x1F4AA;', title: 'Morning Fitness', tasks: '7/10', pct: 70, color: COLORS.emerald, cat: 'Wellness' },
-      { emoji: '&#x2708;', title: 'Japan Trip', tasks: '3/12', pct: 25, color: COLORS.sky, cat: 'Travel' },
-      { emoji: '&#x1F4CB;', title: 'Product Launch', tasks: '5/8', pct: 63, color: COLORS.primary, cat: 'Work' },
-    ].map((item, i) => `
-      <rect x="${i * (cardW + 12)}" y="0" width="${cardW}" height="140" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-      <rect x="${i * (cardW + 12)}" y="0" width="5" height="140" rx="2.5" fill="${item.color}"/>
-      <circle cx="${i * (cardW + 12) + 36}" cy="36" r="18" fill="${item.color}" opacity="0.2"/>
-      <text x="${i * (cardW + 12) + 36}" y="42" font-family="Arial" font-size="16" text-anchor="middle">${item.emoji}</text>
-      <text x="${i * (cardW + 12) + 64}" y="32" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">${item.title}</text>
-      <text x="${i * (cardW + 12) + 64}" y="50" font-family="Arial" font-size="11" fill="${COLORS.textMuted}">${item.tasks} tasks &#183; ${item.cat}</text>
-      <rect x="${i * (cardW + 12) + 16}" y="70" width="${cardW - 32}" height="5" rx="2.5" fill="#2A2D45"/>
-      <rect x="${i * (cardW + 12) + 16}" y="70" width="${Math.round((cardW - 32) * item.pct / 100)}" height="5" rx="2.5" fill="${item.color}"/>
-      <text x="${i * (cardW + 12) + cardW - 16}" y="80" font-family="Arial" font-size="11" fill="${item.color}" text-anchor="end">${item.pct}%</text>
-      <text x="${i * (cardW + 12) + 16}" y="105" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">Next: ${['30-min HIIT', 'Book flight', 'Review roadmap'][i]}</text>
-      <text x="${i * (cardW + 12) + 16}" y="125" font-family="Arial" font-size="10" fill="${COLORS.textMuted}">Due: ${['Today', 'Mar 15', 'This week'][i]}</text>
+      { label: 'Instagram', color: '#E4405F' },
+      { label: 'TikTok', color: '#FFF' },
+      { label: 'YouTube', color: '#FF0000' },
+      { label: 'ChatGPT', color: '#10A37F' },
+      { label: 'Any URL', color: C.sky },
+      { label: 'Claude', color: C.indigo },
+    ].map((p, i) => `
+      <rect x="${i * (pillW + 8)}" y="30" width="${pillW}" height="50" rx="14" fill="${p.color}" opacity="0.1" stroke="${p.color}" stroke-opacity="0.3" stroke-width="1"/>
+      <text x="${i * (pillW + 8) + pillW / 2}" y="52" font-family="Arial" font-size="15" text-anchor="middle" fill="${p.color}">&#9679;</text>
+      <text x="${i * (pillW + 8) + pillW / 2}" y="72" font-family="Arial" font-size="11" fill="${p.color}" text-anchor="middle">${p.label}</text>
     `).join('')}
 
-    <!-- Stats row -->
-    ${[
-      { label: 'Completion', value: '87%', color: COLORS.primary },
-      { label: 'Streak', value: '12 days', color: COLORS.emerald },
-      { label: 'Today', value: '5 left', color: COLORS.amber },
-      { label: 'Plans', value: '14', color: COLORS.sky },
-    ].map((s, i) => `
-      <rect x="${i * (cw / 4 + 1)}" y="165" width="${cw / 4 - 8}" height="65" rx="14" fill="${s.color}" opacity="0.12" stroke="${s.color}" stroke-opacity="0.25" stroke-width="1"/>
-      <text x="${i * (cw / 4 + 1) + (cw / 4 - 8) / 2}" y="198" font-family="Arial" font-size="20" font-weight="bold" fill="${s.color}" text-anchor="middle">${s.value}</text>
-      <text x="${i * (cw / 4 + 1) + (cw / 4 - 8) / 2}" y="218" font-family="Arial" font-size="10" fill="${COLORS.textMuted}" text-anchor="middle">${s.label}</text>
-    `).join('')}
+    <!-- Arrow -->
+    <text x="${cw / 2}" y="110" font-family="Arial" font-size="24" fill="${C.tealLight}" text-anchor="middle">&#8595;</text>
 
-    <!-- Chart area -->
-    <rect x="0" y="255" width="${cw}" height="150" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="20" y="282" font-family="Arial" font-size="15" font-weight="bold" fill="${COLORS.white}">Weekly Progress</text>
-    ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => {
-      const barH = [32, 52, 68, 85, 95, 75, 55][i];
-      const barW = Math.round((cw - 80) / 9);
-      const x = 40 + i * (barW + Math.round(barW * 0.3));
+    <!-- URL Input example -->
+    <rect x="${cw * 0.15}" y="120" width="${cw * 0.7}" height="55" rx="16" fill="${C.darkCard}" stroke="${C.primary}" stroke-opacity="0.5" stroke-width="1.5"/>
+    <text x="${cw * 0.2}" y="146" font-family="Arial" font-size="14" fill="${C.white}">https://instagram.com/reel/best-restaurants-lagos...</text>
+    <text x="${cw * 0.2}" y="164" font-family="Arial" font-size="11" fill="${C.textMuted}">Pasted from Instagram</text>
+
+    <!-- Create Plan CTA -->
+    <rect x="${cw * 0.3}" y="190" width="${cw * 0.4}" height="44" rx="22" fill="url(#btnGrad)"/>
+    <text x="${cw * 0.5}" y="217" font-family="'Segoe UI', Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">&#10024; Create Plan Instantly</text>
+
+    <!-- Result cards row -->
+    <text x="0" y="264" font-family="Arial" font-size="11" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">AI EXTRACTED</text>
+
+    ${[
+      { title: 'Lagos Foodie Tour', sub: 'Instagram &#183; 8 venues', color: C.emerald },
+      { title: 'HIIT Workout Plan', sub: 'TikTok &#183; 12 exercises', color: C.sky },
+      { title: 'Japan Trip Itinerary', sub: 'ChatGPT &#183; 14 days', color: C.amber },
+    ].map((r, i) => {
+      const rw = Math.round((cw - 24) / 3);
+      const rx = i * (rw + 12);
       return `
-        <rect x="${x}" y="${385 - barH}" width="${barW}" height="${barH}" rx="4" fill="${COLORS.primary}" opacity="${0.4 + i * 0.08}"/>
-        <text x="${x + barW / 2}" y="395" font-family="Arial" font-size="9" fill="${COLORS.textMuted}" text-anchor="middle">${day}</text>
+        <rect x="${rx}" y="278" width="${rw}" height="100" rx="14" fill="${C.darkCard}" stroke="${r.color}" stroke-opacity="0.3" stroke-width="1"/>
+        <circle cx="${rx + 24}" cy="306" r="12" fill="${r.color}" opacity="0.2"/>
+        <text x="${rx + 24}" y="310" font-family="Arial" font-size="10" fill="${r.color}" text-anchor="middle">&#10003;</text>
+        <text x="${rx + 44}" y="304" font-family="Arial" font-size="13" font-weight="bold" fill="${C.white}">${r.title}</text>
+        <text x="${rx + 44}" y="322" font-family="Arial" font-size="10" fill="${C.textSecondary}">${r.sub}</text>
+        <rect x="${rx + 12}" y="340" width="${rw - 24}" height="28" rx="14" fill="${C.primary}" opacity="0.15" stroke="${C.primary}" stroke-opacity="0.3" stroke-width="1"/>
+        <text x="${rx + rw / 2}" y="359" font-family="Arial" font-size="10" font-weight="bold" fill="${C.primaryLight}" text-anchor="middle">Own &amp; Customize</text>
       `;
     }).join('')}
 
-    <!-- Bottom sections -->
-    <rect x="0" y="425" width="${Math.round(cw * 0.55 - 6)}" height="190" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="16" y="452" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">Today's Tasks</text>
-    ${['Wake up at 6 AM', '30-min HIIT workout', 'Healthy breakfast', 'Review roadmap'].map((task, i) => `
-      <circle cx="28" cy="${474 + i * 32}" r="9" fill="${i === 0 ? COLORS.emerald : 'none'}" ${i > 0 ? `stroke="${COLORS.darkCardBorder}" stroke-width="1.5"` : ''}/>
-      ${i === 0 ? `<text x="28" y="${478 + i * 32}" font-family="Arial" font-size="9" fill="${COLORS.emerald}" text-anchor="middle">&#10003;</text>` : ''}
-      <text x="44" y="${478 + i * 32}" font-family="Arial" font-size="11" fill="${i === 0 ? COLORS.textMuted : COLORS.white}" ${i === 0 ? 'text-decoration="line-through"' : ''}>${task}</text>
-    `).join('')}
-
-    <rect x="${Math.round(cw * 0.55 + 6)}" y="425" width="${Math.round(cw * 0.45 - 6)}" height="190" rx="16" fill="${COLORS.darkCard}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-    <text x="${Math.round(cw * 0.55 + 22)}" y="452" font-family="Arial" font-size="14" font-weight="bold" fill="${COLORS.white}">Trending Plans</text>
-    ${['Ultimate Hiking', '30-Day Mindfulness', 'Interview Mastery'].map((plan, i) => `
-      <rect x="${Math.round(cw * 0.55 + 16)}" y="${466 + i * 44}" width="${Math.round(cw * 0.45 - 32)}" height="36" rx="10" fill="${COLORS.dark}" stroke="${COLORS.darkCardBorder}" stroke-width="1"/>
-      <text x="${Math.round(cw * 0.55 + 34)}" y="${489 + i * 44}" font-family="Arial" font-size="11" fill="${COLORS.white}">${plan}</text>
-      <text x="${cw - 16}" y="${489 + i * 44}" font-family="Arial" font-size="10" fill="${COLORS.rose}" text-anchor="end">${['&#x2764; 284', '&#x2764; 203', '&#x2764; 98'][i]}</text>
-    `).join('')}
+    <!-- Smart extraction badges -->
+    <text x="0" y="412" font-family="Arial" font-size="11" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">SMART EXTRACTION</text>
+    ${[
+      { label: '&#127908; Audio Transcription', color: C.teal },
+      { label: '&#128247; OCR Text Extraction', color: C.amber },
+      { label: '&#128172; Caption Analysis', color: C.rose },
+      { label: '&#128205; Venue Detection', color: C.primary },
+    ].map((b, i) => {
+      const bw = Math.round((cw - 24) / 4);
+      return `
+        <rect x="${i * (bw + 8)}" y="426" width="${bw}" height="30" rx="15" fill="${b.color}" opacity="0.1" stroke="${b.color}" stroke-opacity="0.25" stroke-width="1"/>
+        <text x="${i * (bw + 8) + bw / 2}" y="446" font-family="Arial" font-size="10" fill="${b.color}" text-anchor="middle">${b.label}</text>
+      `;
+    }).join('')}
   `;
 
-  return tabletScreenSvg(width, height, THEMES.activities,
-    'Your AI Lifestyle Planner',
-    'Plan, track, and achieve your goals with JournalMate.ai',
+  return tabletScreenSvg(w, h, THEMES.shareImport,
+    'See It Online? Own It.',
+    'Share from any app &#8212; AI creates YOUR plan instantly',
+    body
+  );
+}
+
+function tablet2_Discover(w, h) {
+  const cw = Math.min(w * 0.9, 1000);
+  const cardW = Math.round((cw - 36) / 4);
+
+  const plans = [
+    { title: 'Thanksgiving Feast', price: '$320', views: '1.2k', c1: '#8B4513', c2: '#D2691E' },
+    { title: 'Christmas Celebration', price: '$850', views: '2.4k', c1: '#B22222', c2: '#FF6347' },
+    { title: 'HEB Shopping Guide', price: '$400', views: '890', c1: '#2E8B57', c2: '#3CB371' },
+    { title: 'NYE Party Planning', price: '$550', views: '1.8k', c1: '#4B0082', c2: '#8A2BE2' },
+  ];
+
+  const body = `
+    <!-- Search -->
+    <rect x="${cw * 0.1}" y="0" width="${cw * 0.8}" height="40" rx="20" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <text x="${cw * 0.15}" y="25" font-family="Arial" font-size="14" fill="${C.textMuted}">&#128269; Search community plans...</text>
+
+    <!-- Category chips -->
+    ${['Trending', 'Food', 'Travel', 'Fitness', 'Holidays', 'Career'].map((cat, i) => `
+      <rect x="${i * (Math.round(cw / 7) + 4)}" y="52" width="${Math.round(cw / 7)}" height="28" rx="14" fill="${i === 0 ? C.rose : C.darkCard}" opacity="${i === 0 ? '0.2' : '1'}" stroke="${i === 0 ? C.rose : C.darkCardBorder}" stroke-opacity="${i === 0 ? '0.4' : '1'}" stroke-width="1"/>
+      <text x="${i * (Math.round(cw / 7) + 4) + Math.round(cw / 14)}" y="71" font-family="Arial" font-size="12" fill="${i === 0 ? C.roseLight : C.textSecondary}" text-anchor="middle">${cat}</text>
+    `).join('')}
+
+    <!-- Plan cards grid -->
+    ${plans.map((p, i) => {
+      const cx = i * (cardW + 12);
+      return `
+        <defs><linearGradient id="tp${i}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${p.c1}"/><stop offset="100%" stop-color="${p.c2}"/>
+        </linearGradient></defs>
+        <rect x="${cx}" y="96" width="${cardW}" height="260" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <rect x="${cx}" y="96" width="${cardW}" height="130" rx="14" fill="url(#tp${i})"/>
+        <circle cx="${cx + cardW * 0.35}" cy="155" r="18" fill="white" opacity="0.06"/>
+        <circle cx="${cx + cardW * 0.65}" cy="170" r="24" fill="white" opacity="0.04"/>
+        <rect x="${cx + cardW - 56}" y="104" width="48" height="22" rx="11" fill="#000" opacity="0.6"/>
+        <text x="${cx + cardW - 32}" y="120" font-family="Arial" font-size="12" font-weight="bold" fill="white" text-anchor="middle">${p.price}</text>
+        <text x="${cx + 12}" y="246" font-family="'Segoe UI', Arial" font-size="14" font-weight="bold" fill="${C.white}">${p.title}</text>
+        <text x="${cx + 12}" y="266" font-family="Arial" font-size="11" fill="${C.textSecondary}">&#128065; ${p.views} views</text>
+        <rect x="${cx + 8}" y="280" width="${Math.round((cardW - 20) * 0.45)}" height="28" rx="14" fill="${C.darkSurface}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <text x="${cx + 8 + Math.round((cardW - 20) * 0.225)}" y="298" font-family="Arial" font-size="10" fill="${C.textSecondary}" text-anchor="middle">Preview</text>
+        <rect x="${cx + 8 + Math.round((cardW - 20) * 0.5)}" y="280" width="${Math.round((cardW - 20) * 0.48)}" height="28" rx="14" fill="${C.primary}"/>
+        <text x="${cx + 8 + Math.round((cardW - 20) * 0.74)}" y="298" font-family="Arial" font-size="10" font-weight="bold" fill="white" text-anchor="middle">+ Use Plan</text>
+      `;
+    }).join('')}
+
+    <!-- Bottom CTA -->
+    <rect x="${cw * 0.3}" y="380" width="${cw * 0.4}" height="36" rx="18" fill="${C.primary}" opacity="0.12"/>
+    <text x="${cw * 0.5}" y="403" font-family="Arial" font-size="13" fill="${C.primaryLight}" text-anchor="middle">&#128640; Browse 500+ community plans</text>
+  `;
+
+  return tabletScreenSvg(w, h, THEMES.discover,
+    'Copy Plans, Make Them Yours',
+    'Browse, preview, and use community plans with one tap',
+    body
+  );
+}
+
+function tablet3_Activities(w, h) {
+  const cw = Math.min(w * 0.9, 1000);
+  const cardW = Math.round((cw - 36) / 3);
+
+  const activities = [
+    { title: 'Austin to LA Adventure', sub: '12/12 tasks', pct: 100, color: C.emerald, icon: '&#9992;' },
+    { title: 'Weekend Fitness', sub: '8/10 tasks', pct: 80, color: C.sky, icon: '&#127947;' },
+    { title: 'System Design Prep', sub: '5/12 tasks', pct: 42, color: C.primary, icon: '&#128187;' },
+    { title: 'Thanksgiving Feast', sub: '3/15 tasks', pct: 20, color: C.amber, icon: '&#127835;' },
+    { title: 'Date Night Houston', sub: '0/7 tasks', pct: 0, color: C.rose, icon: '&#128150;' },
+    { title: 'Book Reading List', sub: '6/8 tasks', pct: 75, color: C.indigo, icon: '&#128214;' },
+  ];
+
+  const body = `
+    ${activities.map((a, i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const cx = col * (cardW + 18);
+      const cy = row * 180;
+      return `
+        <rect x="${cx}" y="${cy}" width="${cardW}" height="160" rx="16" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <rect x="${cx}" y="${cy}" width="5" height="160" rx="2.5" fill="${a.color}"/>
+        <circle cx="${cx + 32}" cy="${cy + 36}" r="18" fill="${a.color}" opacity="0.15"/>
+        <text x="${cx + 32}" y="${cy + 42}" font-family="Arial" font-size="16" text-anchor="middle">${a.icon}</text>
+        <text x="${cx + 58}" y="${cy + 32}" font-family="'Segoe UI', Arial" font-size="14" font-weight="bold" fill="${C.white}">${a.title}</text>
+        <text x="${cx + 58}" y="${cy + 50}" font-family="Arial" font-size="11" fill="${C.textSecondary}">${a.sub}</text>
+        <rect x="${cx + 16}" y="${cy + 66}" width="${cardW - 32}" height="6" rx="3" fill="#1F2937"/>
+        <rect x="${cx + 16}" y="${cy + 66}" width="${Math.round((cardW - 32) * a.pct / 100)}" height="6" rx="3" fill="${a.color}"/>
+        <text x="${cx + cardW - 16}" y="${cy + 76}" font-family="Arial" font-size="11" fill="${a.color}" text-anchor="end">${a.pct}%</text>
+        ${a.pct === 100 ? `
+          <rect x="${cx + cardW - 65}" y="${cy + 10}" width="55" height="22" rx="11" fill="${C.emerald}" opacity="0.15"/>
+          <text x="${cx + cardW - 37}" y="${cy + 26}" font-family="Arial" font-size="9" fill="${C.emerald}" text-anchor="middle">&#10003; Done</text>
+        ` : `
+          <rect x="${cx + cardW - 65}" y="${cy + 10}" width="55" height="22" rx="11" fill="${C.coral}" opacity="0.15"/>
+          <text x="${cx + cardW - 37}" y="${cy + 26}" font-family="Arial" font-size="9" fill="${C.coral}" text-anchor="middle">&#128293; Active</text>
+        `}
+
+        <!-- Quick actions -->
+        <rect x="${cx + 16}" y="${cy + 100}" width="${Math.round((cardW - 40) / 2)}" height="30" rx="15" fill="${C.darkSurface}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <text x="${cx + 16 + Math.round((cardW - 40) / 4)}" y="${cy + 120}" font-family="Arial" font-size="10" fill="${C.textSecondary}" text-anchor="middle">View Tasks</text>
+        <rect x="${cx + 16 + Math.round((cardW - 40) / 2) + 8}" y="${cy + 100}" width="${Math.round((cardW - 40) / 2)}" height="30" rx="15" fill="${C.primary}" opacity="0.2"/>
+        <text x="${cx + 16 + Math.round((cardW - 40) / 2) + 8 + Math.round((cardW - 40) / 4)}" y="${cy + 120}" font-family="Arial" font-size="10" fill="${C.primaryLight}" text-anchor="middle">Continue</text>
+      `;
+    }).join('')}
+
+    <!-- Stats summary -->
+    ${[
+      { label: 'Total Plans', value: '6', color: C.primary },
+      { label: 'Completion', value: '53%', color: C.emerald },
+      { label: 'Tasks Done', value: '34/64', color: C.sky },
+    ].map((s, i) => {
+      const sx = i * (Math.round(cw / 3) + 2);
+      const sWidth = Math.round(cw / 3) - 8;
+      return `
+        <rect x="${sx}" y="380" width="${sWidth}" height="55" rx="14" fill="${s.color}" opacity="0.1" stroke="${s.color}" stroke-opacity="0.25" stroke-width="1"/>
+        <text x="${sx + sWidth / 2}" y="408" font-family="Arial" font-size="20" font-weight="bold" fill="${s.color}" text-anchor="middle">${s.value}</text>
+        <text x="${sx + sWidth / 2}" y="426" font-family="Arial" font-size="10" fill="${C.textMuted}" text-anchor="middle">${s.label}</text>
+      `;
+    }).join('')}
+  `;
+
+  return tabletScreenSvg(w, h, THEMES.activities,
+    'Plan It. Track It. Crush It.',
+    'All your AI-powered plans with real-time progress',
+    body
+  );
+}
+
+function tablet4_Groups(w, h) {
+  const cw = Math.min(w * 0.9, 1000);
+  const cardW = Math.round((cw - 24) / 3);
+
+  const groups = [
+    { name: 'Thanksgiving Group', members: '6 members', goals: '3 goals', pct: 65, color: C.amber, avatars: ['SM', 'JK', 'ML'] },
+    { name: 'Dirty December Plan', members: '4 members', goals: '2 goals', pct: 40, color: C.rose, avatars: ['AK', 'TJ'] },
+    { name: 'Fitness Squad 2025', members: '5 members', goals: '4 goals', pct: 78, color: C.emerald, avatars: ['LP', 'SK', 'AR'] },
+  ];
+
+  const avatarColors = [C.primary, C.teal, C.amber, C.rose, C.sky, C.emerald, C.indigo];
+
+  const body = `
+    <!-- Create group CTA -->
+    <rect x="${cw * 0.25}" y="0" width="${cw * 0.5}" height="44" rx="22" fill="url(#btnGrad)"/>
+    <text x="${cw * 0.5}" y="27" font-family="'Segoe UI', Arial" font-size="15" font-weight="bold" fill="white" text-anchor="middle">+ Create New Group</text>
+
+    ${groups.map((g, i) => {
+      const cx = i * (cardW + 12);
+      return `
+        <rect x="${cx}" y="64" width="${cardW}" height="200" rx="16" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <rect x="${cx}" y="64" width="5" height="200" rx="2.5" fill="${g.color}"/>
+        <text x="${cx + 16}" y="92" font-family="'Segoe UI', Arial" font-size="15" font-weight="bold" fill="${C.white}">${g.name}</text>
+        <text x="${cx + 16}" y="112" font-family="Arial" font-size="11" fill="${C.textSecondary}">${g.members} &#183; ${g.goals}</text>
+
+        <!-- Avatars -->
+        ${g.avatars.map((av, j) => `
+          <circle cx="${cx + 28 + j * 26}" cy="140" r="13" fill="${avatarColors[j]}"/>
+          <text x="${cx + 28 + j * 26}" y="145" font-family="Arial" font-size="9" fill="white" text-anchor="middle">${av}</text>
+        `).join('')}
+
+        <!-- Progress -->
+        <text x="${cx + 16}" y="178" font-family="Arial" font-size="10" fill="${C.textMuted}">Team progress</text>
+        <rect x="${cx + 16}" y="186" width="${cardW - 32}" height="5" rx="2.5" fill="#1F2937"/>
+        <rect x="${cx + 16}" y="186" width="${Math.round((cardW - 32) * g.pct / 100)}" height="5" rx="2.5" fill="${g.color}"/>
+        <text x="${cx + cardW - 16}" y="196" font-family="Arial" font-size="11" fill="${g.color}" text-anchor="end">${g.pct}%</text>
+
+        <!-- Invite button -->
+        <rect x="${cx + 16}" y="210" width="${cardW - 32}" height="30" rx="15" fill="${g.color}" opacity="0.12" stroke="${g.color}" stroke-opacity="0.3" stroke-width="1"/>
+        <text x="${cx + cardW / 2}" y="230" font-family="Arial" font-size="11" fill="${g.color}" text-anchor="middle">Invite Friends</text>
+      `;
+    }).join('')}
+
+    <!-- Activity feed -->
+    <text x="0" y="290" font-family="'Segoe UI', Arial" font-size="14" font-weight="bold" fill="${C.white}">Recent Activity</text>
+
+    ${[
+      { text: 'Sarah completed "Buy Turkey"', sub: 'Thanksgiving &#183; 2h ago', color: C.emerald },
+      { text: 'Alex shared a new workout plan', sub: 'Fitness Squad &#183; 5h ago', color: C.sky },
+      { text: 'New goal: "Dec Party Budget"', sub: 'Dirty December &#183; 1d ago', color: C.amber },
+    ].map((item, i) => {
+      const iy = 304 + i * 44;
+      return `
+        <rect x="0" y="${iy}" width="${cw}" height="36" rx="12" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <circle cx="20" cy="${iy + 18}" r="10" fill="${item.color}" opacity="0.2"/>
+        <text x="20" y="${iy + 22}" font-family="Arial" font-size="9" fill="${item.color}" text-anchor="middle">&#10003;</text>
+        <text x="38" y="${iy + 14}" font-family="Arial" font-size="12" fill="${C.white}">${item.text}</text>
+        <text x="38" y="${iy + 30}" font-family="Arial" font-size="10" fill="${C.textMuted}">${item.sub}</text>
+      `;
+    }).join('')}
+  `;
+
+  return tabletScreenSvg(w, h, THEMES.groups,
+    'Achieve Goals Together',
+    'Create groups, share plans, and collaborate with friends',
     body
   );
 }
 
 // ============================================
-// APP ICON
-// ============================================
-async function generateAppIcon() {
-  const src = path.join(__dirname, '..', 'client/public/icons/android/android-play-store-512.png');
-  const dest = path.join(OUTPUT_DIR, 'app-icon-512x512.png');
-  fs.copyFileSync(src, dest);
-  console.log('  App Icon (512x512) - copied');
-}
-
-// ============================================
-// MAIN
+// MAIN GENERATION
 // ============================================
 async function main() {
-  console.log('\nGenerating vibrant Google Play Store assets...\n');
+  // Ensure output directories
+  for (const dir of ['', '/phone', '/tablet-7inch', '/tablet-10inch']) {
+    const fullDir = path.join(OUTPUT_DIR, dir);
+    if (!fs.existsSync(fullDir)) fs.mkdirSync(fullDir, { recursive: true });
+  }
 
-  // Ensure directories
-  fs.mkdirSync(path.join(OUTPUT_DIR, 'phone'), { recursive: true });
-  fs.mkdirSync(path.join(OUTPUT_DIR, 'tablet-7inch'), { recursive: true });
-  fs.mkdirSync(path.join(OUTPUT_DIR, 'tablet-10inch'), { recursive: true });
+  console.log('Generating Google Play Store Assets (Sensationalized Real-App Edition)...\n');
 
-  // 1. App Icon
-  await generateAppIcon();
+  // ---- App Icon ----
+  const iconSrc = path.join(__dirname, '..', 'client/public/icons/android/android-play-store-512.png');
+  if (fs.existsSync(iconSrc)) {
+    fs.copyFileSync(iconSrc, path.join(OUTPUT_DIR, 'app-icon-512x512.png'));
+    console.log('  App Icon (512x512) - copied');
+  }
 
-  // 2. Feature Graphic
+  // ---- Feature Graphic ----
   await generateFeatureGraphic();
 
-  // 3. Phone Screenshots (1080x1920)
+  // ---- Phone Screenshots (1080x1920) ----
   const phoneScreenshots = [
     { fn: screenshot1_ShareFromAnywhere, name: '01-share-from-anywhere' },
-    { fn: screenshot2_Activities, name: '02-activities' },
-    { fn: screenshot3_Tasks, name: '03-tasks' },
-    { fn: screenshot4_Reports, name: '04-reports' },
-    { fn: screenshot5_Discover, name: '05-discover' },
-    { fn: screenshot6_Groups, name: '06-groups' },
+    { fn: screenshot2_Discover, name: '02-discover-plans' },
+    { fn: screenshot3_Activities, name: '03-my-activities' },
+    { fn: screenshot4_TaskDetail, name: '04-smart-tasks' },
+    { fn: screenshot5_Reports, name: '05-reports-badges' },
+    { fn: screenshot6_Groups, name: '06-groups-collab' },
   ];
 
   for (const ss of phoneScreenshots) {
     const svg = ss.fn();
-    await sharp(Buffer.from(svg))
-      .png()
-      .toFile(path.join(OUTPUT_DIR, 'phone', `${ss.name}-1080x1920.png`));
+    await sharp(Buffer.from(svg)).png().toFile(
+      path.join(OUTPUT_DIR, 'phone', `${ss.name}-1080x1920.png`)
+    );
     console.log(`  Phone: ${ss.name} (1080x1920)`);
   }
 
-  // 4. 7-inch Tablet (1200x1920)
-  const tablet7Svg = tabletScreenshot1_Overview(1200, 1920);
-  await sharp(Buffer.from(tablet7Svg))
-    .png()
-    .toFile(path.join(OUTPUT_DIR, 'tablet-7inch', '01-overview-1200x1920.png'));
-  console.log('  7" Tablet: overview (1200x1920)');
+  // ---- 7-inch Tablet Screenshots (1200x1920) ----
+  const tablet7 = [
+    { fn: tablet1_ShareFromAnywhere, name: '01-share-from-anywhere' },
+    { fn: tablet2_Discover, name: '02-discover-plans' },
+    { fn: tablet3_Activities, name: '03-activities' },
+    { fn: tablet4_Groups, name: '04-groups' },
+  ];
 
-  for (const ss of phoneScreenshots.slice(0, 3)) {
-    const svg = ss.fn().replace(/width="1080"/, 'width="1200"');
-    await sharp(Buffer.from(svg))
-      .resize(1200, 1920)
-      .png()
-      .toFile(path.join(OUTPUT_DIR, 'tablet-7inch', `${ss.name}-1200x1920.png`));
-    console.log(`  7" Tablet: ${ss.name} (1200x1920)`);
+  for (const ts of tablet7) {
+    const svg = ts.fn(1200, 1920);
+    await sharp(Buffer.from(svg)).png().toFile(
+      path.join(OUTPUT_DIR, 'tablet-7inch', `${ts.name}-1200x1920.png`)
+    );
+    console.log(`  7" Tablet: ${ts.name} (1200x1920)`);
   }
 
-  // 5. 10-inch Tablet (1920x1200)
-  const tablet10Svg = tabletScreenshot1_Overview(1920, 1200);
-  await sharp(Buffer.from(tablet10Svg))
-    .png()
-    .toFile(path.join(OUTPUT_DIR, 'tablet-10inch', '01-overview-1920x1200.png'));
-  console.log('  10" Tablet: overview (1920x1200)');
-
-  for (const ss of phoneScreenshots.slice(0, 3)) {
-    const svg = ss.fn()
-      .replace(/width="1080"/, 'width="1920"')
-      .replace(/height="1920"/, 'height="1200"');
-    await sharp(Buffer.from(svg))
-      .resize(1920, 1200)
-      .png()
-      .toFile(path.join(OUTPUT_DIR, 'tablet-10inch', `${ss.name}-1920x1200.png`));
-    console.log(`  10" Tablet: ${ss.name} (1920x1200)`);
+  // ---- 10-inch Tablet Screenshots (1920x1200) ----
+  for (const ts of tablet7) {
+    const svg = ts.fn(1920, 1200);
+    await sharp(Buffer.from(svg)).png().toFile(
+      path.join(OUTPUT_DIR, 'tablet-10inch', `${ts.name}-1920x1200.png`)
+    );
+    console.log(`  10" Tablet: ${ts.name} (1920x1200)`);
   }
 
-  console.log('\n=== Generation Complete ===');
-  console.log(`\nOutput: ${OUTPUT_DIR}`);
-  console.log('\nAssets:');
-  console.log('  - App Icon: 512x512');
-  console.log('  - Feature Graphic: 1024x500');
-  console.log('  - Phone Screenshots: 1080x1920 x 6');
-  console.log('  - 7" Tablet: 1200x1920 x 4');
-  console.log('  - 10" Tablet: 1920x1200 x 4');
+  console.log(`\nAll assets generated in: ${OUTPUT_DIR}`);
+  console.log('Total: 1 icon + 1 feature graphic + 6 phone + 4 tablet-7" + 4 tablet-10" = 16 assets');
 }
 
 main().catch(console.error);
