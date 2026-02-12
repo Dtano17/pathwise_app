@@ -311,21 +311,22 @@ function screenshot1_ShareFromAnywhere() {
 
 // ============================================
 // SCREENSHOT 2: DISCOVER COMMUNITY PLANS
-// Faithful recreation of actual Discover page
-// with real plan cards, real photos, real prices
+// Uses real community-backdrop photos composited onto cards
 // ============================================
-function screenshot2_Discover() {
+// The Discover screenshot uses real photos from community-backdrops.
+// It's generated as an async function that composites actual images.
+const DISCOVER_PLANS = [
+  { title: 'Thanksgiving Feast', price: '$320', author: 'Sarah M.', views: '1.2k', tasks: '15 tasks', image: 'heb-thanksgiving-parade.jpg' },
+  { title: 'Christmas Celebration', price: '$850', author: 'James K.', views: '2.4k', tasks: '22 tasks', image: 'christmas-celebration.jpg' },
+  { title: 'HEB Shopping Guide', price: '$400', author: 'Maria L.', views: '890', tasks: '12 tasks', image: 'austin_texas_zilker__3b0e26dc.jpg' },
+  { title: 'NYE Party Planning', price: '$550', author: 'David R.', views: '1.8k', tasks: '18 tasks', image: 'new_york_city_new_ye_43315f42.jpg' },
+];
+
+function screenshot2_DiscoverSvg() {
   const pw = Math.round(1080 * 0.50);
   const sw = screenW(pw);
   const cardW = Math.round((sw - 10) / 2);
-
-  // Real data from actual app screenshots
-  const plans = [
-    { title: 'Thanksgiving Feast', price: '$320', author: 'Sarah M.', views: '1.2k', tasks: '15 tasks', color1: '#8B4513', color2: '#D2691E' },
-    { title: 'Christmas Celebration', price: '$850', author: 'James K.', views: '2.4k', tasks: '22 tasks', color1: '#B22222', color2: '#FF6347' },
-    { title: 'HEB Shopping Guide', price: '$400', author: 'Maria L.', views: '890', tasks: '12 tasks', color1: '#2E8B57', color2: '#3CB371' },
-    { title: 'NYE Party Planning', price: '$550', author: 'David R.', views: '1.8k', tasks: '18 tasks', color1: '#4B0082', color2: '#8A2BE2' },
-  ];
+  const imgH = 110;
 
   const body = `
     <!-- Status bar -->
@@ -351,35 +352,24 @@ function screenshot2_Discover() {
     <rect x="214" y="128" width="70" height="28" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
     <text x="249" y="147" font-family="Arial" font-size="11" fill="${C.textSecondary}" text-anchor="middle">Holidays</text>
 
-    <!-- Plan cards grid (2x2 — faithful to actual app) -->
-    ${plans.map((p, i) => {
+    <!-- Plan cards grid (2x2) — photo areas are dark placeholders; real images composited later -->
+    ${DISCOVER_PLANS.map((p, i) => {
       const col = i % 2;
       const row = Math.floor(i / 2);
       const cx = col * (cardW + 10);
       const cy = 170 + row * 240;
-      const imgH = 110;
 
       return `
-        <!-- Card: ${p.title} -->
         <rect x="${cx}" y="${cy}" width="${cardW}" height="225" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1" filter="url(#cardShadow)"/>
 
-        <!-- Photo area with gradient overlay (simulating real food/holiday photos) -->
-        <defs>
-          <linearGradient id="img${i}" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="${p.color1}" stop-opacity="0.9"/>
-            <stop offset="100%" stop-color="${p.color2}" stop-opacity="0.7"/>
-          </linearGradient>
-        </defs>
-        <rect x="${cx}" y="${cy}" width="${cardW}" height="${imgH}" rx="14" fill="url(#img${i})"/>
-        <rect x="${cx}" y="${cy + imgH - 30}" width="${cardW}" height="30" fill="${C.darkCard}" opacity="0"/>
+        <!-- Photo placeholder (real image composited via sharp) -->
+        <rect x="${cx}" y="${cy}" width="${cardW}" height="${imgH}" rx="14" fill="#222"/>
 
-        <!-- Photo texture overlay dots for realism -->
-        <circle cx="${cx + cardW * 0.3}" cy="${cy + 35}" r="15" fill="white" opacity="0.08"/>
-        <circle cx="${cx + cardW * 0.7}" cy="${cy + 55}" r="20" fill="white" opacity="0.06"/>
-        <circle cx="${cx + cardW * 0.5}" cy="${cy + 75}" r="12" fill="white" opacity="0.05"/>
+        <!-- Dark gradient overlay on bottom of photo for text readability -->
+        <rect x="${cx}" y="${cy + imgH - 35}" width="${cardW}" height="35" fill="${C.darkCard}" opacity="0.5"/>
 
         <!-- Price badge -->
-        <rect x="${cx + cardW - 58}" y="${cy + 8}" width="50" height="24" rx="12" fill="#000" opacity="0.6"/>
+        <rect x="${cx + cardW - 58}" y="${cy + 8}" width="50" height="24" rx="12" fill="#000" opacity="0.65"/>
         <text x="${cx + cardW - 33}" y="${cy + 25}" font-family="Arial" font-size="12" font-weight="bold" fill="${C.white}" text-anchor="middle">${p.price}</text>
 
         <!-- Title and meta -->
@@ -406,6 +396,74 @@ function screenshot2_Discover() {
     'Browse community plans &#8212; use them with one tap',
     body
   );
+}
+
+// Async: render SVG then composite real photos onto card areas
+async function generateDiscoverScreenshot() {
+  const pw = Math.round(1080 * 0.50);
+  const sw = screenW(pw);
+  const cardW = Math.round((sw - 10) / 2);
+  const imgH = 110;
+  const phoneX = Math.round((1080 - pw) / 2);
+  const phoneY = Math.round(1920 * 0.145);
+  const bz = Math.round(pw * 0.025);
+  const notchH = Math.round((pw * 2.05) * 0.016);
+
+  // Offsets: phone screen content starts at (phoneX + bz + 8, phoneY + bz + notchH + 16)
+  const screenOffsetX = phoneX + bz + 8;
+  const screenOffsetY = phoneY + bz + notchH + 16;
+
+  const baseSvg = screenshot2_DiscoverSvg();
+  const baseBuffer = await sharp(Buffer.from(baseSvg)).png().toBuffer();
+
+  // Prepare photo composites for each card
+  const composites = [];
+  const backdropDir = path.join(__dirname, '..', 'client/public/community-backdrops');
+
+  for (let i = 0; i < DISCOVER_PLANS.length; i++) {
+    const plan = DISCOVER_PLANS[i];
+    const imgPath = path.join(backdropDir, plan.image);
+
+    if (!fs.existsSync(imgPath)) {
+      console.warn(`  Warning: Missing backdrop image: ${plan.image}`);
+      continue;
+    }
+
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const cx = col * (cardW + 10);
+    const cy = 170 + row * 240;
+
+    // Resize the real photo to fit the card's photo area, with rounded corners
+    const photoWidth = cardW;
+    const photoHeight = imgH;
+
+    // Create rounded-corner mask SVG
+    const maskSvg = `<svg width="${photoWidth}" height="${photoHeight}"><rect x="0" y="0" width="${photoWidth}" height="${photoHeight}" rx="14" ry="14" fill="white"/></svg>`;
+
+    const photo = await sharp(imgPath)
+      .resize(photoWidth, photoHeight, { fit: 'cover', position: 'center' })
+      .composite([{
+        input: Buffer.from(maskSvg),
+        blend: 'dest-in'
+      }])
+      .png()
+      .toBuffer();
+
+    composites.push({
+      input: photo,
+      left: Math.round(screenOffsetX + cx),
+      top: Math.round(screenOffsetY + cy),
+    });
+  }
+
+  // Composite all photos onto the base
+  const result = await sharp(baseBuffer)
+    .composite(composites)
+    .png()
+    .toFile(path.join(OUTPUT_DIR, 'phone', '02-discover-plans-1080x1920.png'));
+
+  console.log('  Phone: 02-discover-plans (1080x1920) - with real photos');
 }
 
 // ============================================
@@ -475,7 +533,7 @@ function screenshot3_Activities() {
   `;
 
   return phoneScreenshot(1080, 1920, THEMES.activities,
-    'Plan It. Track It. Crush It.',
+    'For Everyday Planners',
     'AI-powered plans with real-time progress tracking',
     body
   );
@@ -754,6 +812,99 @@ function screenshot6_Groups() {
 }
 
 // ============================================
+// SCREENSHOT 7: ACCOUNTABILITY & REMINDERS
+// Set reminders, sync calendar, trending near you, plan for others
+// ============================================
+function screenshot7_Accountability() {
+  const pw = Math.round(1080 * 0.50);
+  const sw = screenW(pw);
+  const halfW = Math.round((sw - 10) / 2);
+
+  const body = `
+    <text x="8" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}">9:41</text>
+    <text x="${sw - 8}" y="14" font-family="Arial" font-size="12" fill="${C.textSecondary}" text-anchor="end">100%</text>
+
+    <!-- Header -->
+    <text x="8" y="46" font-family="'Segoe UI', Arial" font-size="22" font-weight="bold" fill="${C.white}">Stay on Track</text>
+    <text x="8" y="66" font-family="Arial" font-size="12" fill="${C.textSecondary}">Your personal accountability system</text>
+
+    <!-- REMINDERS SECTION -->
+    <text x="8" y="96" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">UPCOMING REMINDERS</text>
+
+    <!-- Today's reminder card (highlighted) -->
+    <rect x="0" y="110" width="${sw}" height="72" rx="14" fill="${C.primary}" opacity="0.1" stroke="${C.primary}" stroke-opacity="0.4" stroke-width="1.5"/>
+    <rect x="0" y="110" width="4" height="72" rx="2" fill="${C.primary}"/>
+    <circle cx="28" cy="136" r="14" fill="${C.primary}" opacity="0.2"/>
+    <text x="28" y="141" font-family="Arial" font-size="12" fill="${C.primaryLight}" text-anchor="middle">&#128276;</text>
+    <text x="50" y="132" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="${C.white}">Book Flight: Austin &#8594; LAX</text>
+    <text x="50" y="150" font-family="Arial" font-size="10" fill="${C.primaryLight}">Today at 2:00 PM &#183; Austin to LA Adventure</text>
+    <text x="50" y="170" font-family="Arial" font-size="10" fill="${C.textMuted}">Prices drop in 3 days &#8212; AI recommends booking now</text>
+
+    <!-- Tomorrow's reminder -->
+    <rect x="0" y="192" width="${sw}" height="56" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <rect x="0" y="192" width="4" height="56" rx="2" fill="${C.amber}"/>
+    <circle cx="28" cy="220" r="14" fill="${C.amber}" opacity="0.15"/>
+    <text x="28" y="225" font-family="Arial" font-size="12" fill="${C.amberLight}" text-anchor="middle">&#128197;</text>
+    <text x="50" y="214" font-family="Arial" font-size="12" font-weight="bold" fill="${C.white}">Gym: Morning HIIT Session</text>
+    <text x="50" y="232" font-family="Arial" font-size="10" fill="${C.textSecondary}">Tomorrow 6:30 AM &#183; Synced to Google Calendar</text>
+
+    <!-- Weekend reminder -->
+    <rect x="0" y="258" width="${sw}" height="56" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+    <rect x="0" y="258" width="4" height="56" rx="2" fill="${C.rose}"/>
+    <circle cx="28" cy="286" r="14" fill="${C.rose}" opacity="0.15"/>
+    <text x="28" y="291" font-family="Arial" font-size="12" fill="${C.roseLight}" text-anchor="middle">&#128150;</text>
+    <text x="50" y="280" font-family="Arial" font-size="12" font-weight="bold" fill="${C.white}">Date Night Reservation</text>
+    <text x="50" y="298" font-family="Arial" font-size="10" fill="${C.textSecondary}">Saturday 7:00 PM &#183; Added to Apple Calendar</text>
+
+    <!-- CALENDAR SYNC SECTION -->
+    <text x="8" y="342" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">CALENDAR SYNC</text>
+
+    <rect x="0" y="356" width="${sw}" height="76" rx="14" fill="${C.darkCard}" stroke="${C.emerald}" stroke-opacity="0.3" stroke-width="1"/>
+    <circle cx="28" cy="382" r="14" fill="${C.emerald}" opacity="0.15"/>
+    <text x="28" y="387" font-family="Arial" font-size="12" fill="${C.emeraldLight}" text-anchor="middle">&#10003;</text>
+    <text x="50" y="378" font-family="'Segoe UI', Arial" font-size="13" font-weight="bold" fill="${C.white}">Auto-Synced to Your Calendar</text>
+    <text x="50" y="396" font-family="Arial" font-size="10" fill="${C.textSecondary}">Google Calendar &#183; Apple Calendar &#183; Outlook</text>
+    <text x="50" y="416" font-family="Arial" font-size="10" fill="${C.emeraldLight}">12 events synced this week &#183; 0 missed</text>
+
+    <!-- TRENDING NEAR YOU -->
+    <text x="8" y="462" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">TRENDING NEAR YOU</text>
+    <text x="${sw - 8}" y="462" font-family="Arial" font-size="10" fill="${C.primaryLight}" text-anchor="end">Austin, TX</text>
+
+    ${[
+      { title: 'ACL Fest Weekend Plan', uses: '340 using', icon: '&#127925;', color: C.coral },
+      { title: 'Austin Freeze Prep', uses: '890 using', icon: '&#10052;', color: C.sky },
+      { title: 'SXSW Conference Guide', uses: '1.2k using', icon: '&#127908;', color: C.teal },
+    ].map((t, i) => {
+      const ty = 476 + i * 50;
+      return `
+        <rect x="0" y="${ty}" width="${sw}" height="42" rx="12" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
+        <circle cx="22" cy="${ty + 21}" r="12" fill="${t.color}" opacity="0.15"/>
+        <text x="22" y="${ty + 26}" font-family="Arial" font-size="11" fill="${t.color}" text-anchor="middle">${t.icon}</text>
+        <text x="42" y="${ty + 17}" font-family="Arial" font-size="12" font-weight="bold" fill="${C.white}">${t.title}</text>
+        <text x="42" y="${ty + 34}" font-family="Arial" font-size="9" fill="${C.textMuted}">${t.uses} &#183; Trending</text>
+        <rect x="${sw - 68}" y="${ty + 8}" width="60" height="26" rx="13" fill="${C.primary}" opacity="0.9"/>
+        <text x="${sw - 38}" y="${ty + 26}" font-family="Arial" font-size="9" font-weight="bold" fill="white" text-anchor="middle">+ Use</text>
+      `;
+    }).join('')}
+
+    <!-- PLAN FOR OTHERS -->
+    <text x="8" y="644" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">PLAN FOR OTHERS &amp; EARN</text>
+
+    <rect x="0" y="658" width="${sw}" height="60" rx="14" fill="${C.amber}" opacity="0.08" stroke="${C.amber}" stroke-opacity="0.3" stroke-width="1"/>
+    <circle cx="28" cy="688" r="14" fill="${C.amber}" opacity="0.2"/>
+    <text x="28" y="693" font-family="Arial" font-size="13" fill="${C.amberLight}" text-anchor="middle">&#127942;</text>
+    <text x="50" y="682" font-family="'Segoe UI', Arial" font-size="12" font-weight="bold" fill="${C.white}">Create plans for friends &amp; family</text>
+    <text x="50" y="700" font-family="Arial" font-size="10" fill="${C.amberLight}">Share plans &#8594; Earn badges &#8594; Climb the leaderboard</text>
+  `;
+
+  return phoneScreenshot(1080, 1920, THEMES.reports,
+    'Never Miss a Thing',
+    'Reminders, calendar sync, and trending plans near you',
+    body
+  );
+}
+
+// ============================================
 // FEATURE GRAPHIC (1024x500)
 // ============================================
 async function generateFeatureGraphic() {
@@ -843,10 +994,10 @@ async function generateFeatureGraphic() {
     <!-- Key features row -->
     <g transform="translate(45, 255)">
       ${[
-        { icon: '&#127919;', label: 'AI-Powered', sub: 'Smart Planning', color: C.primary },
-        { icon: '&#128640;', label: 'Share &amp; Copy', sub: 'Plans Online', color: C.rose },
-        { icon: '&#128101;', label: 'Collaborate', sub: 'With Groups', color: C.teal },
-        { icon: '&#127942;', label: 'Earn Rewards', sub: 'Badges &amp; Streaks', color: C.amber },
+        { icon: '&#127919;', label: 'AI-Powered', sub: 'Everyday Planning', color: C.primary },
+        { icon: '&#128640;', label: 'Copy &amp; Share', sub: 'Plans Online', color: C.rose },
+        { icon: '&#128101;', label: 'Plan for Others', sub: 'Earn Rewards', color: C.teal },
+        { icon: '&#127942;', label: 'Collaborate', sub: 'Track &amp; Achieve', color: C.amber },
       ].map((f, i) => {
         const fx = i * 112;
         return `
@@ -1298,13 +1449,15 @@ async function main() {
   await generateFeatureGraphic();
 
   // ---- Phone Screenshots (1080x1920) ----
+  // Standard SVG-only screenshots
   const phoneScreenshots = [
     { fn: screenshot1_ShareFromAnywhere, name: '01-share-from-anywhere' },
-    { fn: screenshot2_Discover, name: '02-discover-plans' },
+    // 02-discover is handled separately (async with real photo composites)
     { fn: screenshot3_Activities, name: '03-my-activities' },
     { fn: screenshot4_TaskDetail, name: '04-smart-tasks' },
     { fn: screenshot5_Reports, name: '05-reports-badges' },
     { fn: screenshot6_Groups, name: '06-groups-collab' },
+    { fn: screenshot7_Accountability, name: '07-accountability' },
   ];
 
   for (const ss of phoneScreenshots) {
@@ -1314,6 +1467,9 @@ async function main() {
     );
     console.log(`  Phone: ${ss.name} (1080x1920)`);
   }
+
+  // Discover screenshot with real photo composites
+  await generateDiscoverScreenshot();
 
   // ---- 7-inch Tablet Screenshots (1200x1920) ----
   const tablet7 = [
@@ -1341,7 +1497,7 @@ async function main() {
   }
 
   console.log(`\nAll assets generated in: ${OUTPUT_DIR}`);
-  console.log('Total: 1 icon + 1 feature graphic + 6 phone + 4 tablet-7" + 4 tablet-10" = 16 assets');
+  console.log('Total: 1 icon + 1 feature graphic + 7 phone + 4 tablet-7" + 4 tablet-10" = 17 assets');
 }
 
 main().catch(console.error);
