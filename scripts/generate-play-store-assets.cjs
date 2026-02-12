@@ -112,6 +112,93 @@ const THEMES = {
 
 function xmlEsc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+// Load an image file and return as base64 data URI (resized via sharp)
+async function imageToBase64(filePath, width, height) {
+  const buf = await sharp(filePath)
+    .resize(width, height, { fit: 'cover', position: 'center' })
+    .png()
+    .toBuffer();
+  return 'data:image/png;base64,' + buf.toString('base64');
+}
+
+// Pre-load all needed images into a cache
+const IMG_CACHE = {};
+async function preloadImages() {
+  const backdropDir = path.join(__dirname, '..', 'client/public/community-backdrops');
+
+  // Community backdrop photos for Discover cards
+  const backdropFiles = {
+    thanksgiving: 'heb-thanksgiving-parade.jpg',
+    christmas: 'christmas-celebration.jpg',
+    austin: 'austin_texas_zilker__3b0e26dc.jpg',
+    nye: 'new_york_city_new_ye_43315f42.jpg',
+    // For feature graphic mini cards
+    fitness: 'fitness_workout_gym__e0b992c5.jpg',
+    travel: 'bali_indonesia_tropi_95575be5.jpg',
+  };
+
+  for (const [key, file] of Object.entries(backdropFiles)) {
+    const p = path.join(backdropDir, file);
+    if (fs.existsSync(p)) {
+      // Phone card: ~160x110, Feature graphic mini: ~60x48
+      IMG_CACHE[key + '_card'] = await imageToBase64(p, 200, 130);
+      IMG_CACHE[key + '_mini'] = await imageToBase64(p, 121, 48);
+    } else {
+      console.warn(`  Warning: missing backdrop ${file}`);
+    }
+  }
+
+  console.log(`  Preloaded ${Object.keys(IMG_CACHE).length} image assets`);
+}
+
+// SVG platform icon paths (recognizable branded shapes)
+function platformIcon(name, cx, cy, r) {
+  switch (name) {
+    case 'instagram':
+      return `
+        <defs><linearGradient id="igGrad_${cx}" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#FFDC80"/><stop offset="25%" stop-color="#F77737"/>
+          <stop offset="50%" stop-color="#E1306C"/><stop offset="75%" stop-color="#C13584"/>
+          <stop offset="100%" stop-color="#833AB4"/>
+        </linearGradient></defs>
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#igGrad_${cx})"/>
+        <rect x="${cx - r * 0.5}" y="${cy - r * 0.5}" width="${r}" height="${r}" rx="${r * 0.22}" fill="none" stroke="white" stroke-width="${r * 0.14}"/>
+        <circle cx="${cx}" cy="${cy}" r="${r * 0.25}" fill="none" stroke="white" stroke-width="${r * 0.14}"/>
+        <circle cx="${cx + r * 0.3}" cy="${cy - r * 0.3}" r="${r * 0.07}" fill="white"/>`;
+    case 'tiktok':
+      return `
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="#000"/>
+        <text x="${cx}" y="${cy + r * 0.15}" font-family="Arial" font-size="${r * 0.9}" font-weight="900" fill="#25F4EE" text-anchor="middle">d</text>
+        <text x="${cx + 1}" y="${cy + r * 0.15 - 1}" font-family="Arial" font-size="${r * 0.9}" font-weight="900" fill="#FE2C55" text-anchor="middle">d</text>
+        <text x="${cx + 0.5}" y="${cy + r * 0.15 - 0.5}" font-family="Arial" font-size="${r * 0.9}" font-weight="900" fill="white" text-anchor="middle">d</text>`;
+    case 'youtube':
+      return `
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="#FF0000"/>
+        <polygon points="${cx - r * 0.3},${cy - r * 0.35} ${cx + r * 0.45},${cy} ${cx - r * 0.3},${cy + r * 0.35}" fill="white"/>`;
+    case 'chatgpt':
+      return `
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="#10A37F"/>
+        <text x="${cx}" y="${cy + r * 0.35}" font-family="Arial" font-size="${r * 1.0}" font-weight="bold" fill="white" text-anchor="middle">G</text>`;
+    case 'web':
+      return `
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="${C.sky}"/>
+        <circle cx="${cx}" cy="${cy}" r="${r * 0.55}" fill="none" stroke="white" stroke-width="${r * 0.1}"/>
+        <ellipse cx="${cx}" cy="${cy}" rx="${r * 0.25}" ry="${r * 0.55}" fill="none" stroke="white" stroke-width="${r * 0.1}"/>
+        <line x1="${cx - r * 0.55}" y1="${cy}" x2="${cx + r * 0.55}" y2="${cy}" stroke="white" stroke-width="${r * 0.1}"/>`;
+    case 'claude':
+      return `
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="#D97706"/>
+        <text x="${cx}" y="${cy + r * 0.35}" font-family="Arial" font-size="${r * 1.0}" font-weight="bold" fill="white" text-anchor="middle">C</text>`;
+    default:
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${C.primary}"/>`;
+  }
+}
+
+// Row of platform icons at given y position
+function platformIconRow(startX, y, r, gap, icons) {
+  return icons.map((name, i) => platformIcon(name, startX + i * gap, y, r)).join('\n');
+}
+
 function themedBackground(w, h, t) {
   return `
     <defs>
@@ -233,31 +320,31 @@ function screenshot1_ShareFromAnywhere() {
     <!-- Source pill label -->
     <text x="8" y="92" font-family="Arial" font-size="10" font-weight="700" fill="${C.textMuted}" letter-spacing="1.5">SHARE FROM</text>
 
-    <!-- Row 1: Instagram, TikTok, YouTube -->
-    <rect x="0" y="104" width="${pillW}" height="44" rx="12" fill="#E4405F" opacity="0.12" stroke="#E4405F" stroke-opacity="0.35" stroke-width="1"/>
-    <text x="${pillW / 2}" y="122" font-family="Arial" font-size="15" text-anchor="middle" fill="#E4405F">&#9679;</text>
+    <!-- Row 1: Instagram, TikTok, YouTube — with real branded icons -->
+    <rect x="0" y="104" width="${pillW}" height="44" rx="12" fill="#E4405F" opacity="0.08" stroke="#E4405F" stroke-opacity="0.3" stroke-width="1"/>
+    ${platformIcon('instagram', pillW / 2, 121, 10)}
     <text x="${pillW / 2}" y="139" font-family="Arial" font-size="9" font-weight="600" fill="#FB7185" text-anchor="middle">Instagram</text>
 
-    <rect x="${pillW + 10}" y="104" width="${pillW}" height="44" rx="12" fill="#000" opacity="0.25" stroke="#EEE" stroke-opacity="0.2" stroke-width="1"/>
-    <text x="${pillW + 10 + pillW / 2}" y="122" font-family="Arial" font-size="15" text-anchor="middle" fill="#FFF">&#9835;</text>
+    <rect x="${pillW + 10}" y="104" width="${pillW}" height="44" rx="12" fill="#000" opacity="0.2" stroke="#555" stroke-opacity="0.3" stroke-width="1"/>
+    ${platformIcon('tiktok', pillW + 10 + pillW / 2, 121, 10)}
     <text x="${pillW + 10 + pillW / 2}" y="139" font-family="Arial" font-size="9" font-weight="600" fill="${C.white}" text-anchor="middle">TikTok</text>
 
-    <rect x="${(pillW + 10) * 2}" y="104" width="${pillW}" height="44" rx="12" fill="#FF0000" opacity="0.1" stroke="#FF0000" stroke-opacity="0.25" stroke-width="1"/>
-    <text x="${(pillW + 10) * 2 + pillW / 2}" y="122" font-family="Arial" font-size="15" text-anchor="middle" fill="#FF4444">&#9654;</text>
+    <rect x="${(pillW + 10) * 2}" y="104" width="${pillW}" height="44" rx="12" fill="#FF0000" opacity="0.08" stroke="#FF0000" stroke-opacity="0.25" stroke-width="1"/>
+    ${platformIcon('youtube', (pillW + 10) * 2 + pillW / 2, 121, 10)}
     <text x="${(pillW + 10) * 2 + pillW / 2}" y="139" font-family="Arial" font-size="9" font-weight="600" fill="#FB923C" text-anchor="middle">YouTube</text>
 
-    <!-- Row 2: ChatGPT, Any URL, Claude -->
-    <rect x="0" y="156" width="${pillW}" height="44" rx="12" fill="#10A37F" opacity="0.12" stroke="#10A37F" stroke-opacity="0.35" stroke-width="1"/>
-    <text x="${pillW / 2}" y="174" font-family="Arial" font-size="13" text-anchor="middle" fill="#10A37F">&#9670;</text>
+    <!-- Row 2: ChatGPT, Any URL, Claude — with real branded icons -->
+    <rect x="0" y="156" width="${pillW}" height="44" rx="12" fill="#10A37F" opacity="0.08" stroke="#10A37F" stroke-opacity="0.3" stroke-width="1"/>
+    ${platformIcon('chatgpt', pillW / 2, 173, 10)}
     <text x="${pillW / 2}" y="191" font-family="Arial" font-size="9" font-weight="600" fill="${C.emeraldLight}" text-anchor="middle">ChatGPT</text>
 
-    <rect x="${pillW + 10}" y="156" width="${pillW}" height="44" rx="12" fill="${C.sky}" opacity="0.12" stroke="${C.sky}" stroke-opacity="0.35" stroke-width="1"/>
-    <text x="${pillW + 10 + pillW / 2}" y="174" font-family="Arial" font-size="13" text-anchor="middle" fill="${C.sky}">&#9673;</text>
+    <rect x="${pillW + 10}" y="156" width="${pillW}" height="44" rx="12" fill="${C.sky}" opacity="0.08" stroke="${C.sky}" stroke-opacity="0.3" stroke-width="1"/>
+    ${platformIcon('web', pillW + 10 + pillW / 2, 173, 10)}
     <text x="${pillW + 10 + pillW / 2}" y="191" font-family="Arial" font-size="9" font-weight="600" fill="${C.skyLight}" text-anchor="middle">Any URL</text>
 
-    <rect x="${(pillW + 10) * 2}" y="156" width="${pillW}" height="44" rx="12" fill="${C.indigo}" opacity="0.12" stroke="${C.indigo}" stroke-opacity="0.35" stroke-width="1"/>
-    <text x="${(pillW + 10) * 2 + pillW / 2}" y="174" font-family="Arial" font-size="13" text-anchor="middle" fill="${C.indigo}">&#10023;</text>
-    <text x="${(pillW + 10) * 2 + pillW / 2}" y="191" font-family="Arial" font-size="9" font-weight="600" fill="${C.indigoLight}" text-anchor="middle">Claude</text>
+    <rect x="${(pillW + 10) * 2}" y="156" width="${pillW}" height="44" rx="12" fill="#D97706" opacity="0.08" stroke="#D97706" stroke-opacity="0.3" stroke-width="1"/>
+    ${platformIcon('claude', (pillW + 10) * 2 + pillW / 2, 173, 10)}
+    <text x="${(pillW + 10) * 2 + pillW / 2}" y="191" font-family="Arial" font-size="9" font-weight="600" fill="${C.amberLight}" text-anchor="middle">Claude</text>
 
     <!-- Paste input area -->
     <rect x="0" y="214" width="${sw}" height="72" rx="16" fill="${C.darkCard}" stroke="${C.primary}" stroke-opacity="0.5" stroke-width="1.5"/>
@@ -311,18 +398,16 @@ function screenshot1_ShareFromAnywhere() {
 
 // ============================================
 // SCREENSHOT 2: DISCOVER COMMUNITY PLANS
-// Uses real community-backdrop photos composited onto cards
+// Uses real community-backdrop photos embedded as base64 in SVG
 // ============================================
-// The Discover screenshot uses real photos from community-backdrops.
-// It's generated as an async function that composites actual images.
 const DISCOVER_PLANS = [
-  { title: 'Thanksgiving Feast', price: '$320', author: 'Sarah M.', views: '1.2k', tasks: '15 tasks', image: 'heb-thanksgiving-parade.jpg' },
-  { title: 'Christmas Celebration', price: '$850', author: 'James K.', views: '2.4k', tasks: '22 tasks', image: 'christmas-celebration.jpg' },
-  { title: 'HEB Shopping Guide', price: '$400', author: 'Maria L.', views: '890', tasks: '12 tasks', image: 'austin_texas_zilker__3b0e26dc.jpg' },
-  { title: 'NYE Party Planning', price: '$550', author: 'David R.', views: '1.8k', tasks: '18 tasks', image: 'new_york_city_new_ye_43315f42.jpg' },
+  { title: 'Thanksgiving Feast', price: '$320', author: 'Sarah M.', views: '1.2k', tasks: '15 tasks', imgKey: 'thanksgiving_card' },
+  { title: 'Christmas Celebration', price: '$850', author: 'James K.', views: '2.4k', tasks: '22 tasks', imgKey: 'christmas_card' },
+  { title: 'Austin Weekend', price: '$400', author: 'Maria L.', views: '890', tasks: '12 tasks', imgKey: 'austin_card' },
+  { title: 'NYE Party Planning', price: '$550', author: 'David R.', views: '1.8k', tasks: '18 tasks', imgKey: 'nye_card' },
 ];
 
-function screenshot2_DiscoverSvg() {
+function screenshot2_Discover() {
   const pw = Math.round(1080 * 0.50);
   const sw = screenW(pw);
   const cardW = Math.round((sw - 10) / 2);
@@ -352,21 +437,31 @@ function screenshot2_DiscoverSvg() {
     <rect x="214" y="128" width="70" height="28" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
     <text x="249" y="147" font-family="Arial" font-size="11" fill="${C.textSecondary}" text-anchor="middle">Holidays</text>
 
-    <!-- Plan cards grid (2x2) — photo areas are dark placeholders; real images composited later -->
+    <!-- Plan cards grid (2x2) with real embedded photos -->
     ${DISCOVER_PLANS.map((p, i) => {
       const col = i % 2;
       const row = Math.floor(i / 2);
       const cx = col * (cardW + 10);
       const cy = 170 + row * 240;
+      const b64 = IMG_CACHE[p.imgKey];
+      const clipId = 'cardClip' + i;
 
       return `
-        <rect x="${cx}" y="${cy}" width="${cardW}" height="225" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1" filter="url(#cardShadow)"/>
+        <rect x="${cx}" y="${cy}" width="${cardW}" height="225" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="1"/>
 
-        <!-- Photo placeholder (real image composited via sharp) -->
-        <rect x="${cx}" y="${cy}" width="${cardW}" height="${imgH}" rx="14" fill="#222"/>
+        <!-- Real photo with rounded top corners -->
+        <defs>
+          <clipPath id="${clipId}">
+            <rect x="${cx}" y="${cy}" width="${cardW}" height="${imgH}" rx="14"/>
+          </clipPath>
+        </defs>
+        ${b64
+          ? `<image x="${cx}" y="${cy}" width="${cardW}" height="${imgH}" href="${b64}" clip-path="url(#${clipId})" preserveAspectRatio="xMidYMid slice"/>`
+          : `<rect x="${cx}" y="${cy}" width="${cardW}" height="${imgH}" rx="14" fill="#333"/>`
+        }
 
-        <!-- Dark gradient overlay on bottom of photo for text readability -->
-        <rect x="${cx}" y="${cy + imgH - 35}" width="${cardW}" height="35" fill="${C.darkCard}" opacity="0.5"/>
+        <!-- Slight dark overlay at bottom of photo for contrast -->
+        <rect x="${cx}" y="${cy + imgH - 30}" width="${cardW}" height="30" fill="${C.dark}" opacity="0.35"/>
 
         <!-- Price badge -->
         <rect x="${cx + cardW - 58}" y="${cy + 8}" width="50" height="24" rx="12" fill="#000" opacity="0.65"/>
@@ -396,74 +491,6 @@ function screenshot2_DiscoverSvg() {
     'Browse community plans &#8212; use them with one tap',
     body
   );
-}
-
-// Async: render SVG then composite real photos onto card areas
-async function generateDiscoverScreenshot() {
-  const pw = Math.round(1080 * 0.50);
-  const sw = screenW(pw);
-  const cardW = Math.round((sw - 10) / 2);
-  const imgH = 110;
-  const phoneX = Math.round((1080 - pw) / 2);
-  const phoneY = Math.round(1920 * 0.145);
-  const bz = Math.round(pw * 0.025);
-  const notchH = Math.round((pw * 2.05) * 0.016);
-
-  // Offsets: phone screen content starts at (phoneX + bz + 8, phoneY + bz + notchH + 16)
-  const screenOffsetX = phoneX + bz + 8;
-  const screenOffsetY = phoneY + bz + notchH + 16;
-
-  const baseSvg = screenshot2_DiscoverSvg();
-  const baseBuffer = await sharp(Buffer.from(baseSvg)).png().toBuffer();
-
-  // Prepare photo composites for each card
-  const composites = [];
-  const backdropDir = path.join(__dirname, '..', 'client/public/community-backdrops');
-
-  for (let i = 0; i < DISCOVER_PLANS.length; i++) {
-    const plan = DISCOVER_PLANS[i];
-    const imgPath = path.join(backdropDir, plan.image);
-
-    if (!fs.existsSync(imgPath)) {
-      console.warn(`  Warning: Missing backdrop image: ${plan.image}`);
-      continue;
-    }
-
-    const col = i % 2;
-    const row = Math.floor(i / 2);
-    const cx = col * (cardW + 10);
-    const cy = 170 + row * 240;
-
-    // Resize the real photo to fit the card's photo area, with rounded corners
-    const photoWidth = cardW;
-    const photoHeight = imgH;
-
-    // Create rounded-corner mask SVG
-    const maskSvg = `<svg width="${photoWidth}" height="${photoHeight}"><rect x="0" y="0" width="${photoWidth}" height="${photoHeight}" rx="14" ry="14" fill="white"/></svg>`;
-
-    const photo = await sharp(imgPath)
-      .resize(photoWidth, photoHeight, { fit: 'cover', position: 'center' })
-      .composite([{
-        input: Buffer.from(maskSvg),
-        blend: 'dest-in'
-      }])
-      .png()
-      .toBuffer();
-
-    composites.push({
-      input: photo,
-      left: Math.round(screenOffsetX + cx),
-      top: Math.round(screenOffsetY + cy),
-    });
-  }
-
-  // Composite all photos onto the base
-  const result = await sharp(baseBuffer)
-    .composite(composites)
-    .png()
-    .toFile(path.join(OUTPUT_DIR, 'phone', '02-discover-plans-1080x1920.png'));
-
-  console.log('  Phone: 02-discover-plans (1080x1920) - with real photos');
 }
 
 // ============================================
@@ -971,20 +998,16 @@ async function generateFeatureGraphic() {
     <text x="45" y="152" font-family="Arial" font-size="14" fill="${C.tealLight}">Share from any app &#8212; AI creates your plan instantly</text>
     <rect x="45" y="164" width="260" height="3" rx="1.5" fill="url(#accentGrad)"/>
 
-    <!-- Source platform pills -->
+    <!-- Source platform icons (real branded) -->
     <text x="45" y="190" font-family="Arial" font-size="9" fill="${C.textMuted}" letter-spacing="1">SHARE FROM ANYWHERE</text>
 
-    ${[
-      { label: 'Instagram', color: '#E4405F' },
-      { label: 'TikTok', color: '#FFF' },
-      { label: 'YouTube', color: '#FF0000' },
-      { label: 'ChatGPT', color: '#10A37F' },
-      { label: 'Any URL', color: C.sky },
-      { label: 'Claude', color: C.indigo },
-    ].map((p, i) => `
-      <circle cx="${60 + i * 38}" cy="${216}" r="14" fill="${p.color}" opacity="0.2" stroke="${p.color}" stroke-opacity="0.4" stroke-width="1"/>
-      <text x="${60 + i * 38}" y="${236}" font-family="Arial" font-size="7" fill="${p.color}" text-anchor="middle" opacity="0.8">${p.label}</text>
-    `).join('')}
+    ${['instagram', 'tiktok', 'youtube', 'chatgpt', 'web', 'claude'].map((name, i) => {
+      const labels = ['Instagram', 'TikTok', 'YouTube', 'ChatGPT', 'Any URL', 'Claude'];
+      return `
+        ${platformIcon(name, 60 + i * 38, 212, 12)}
+        <text x="${60 + i * 38}" y="${230}" font-family="Arial" font-size="7" fill="${C.textSecondary}" text-anchor="middle">${labels[i]}</text>
+      `;
+    }).join('')}
 
     <!-- Arrow to result -->
     <text x="300" y="220" font-family="Arial" font-size="20" fill="${C.tealLight}" opacity="0.8">&#8594;</text>
@@ -1057,16 +1080,17 @@ async function generateFeatureGraphic() {
         <text x="4" y="24" font-family="Arial" font-size="6" fill="${C.textMuted}">Community plans</text>
 
         ${[
-          { title: 'Thanksgiving', price: '$320', c1: '#8B4513', c2: '#D2691E' },
-          { title: 'Christmas', price: '$850', c1: '#B22222', c2: '#FF6347' },
+          { title: 'Thanksgiving', price: '$320', imgKey: 'thanksgiving_mini' },
+          { title: 'Christmas', price: '$850', imgKey: 'christmas_mini' },
         ].map((p, i) => {
           const cy = 30 + i * 105;
+          const b64 = IMG_CACHE[p.imgKey];
           return `
-            <defs><linearGradient id="fg${i}" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="${p.c1}"/><stop offset="100%" stop-color="${p.c2}"/>
-            </linearGradient></defs>
+            <defs><clipPath id="fgClip${i}"><rect x="0" y="${cy}" width="121" height="48" rx="8"/></clipPath></defs>
             <rect x="0" y="${cy}" width="121" height="95" rx="8" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
-            <rect x="0" y="${cy}" width="121" height="48" rx="8" fill="url(#fg${i})"/>
+            ${b64
+              ? `<image x="0" y="${cy}" width="121" height="48" href="${b64}" clip-path="url(#fgClip${i})" preserveAspectRatio="xMidYMid slice"/>`
+              : `<rect x="0" y="${cy}" width="121" height="48" rx="8" fill="#444"/>`}
             <rect x="78" y="${cy + 4}" width="38" height="16" rx="8" fill="#000" opacity="0.6"/>
             <text x="97" y="${cy + 15}" font-family="Arial" font-size="8" font-weight="bold" fill="white" text-anchor="middle">${p.price}</text>
             <text x="8" y="${cy + 62}" font-family="Arial" font-size="8" font-weight="bold" fill="${C.white}">${p.title}</text>
@@ -1438,6 +1462,9 @@ async function main() {
 
   console.log('Generating Google Play Store Assets (Sensationalized Real-App Edition)...\n');
 
+  // ---- Preload real images into cache ----
+  await preloadImages();
+
   // ---- App Icon ----
   const iconSrc = path.join(__dirname, '..', 'client/public/icons/android/android-play-store-512.png');
   if (fs.existsSync(iconSrc)) {
@@ -1452,7 +1479,7 @@ async function main() {
   // Standard SVG-only screenshots
   const phoneScreenshots = [
     { fn: screenshot1_ShareFromAnywhere, name: '01-share-from-anywhere' },
-    // 02-discover is handled separately (async with real photo composites)
+    { fn: screenshot2_Discover, name: '02-discover-plans' },
     { fn: screenshot3_Activities, name: '03-my-activities' },
     { fn: screenshot4_TaskDetail, name: '04-smart-tasks' },
     { fn: screenshot5_Reports, name: '05-reports-badges' },
@@ -1467,9 +1494,6 @@ async function main() {
     );
     console.log(`  Phone: ${ss.name} (1080x1920)`);
   }
-
-  // Discover screenshot with real photo composites
-  await generateDiscoverScreenshot();
 
   // ---- 7-inch Tablet Screenshots (1200x1920) ----
   const tablet7 = [
