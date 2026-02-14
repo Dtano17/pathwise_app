@@ -125,9 +125,10 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [isInCuratedFlow, setIsInCuratedFlow] = useState(false);
   const [conversationHints, setConversationHints] = useState<string[]>([]);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
-  // Device location for Gemini Maps grounding
-  const { location: deviceLocation } = useDeviceLocation();
+  // Device location for Gemini Maps grounding + location hint resolution
+  const { location: deviceLocation, requestLocation } = useDeviceLocation();
 
   const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1081,19 +1082,63 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
         {conversationHints.length > 0 && (
           <div className="border-t border-border/30 px-4 py-2 bg-background/80">
             <div className="max-w-3xl mx-auto flex flex-wrap gap-2">
-              {conversationHints.map((hint, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    chatMutation.mutate({ message: hint, mode: currentMode });
-                    setConversationHints([]);
-                  }}
-                  disabled={chatMutation.isPending}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors border border-primary/20 disabled:opacity-50"
-                >
-                  {hint}
-                </button>
-              ))}
+              {conversationHints.map((hint, i) => {
+                const isLocationHint = hint.includes('📍');
+                return (
+                  <button
+                    key={i}
+                    onClick={async () => {
+                      if (isLocationHint) {
+                        // Resolve actual GPS location instead of sending raw hint text
+                        setIsDetectingLocation(true);
+                        try {
+                          const loc = await requestLocation();
+                          if (loc?.city) {
+                            chatMutation.mutate({ message: `My location is ${loc.city}`, mode: currentMode });
+                          } else if (loc) {
+                            chatMutation.mutate({ message: `My location is ${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}`, mode: currentMode });
+                          } else {
+                            // GPS failed — try stored location from settings
+                            try {
+                              const res = await fetch('/api/user/location', { credentials: 'include' });
+                              const stored = await res.json();
+                              if (stored?.city) {
+                                chatMutation.mutate({ message: `My location is ${stored.city}`, mode: currentMode });
+                              } else {
+                                chatMutation.mutate({ message: "I couldn't detect my location, can you ask me for my city?", mode: currentMode });
+                              }
+                            } catch {
+                              chatMutation.mutate({ message: "I couldn't detect my location, can you ask me for my city?", mode: currentMode });
+                            }
+                          }
+                        } catch {
+                          // GPS failed — try stored location from settings
+                          try {
+                            const res = await fetch('/api/user/location', { credentials: 'include' });
+                            const stored = await res.json();
+                            if (stored?.city) {
+                              chatMutation.mutate({ message: `My location is ${stored.city}`, mode: currentMode });
+                            } else {
+                              chatMutation.mutate({ message: "I couldn't detect my location, can you ask me for my city?", mode: currentMode });
+                            }
+                          } catch {
+                            chatMutation.mutate({ message: "I couldn't detect my location, can you ask me for my city?", mode: currentMode });
+                          }
+                        } finally {
+                          setIsDetectingLocation(false);
+                        }
+                      } else {
+                        chatMutation.mutate({ message: hint, mode: currentMode });
+                      }
+                      setConversationHints([]);
+                    }}
+                    disabled={chatMutation.isPending || (isLocationHint && isDetectingLocation)}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors border border-primary/20 disabled:opacity-50"
+                  >
+                    {isLocationHint && isDetectingLocation ? '📍 Detecting...' : hint}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

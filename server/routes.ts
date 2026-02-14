@@ -14000,15 +14000,15 @@ Return ONLY valid JSON, no markdown or explanation.`;
         console.warn("[SIMPLE PLAN] Failed to fetch daily theme:", err);
       }
 
-      // Resolve effective location: live GPS > stored device GPS > profile location
+      // Resolve effective location: live GPS > stored device GPS from userPreferences
       let effectiveLocation = location;
       if (!effectiveLocation) {
-        const locationUser = await storage.getUser(userId);
-        if (locationUser?.deviceLatitude && locationUser?.deviceLongitude) {
+        const userPrefs = await storage.getUserPreferences(userId);
+        if (userPrefs?.deviceLatitude && userPrefs?.deviceLongitude) {
           effectiveLocation = {
-            latitude: locationUser.deviceLatitude,
-            longitude: locationUser.deviceLongitude,
-            city: locationUser.deviceCity || locationUser.location || undefined,
+            latitude: userPrefs.deviceLatitude,
+            longitude: userPrefs.deviceLongitude,
+            city: userPrefs.deviceCity || undefined,
           };
           console.log(
             `[SIMPLE PLAN] 📍 Using stored device location: ${effectiveLocation.city || "coordinates"}`,
