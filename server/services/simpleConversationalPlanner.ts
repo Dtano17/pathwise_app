@@ -1573,26 +1573,28 @@ When generating plans and suggestions for TODAY:
 
     weatherSection = `
 
-## ⚠️ REAL-TIME WEATHER & SAFETY CONDITIONS
+${hasAlerts ? `## ⚠️ SAFETY & WEATHER ALERT
 **THIS DATA WAS JUST FETCHED - YOU MUST USE IT!**
 
-${hasAlerts ? `### 🚨 ACTIVE WEATHER ALERTS:
+### 🚨 ACTIVE WEATHER ALERTS:
 ${weather.alerts.map(a => `- ${a}`).join('\n')}
 
 **⚠️ CRITICAL INSTRUCTIONS FOR ALERTS:**
 1. **MENTION THIS IMMEDIATELY** in your FIRST response - BEFORE asking planning questions
 2. **Factor into ALL questions** (e.g., "Given the extreme cold, would you prefer indoor-only options?")
-3. **Include prominently at TOP** of any plan preview
+3. **Include prominently at TOP** of any plan preview with ⚠️ warning emoji
 4. **Adjust recommendations** based on conditions (indoor vs outdoor, transportation safety)
-` : ''}
+` : `## 🌤️ WEATHER CONDITIONS
+**THIS DATA WAS JUST FETCHED - YOU MUST USE IT!**
+`}
 ### Current & Forecast Conditions:
 ${weather.summary || 'Weather data available but summary not generated'}
 
 **Weather Integration Instructions:**
-- ${hasAlerts ? '**LEAD WITH WEATHER WARNING** before asking any planning questions' : 'Mention weather naturally when relevant to the plan'}
+- ${hasAlerts ? '**LEAD WITH WEATHER WARNING** using ⚠️ emoji before asking any planning questions' : 'Mention weather casually when relevant — use 🌤️ emoji, do NOT use ⚠️ warning emojis or "SAFETY ALERT" framing for normal/pleasant weather'}
 - Factor weather into all outdoor/transportation recommendations
 - Include packing/preparation tips based on conditions
-- If severe weather, strongly recommend indoor alternatives and safe transportation
+- ${hasAlerts ? 'Strongly recommend indoor alternatives and safe transportation' : 'Present weather as helpful context, not as a warning'}
 
 `;
   }
@@ -1621,8 +1623,6 @@ Thanks for the details! Let's proceed with a few more questions to refine your t
 **5. 💰 What's your total budget for the trip?** (including Airbnb, car rental, food, and activities)
 
 **6. 🎯 Any specific activities or attractions you want to include?** (e.g., sightseeing, shopping, dining)
-
-(💡 Say "preview", "yes/generate", or "continue")
 \`\`\`
 
 **❌ Bad (Plain numbered list):**
@@ -1718,7 +1718,7 @@ ${mode === 'quick' ? `
 **Quick Mode - STRICT 2-Batch System (5 total questions):**
 
 **🚨 CRITICAL BATCHING RULES:**
-- **Batch 1 (Turn 1):** Ask EXACTLY 3 questions together in a numbered list. End: "(💡 Say "preview", "yes/generate", or "continue")"
+- **Batch 1 (Turn 1):** Ask EXACTLY 3 questions together in a numbered list.
 - **Batch 2 (Turn 2):** Ask EXACTLY 2 MORE questions together in a numbered list. NO preview yet!
 - **Turn 3+:** Show COMPLETE PLAN PREVIEW with real-time data from web_search. Wait for confirmation.
 
@@ -1739,8 +1739,8 @@ User: "Help plan romantic anniversary trip to Paris"
 - Keep batches conversational but structured
 ` : `
 **Smart Mode - 3 Batches (10 total):**
-- **Batch 1:** Ask 3 questions. Skip already-answered. End: "(💡 Say "preview", "yes/generate", or "continue")"
-- **Batch 2:** Ask 3 MORE. End: "(💡 Say "preview", "yes/generate", or "continue")"
+- **Batch 1:** Ask 3 questions. Skip already-answered.
+- **Batch 2:** Ask 3 MORE.
 - **Batch 3:** Ask 4 MORE, then show PLAN PREVIEW. Wait for confirmation.
 
 **Organic Inference:** Extract from user's message, skip those questions, ask next priority
@@ -1871,14 +1871,14 @@ Your \`message\` field MUST contain the complete, detailed plan with ALL search 
 \`\`\`markdown
 # 🌴 [Destination] - [Duration] Trip Plan
 
-⚠️ **SAFETY ALERTS** ⚠️ (if any hazards found via web_search)
-[Hurricane/advisory details from search results - SHOW PROMINENTLY IF FOUND]
+⚠️ **SAFETY ALERTS** ⚠️ (ONLY if hazards found via web_search — omit this entire section if no dangers exist)
+[Hurricane/advisory details - SHOW PROMINENTLY IF FOUND]
 
-🌤️ **WEATHER CONDITIONS** (ALWAYS include from web search)
+🌤️ **Weather Conditions**
 • Current: [X°F, conditions]
 • Forecast: [Daily temps for trip duration]
-• ⚠️ [Any weather warnings: storms, extreme temps, etc.]
 • 🎒 Pack: [Weather-appropriate recommendations]
+(Only add ⚠️ warnings here if conditions are actually dangerous: storms, extreme heat >100°F, extreme cold <20°F, high winds >40mph. Do NOT use warning emojis for normal/pleasant weather.)
 
 ❄️ **ROAD/TRAVEL CONDITIONS** (for mountain/remote destinations)
 • Roads: [Open/Chains required/Closures]

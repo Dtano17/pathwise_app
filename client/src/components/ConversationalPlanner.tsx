@@ -146,6 +146,9 @@ export default function ConversationalPlanner({ onClose, initialMode, initialInp
   // Template selector state
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
 
+  // Location detection state for hint button
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+
   // Journal timeline state
   const [showJournalTimeline, setShowJournalTimeline] = useState(false);
 
@@ -2648,35 +2651,97 @@ export default function ConversationalPlanner({ onClose, initialMode, initialInp
                         </div>
                       )}
 
-                      {/* Command buttons - always show below last assistant message when conversation is active */}
+                      {/* Dynamic hint buttons from server-generated conversationHints */}
                       {msg.role === 'assistant' &&
                        index === currentSession.conversationHistory.length - 1 &&
                        !currentSession.isComplete &&
                        !sendMessageMutation.isPending &&
-                       !generatePlanMutation.isPending && (
+                       !generatePlanMutation.isPending &&
+                       msg.conversationHints && msg.conversationHints.length > 0 && (
                         <div className="flex flex-wrap gap-2 pl-2 mt-3">
-                          <span className="text-xs text-slate-500 dark:text-slate-400">💡 Commands:</span>
-                          {['continue', 'preview', 'create plan'].map((command) => (
-                            <button
-                              key={command}
-                              onClick={() => {
-                                sendMessageMutation.mutate({
-                                  message: command,
-                                  conversationHistory: currentSession?.conversationHistory || [],
-                                  mode: planningMode || 'quick'
-                                });
-                              }}
-                              className={`text-xs px-3 py-1.5 rounded-full transition-all border cursor-pointer font-medium ${
-                                command === 'create plan'
-                                  ? 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600'
-                                  : planningMode === 'quick'
-                                    ? 'bg-emerald-50 dark:bg-emerald-950 hover:bg-emerald-100 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                                    : 'bg-purple-50 dark:bg-purple-950 hover:bg-purple-100 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
-                              } hover:shadow-sm`}
-                            >
-                              {command}
-                            </button>
-                          ))}
+                          {msg.conversationHints.map((hint) => {
+                            // Strip emoji prefix to get the label text
+                            const label = hint.replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]+\s*/u, '').trim();
+                            const isLocationHint = hint.includes('location') || hint.includes('📍');
+                            const isGenerateHint = hint.includes('Generate') || hint.includes('✅');
+
+                            // Map hint label to the command to send
+                            const getCommand = (h: string): string => {
+                              if (h.includes('Continue') || h.includes('➡️')) return 'continue';
+                              if (h.includes('Skip') || h.includes('⏭️')) return 'skip';
+                              if (h.includes('Help') || h.includes('❓')) return 'help';
+                              if (h.includes('Preview') || h.includes('👁️')) return 'preview';
+                              if (h.includes('Generate') || h.includes('✅')) return 'create plan';
+                              if (h.includes('Flexible budget') || h.includes('💰')) return 'flexible budget';
+                              if (h.includes('This weekend') || h.includes('📅')) return 'this weekend';
+                              return label.toLowerCase();
+                            };
+
+                            return (
+                              <button
+                                key={hint}
+                                disabled={isDetectingLocation && isLocationHint}
+                                onClick={async () => {
+                                  if (isLocationHint) {
+                                    // Special handler: detect GPS location
+                                    setIsDetectingLocation(true);
+                                    try {
+                                      const loc = await requestLocation();
+                                      if (loc?.city) {
+                                        sendMessageMutation.mutate({
+                                          message: `My location is ${loc.city}`,
+                                          conversationHistory: currentSession?.conversationHistory || [],
+                                          mode: planningMode || 'quick'
+                                        });
+                                      } else if (loc) {
+                                        sendMessageMutation.mutate({
+                                          message: `My location is ${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}`,
+                                          conversationHistory: currentSession?.conversationHistory || [],
+                                          mode: planningMode || 'quick'
+                                        });
+                                      } else {
+                                        sendMessageMutation.mutate({
+                                          message: "I couldn't detect my location, can you ask me for my city?",
+                                          conversationHistory: currentSession?.conversationHistory || [],
+                                          mode: planningMode || 'quick'
+                                        });
+                                      }
+                                    } catch {
+                                      sendMessageMutation.mutate({
+                                        message: "I couldn't detect my location, can you ask me for my city?",
+                                        conversationHistory: currentSession?.conversationHistory || [],
+                                        mode: planningMode || 'quick'
+                                      });
+                                    } finally {
+                                      setIsDetectingLocation(false);
+                                    }
+                                  } else {
+                                    sendMessageMutation.mutate({
+                                      message: getCommand(hint),
+                                      conversationHistory: currentSession?.conversationHistory || [],
+                                      mode: planningMode || 'quick'
+                                    });
+                                  }
+                                }}
+                                className={`text-xs px-3 py-1.5 rounded-full transition-all border cursor-pointer font-medium flex items-center gap-1 ${
+                                  isGenerateHint
+                                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600'
+                                    : planningMode === 'quick'
+                                      ? 'bg-emerald-50 dark:bg-emerald-950 hover:bg-emerald-100 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                      : 'bg-purple-50 dark:bg-purple-950 hover:bg-purple-100 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                } hover:shadow-sm`}
+                              >
+                                {isDetectingLocation && isLocationHint ? (
+                                  <>
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Detecting...
+                                  </>
+                                ) : (
+                                  hint
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -2741,60 +2806,6 @@ export default function ConversationalPlanner({ onClose, initialMode, initialInp
                       <Link className="h-3 w-3" />
                       <span>Paste a URL, upload a video/audio/document, or combine multiple sources</span>
                     </div>
-                    {currentSession?.conversationHistory && currentSession.conversationHistory.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-slate-500 dark:text-slate-400">💡 Quick actions:</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs px-3 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 border-slate-200 dark:border-slate-700"
-                          onClick={() => {
-                            setMessage('continue');
-                            setTimeout(() => sendMessageMutation.mutate({
-                              message: 'continue',
-                              conversationHistory: currentSession?.conversationHistory || [],
-                              mode: planningMode || 'quick'
-                            }), 100);
-                          }}
-                          disabled={isGenerating}
-                        >
-                          Continue
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs px-3 bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 border-slate-200 dark:border-slate-700"
-                          onClick={() => {
-                            setMessage('preview');
-                            setTimeout(() => sendMessageMutation.mutate({
-                              message: 'preview',
-                              conversationHistory: currentSession?.conversationHistory || [],
-                              mode: planningMode || 'quick'
-                            }), 100);
-                          }}
-                          disabled={isGenerating}
-                        >
-                          Preview
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="h-7 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white"
-                          onClick={() => {
-                            setMessage('create plan');
-                            setTimeout(() => sendMessageMutation.mutate({
-                              message: 'create plan',
-                              conversationHistory: currentSession?.conversationHistory || [],
-                              mode: planningMode || 'quick'
-                            }), 100);
-                          }}
-                          disabled={isGenerating}
-                        >
-                          <Sparkles className="h-3 w-3 mr-1" />
-                          Create Plan
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 )}
                 
