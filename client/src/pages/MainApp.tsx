@@ -9,6 +9,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
+import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -269,6 +270,11 @@ export default function MainApp({
   useEffect(() => {
     onTabChange?.(setActiveTab);
   }, [onTabChange]);
+
+  // Track page/tab views for analytics
+  useEffect(() => {
+    trackEvent('page_viewed', 'navigation', { page: activeTab });
+  }, [activeTab]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { open, isMobile } = useSidebar();
@@ -628,6 +634,7 @@ export default function MainApp({
   // Expanded activities for collapsible view
   const handleActivityClick = (activity: ActivityType) => {
     // Set the selected activity and navigate to tasks tab
+    trackEvent('activity_viewed', 'planning', { activityId: activity.id });
     setSelectedActivityId(activity.id);
     setActiveTab("tasks");
   };
@@ -1590,6 +1597,7 @@ export default function MainApp({
       });
     },
     onSuccess: async (data: any) => {
+      trackEvent('task_completed', 'tasks');
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });

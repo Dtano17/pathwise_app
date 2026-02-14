@@ -18275,6 +18275,144 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
+  // Reset/clear the active planner session (used by chat reset button)
+  app.post("/api/planner/session/reset", async (req, res) => {
+    try {
+      const userId = getDemoUserId(req);
+
+      // Mark active session as completed to prevent data leakage
+      const activeSession =
+        await storage.getActiveLifestylePlannerSession(userId);
+      if (activeSession) {
+        await storage.updateLifestylePlannerSession(
+          activeSession.id,
+          {
+            isComplete: true,
+            sessionState: "completed",
+            slots: {},
+          },
+          userId,
+        );
+        console.log("[SESSION RESET] Completed session:", activeSession.id);
+      }
+
+      // Clear search cache to prevent stale data
+      const { globalSearchCache } = await import(
+        "./services/simpleConversationalPlanner"
+      );
+      globalSearchCache.clear();
+
+      res.json({
+        success: true,
+        completedSessionId: activeSession?.id || null,
+      });
+    } catch (error) {
+      console.error("Session reset error:", error);
+      res.status(500).json({ error: "Failed to reset session" });
+    }
+  });
+
+  // Feature usage analytics - Log a single event
+  app.post("/api/analytics/event", async (req, res) => {
+    try {
+      const userId = getDemoUserId(req);
+      const { eventName, eventCategory, metadata } = req.body;
+
+      if (!eventName || !eventCategory) {
+        return res
+          .status(400)
+          .json({ error: "eventName and eventCategory are required" });
+      }
+
+      const validCategories = [
+        "planning",
+        "tasks",
+        "journal",
+        "social",
+        "discover",
+        "settings",
+        "reports",
+        "navigation",
+      ];
+      if (!validCategories.includes(eventCategory)) {
+        return res
+          .status(400)
+          .json({
+            error: `Invalid category. Must be one of: ${validCategories.join(", ")}`,
+          });
+      }
+
+      await storage.createFeatureUsageEvent({
+        userId,
+        eventName,
+        eventCategory,
+        metadata: metadata || {},
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Analytics event error:", error);
+      res.status(200).json({ success: false });
+    }
+  });
+
+  // Feature usage analytics - Batch log events
+  app.post("/api/analytics/events/batch", async (req, res) => {
+    try {
+      const userId = getDemoUserId(req);
+      const { events } = req.body;
+
+      if (!Array.isArray(events) || events.length === 0) {
+        return res
+          .status(400)
+          .json({ error: "events array is required" });
+      }
+
+      const limitedEvents = events.slice(0, 50);
+
+      await Promise.all(
+        limitedEvents.map((event: any) =>
+          storage.createFeatureUsageEvent({
+            userId,
+            eventName: event.eventName,
+            eventCategory: event.eventCategory,
+            metadata: event.metadata || {},
+          }),
+        ),
+      );
+
+      res.json({ success: true, count: limitedEvents.length });
+    } catch (error) {
+      console.error("Batch analytics error:", error);
+      res.status(200).json({ success: false });
+    }
+  });
+
+  // Feature usage analytics - Get aggregated summary
+  app.get("/api/analytics/summary", async (req, res) => {
+    try {
+      const userId = getDemoUserId(req);
+      const { days = "30", scope = "user" } = req.query;
+
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(
+        startDate.getDate() - parseInt(days as string, 10),
+      );
+
+      const summary = await storage.getFeatureUsageSummary(
+        startDate,
+        endDate,
+        scope === "user" ? userId : undefined,
+      );
+
+      res.json({ summary, startDate, endDate, scope });
+    } catch (error) {
+      console.error("Analytics summary error:", error);
+      res.status(500).json({ error: "Failed to fetch analytics summary" });
+    }
+  });
+
   // Process a message in the conversation
   app.post("/api/planner/message", async (req, res) => {
     try {

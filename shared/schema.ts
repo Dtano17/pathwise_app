@@ -1250,6 +1250,21 @@ export const taskFeedback = pgTable("task_feedback", {
   taskFeedbackIndex: index("task_feedback_index").on(table.taskId, table.feedbackType),
 }));
 
+// Feature usage event log - Append-only tracking for feature-level analytics
+// Tracks meaningful feature interactions (not every click, just key events)
+export const featureUsageEvents = pgTable("feature_usage_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  eventName: text("event_name").notNull(), // e.g., 'quick_plan_started', 'task_completed'
+  eventCategory: text("event_category").notNull(), // 'planning', 'tasks', 'journal', 'social', 'discover', 'reports', 'navigation'
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userRecencyIndex: index("feature_usage_user_recency_idx").on(table.userId, table.createdAt.desc()),
+  eventNameIndex: index("feature_usage_event_name_idx").on(table.eventName, table.createdAt.desc()),
+  eventCategoryIndex: index("feature_usage_category_idx").on(table.eventCategory, table.createdAt.desc()),
+}));
+
 // Add Zod schemas for new tables
 export const insertAuthIdentitySchema = createInsertSchema(authIdentities).omit({
   id: true,
@@ -1380,6 +1395,14 @@ export type InsertUserPin = z.infer<typeof insertUserPinSchema>;
 
 export type PlanEngagement = typeof planEngagement.$inferSelect;
 export type InsertPlanEngagement = z.infer<typeof insertPlanEngagementSchema>;
+
+export const insertFeatureUsageEventSchema = createInsertSchema(featureUsageEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type FeatureUsageEvent = typeof featureUsageEvents.$inferSelect;
+export type InsertFeatureUsageEvent = z.infer<typeof insertFeatureUsageEventSchema>;
 
 // Additional contact sync validation
 export const syncContactsSchema = z.object({

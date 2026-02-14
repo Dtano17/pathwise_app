@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen, FileText, RotateCcw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { invalidateActivitiesCache } from '@/lib/cacheInvalidation';
+import { trackEvent } from '@/lib/analytics';
 import { parseInlineFormatting } from '@/lib/formatText';
 import { useDeviceLocation } from '@/hooks/useDeviceLocation';
 
@@ -243,7 +244,9 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   // Chat mutation for dialogue-based interaction
   const chatMutation = useMutation({
     mutationFn: async ({ message, mode }: { message: string; mode: ConversationMode }) => {
-      const conversationHistory = chatMessages.map(msg => ({ role: msg.role, content: msg.content }));
+      const allMessages = chatMessages.map(msg => ({ role: msg.role, content: msg.content }));
+      // If the only message is the assistant welcome, send empty history to signal new conversation
+      const conversationHistory = (allMessages.length === 1 && allMessages[0].role === 'assistant') ? [] : allMessages;
       const response = await apiRequest('POST', '/api/chat/conversation', {
         message,
         conversationHistory,
@@ -301,6 +304,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
         queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
         queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
         queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+        trackEvent('plan_created', 'planning', { mode: currentMode, activityId: data.createdActivity.id });
       }
     },
     onError: (error) => {
@@ -315,7 +319,8 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   // Create plan mutation
   const createPlanMutation = useMutation({
     mutationFn: async () => {
-      const conversationHistory = chatMessages.map(msg => ({ role: msg.role, content: msg.content }));
+      const allMessages = chatMessages.map(msg => ({ role: msg.role, content: msg.content }));
+      const conversationHistory = (allMessages.length === 1 && allMessages[0].role === 'assistant') ? [] : allMessages;
       const response = await apiRequest('POST', '/api/chat/conversation', {
         message: "Yes, create the plan!",
         conversationHistory,
@@ -523,6 +528,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       setChatMessages([]);
     } else {
       setCurrentMode(mode);
+      trackEvent(mode === 'quick' ? 'quick_plan_started' : 'smart_plan_started', 'planning');
       
       // Check if user already typed something - if yes, check for URL first
       if (text.trim()) {
@@ -915,14 +921,43 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              // Clear any localStorage cache for planner
+            onClick={async () => {
+              trackEvent('chat_reset', 'planning', { mode: currentMode });
+
+              // 1. Server-side cleanup: mark active session complete
+              try {
+                await apiRequest('POST', '/api/planner/session/reset', {});
+              } catch (e) {
+                console.warn('Failed to reset server session:', e);
+              }
+
+              // 2. Clear localStorage cache
               localStorage.removeItem('planner_session');
               localStorage.removeItem('planner_chips');
               localStorage.removeItem('voice_input_draft');
-              // Clear input
+
+              // 3. Clear input
               setText('');
-              // Reset to welcome message (keeps chat view open)
+
+              // 4. Clear all conversation-related state
+              setConversationProgress(null);
+              setShowCreatePlanButton(false);
+              setConversationHints([]);
+              setCreatedActivityId(null);
+
+              // 5. Reset curated questions flow
+              setIsInCuratedFlow(false);
+              setCuratedQuestions([]);
+              setCuratedQuestionsContent('');
+              setCuratedAnswers({});
+              setCurrentQuestionIndex(0);
+              setIsLoadingCuratedQuestions(false);
+
+              // 6. Reset parsed content
+              setParsedLLMContent(null);
+              setShowParsedContent(false);
+
+              // 7. Reset to welcome message (keeps chat view open)
               const welcomeMessage = currentMode === 'quick'
                 ? "**Quick Plan activated!** Let's create your action plan quickly. What would you like to accomplish? You can also paste a URL to get personalized questions!"
                 : "**Smart Plan activated!** I'll help you create a comprehensive action plan. What's your goal? You can also paste a URL for a personalized experience!";
@@ -931,6 +966,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                 content: welcomeMessage,
                 timestamp: new Date()
               }]);
+
               toast({
                 title: "New Chat",
                 description: "Starting fresh conversation!",

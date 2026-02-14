@@ -61,6 +61,7 @@ import {
   type InsertUserPin,
   type PlanEngagement,
   type InsertPlanEngagement,
+  type FeatureUsageEvent,
   type PlannerProfile,
   type InsertPlannerProfile,
   type Group,
@@ -125,6 +126,7 @@ import {
   activityBookmarks,
   userPins,
   planEngagement,
+  featureUsageEvents,
   groups,
   groupMemberships,
   groupActivities,
@@ -455,6 +457,10 @@ export interface IStorage {
   seedCommunityPlans(force?: boolean): Promise<void>;
   incrementActivityViews(activityId: string): Promise<void>;
   
+  // Feature Usage Tracking
+  createFeatureUsageEvent(event: { userId: string; eventName: string; eventCategory: string; metadata?: Record<string, any> }): Promise<FeatureUsageEvent>;
+  getFeatureUsageSummary(startDate: Date, endDate: Date, userId?: string): Promise<Array<{ eventName: string; eventCategory: string; count: number }>>;
+
   // Activity Reports (Community Moderation)
   createActivityReport(report: InsertActivityReport): Promise<ActivityReport>;
   getActivityReports(activityId: string): Promise<ActivityReport[]>;
@@ -2475,6 +2481,10 @@ export class DatabaseStorage implements IStorage {
     // 18. Delete plan engagement
     await db.delete(planEngagement).where(eq(planEngagement.userId, userId));
     console.log(`  - Deleted plan engagement`);
+
+    // 18b. Delete feature usage events
+    await db.delete(featureUsageEvents).where(eq(featureUsageEvents.userId, userId));
+    console.log(`  - Deleted feature usage events`);
     
     // 19. Delete activity reports (reported by user)
     await db.delete(activityReports).where(eq(activityReports.reportedBy, userId));
@@ -2817,9 +2827,43 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(lifestylePlannerSessions.id, sessionId), eq(lifestylePlannerSessions.userId, userId)));
   }
 
+  // Feature Usage Tracking
+  async createFeatureUsageEvent(event: { userId: string; eventName: string; eventCategory: string; metadata?: Record<string, any> }): Promise<FeatureUsageEvent> {
+    const [result] = await db.insert(featureUsageEvents)
+      .values(event)
+      .returning();
+    return result;
+  }
+
+  async getFeatureUsageSummary(
+    startDate: Date,
+    endDate: Date,
+    userId?: string
+  ): Promise<Array<{ eventName: string; eventCategory: string; count: number }>> {
+    const conditions = [
+      gte(featureUsageEvents.createdAt, startDate),
+      lte(featureUsageEvents.createdAt, endDate),
+    ];
+    if (userId) {
+      conditions.push(eq(featureUsageEvents.userId, userId));
+    }
+
+    const results = await db.select({
+      eventName: featureUsageEvents.eventName,
+      eventCategory: featureUsageEvents.eventCategory,
+      count: sql<number>`count(*)::int`,
+    })
+      .from(featureUsageEvents)
+      .where(and(...conditions))
+      .groupBy(featureUsageEvents.eventName, featureUsageEvents.eventCategory)
+      .orderBy(sql`count(*) desc`);
+
+    return results;
+  }
+
   // Community Plans
   async getCommunityPlans(
-    userId: string, 
+    userId: string,
     category?: string, 
     search?: string, 
     limit: number = 50, 
