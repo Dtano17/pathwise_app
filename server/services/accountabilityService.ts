@@ -54,7 +54,7 @@ export async function scheduleWeeklyCheckin(
         body: message.body,
         scheduledAt,
         timezone,
-        route: '/app?tab=goals',
+        route: '/app?tab=reports',
         metadata: {
           haptic: 'light',
           channel: message.channel,
@@ -107,7 +107,7 @@ export async function scheduleMonthlyReview(
         body: message.body,
         scheduledAt,
         timezone,
-        route: '/app?tab=journal',
+        route: '/app?tab=reports',
         metadata: {
           haptic: 'medium',
           channel: message.channel,
@@ -139,7 +139,14 @@ export async function scheduleQuarterlyReview(
     // Calculate start of next quarter
     const scheduledAt = getStartOfNextQuarter();
 
-    const message = generateNotificationMessage('quarterly_review', {});
+    // Gather quarterly stats for richer notification
+    const quarterlyStats = await getUserQuarterlyStats(storage, userId);
+
+    const message = generateNotificationMessage('quarterly_review', {
+      goalsCompleted: quarterlyStats.goalsCompleted,
+      tasksCompleted: quarterlyStats.tasksCompleted,
+      activitiesCompleted: quarterlyStats.activitiesCompleted,
+    });
 
     if (message) {
       await scheduleSmartNotification(storage, {
@@ -151,7 +158,7 @@ export async function scheduleQuarterlyReview(
         body: message.body,
         scheduledAt,
         timezone,
-        route: '/app?tab=goals',
+        route: '/app?tab=reports&view=vision',
         metadata: {
           haptic: 'medium',
           channel: message.channel,
@@ -284,6 +291,37 @@ async function getUserWeeklyStats(
     };
   } catch (error) {
     return { tasksCompleted: 0, streakDays: 0, activeGoals: 0 };
+  }
+}
+
+async function getUserQuarterlyStats(
+  storage: IStorage,
+  userId: string
+): Promise<{ goalsCompleted: number; tasksCompleted: number; activitiesCompleted: number }> {
+  try {
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+    const tasks = await storage.getUserTasks(userId);
+    const tasksCompleted = tasks.filter(t =>
+      t.completed && t.completedAt && new Date(t.completedAt) > threeMonthsAgo
+    ).length;
+
+    // Count goals where all tasks are complete
+    const goals = await storage.getUserGoals(userId);
+    const goalsCompleted = goals.filter(g => {
+      const goalTasks = tasks.filter(t => t.goalId === g.id);
+      return goalTasks.length > 0 && goalTasks.every(t => t.completed);
+    }).length;
+
+    const activities = await storage.getUserActivities(userId);
+    const activitiesCompleted = activities.filter(a =>
+      a.createdAt && new Date(a.createdAt) > threeMonthsAgo
+    ).length;
+
+    return { goalsCompleted, tasksCompleted, activitiesCompleted };
+  } catch (error) {
+    return { goalsCompleted: 0, tasksCompleted: 0, activitiesCompleted: 0 };
   }
 }
 

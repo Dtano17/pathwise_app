@@ -83,8 +83,119 @@ export async function onTaskCompleted(
 
     // Update user's activity streak
     await updateUserStreak(storage, userId, 'task');
+
+    // Check if this completes an entire activity
+    await checkActivityCompletion(storage, task, userId);
+
+    // Check if this hits a goal milestone (50%, 75%, 100%)
+    await checkGoalMilestone(storage, task, userId);
   } catch (error) {
     console.error('Error in onTaskCompleted hook:', error);
+  }
+}
+
+/**
+ * Check if completing a task finishes all tasks in a parent activity
+ * If so, send a celebration notification
+ */
+async function checkActivityCompletion(
+  storage: IStorage,
+  task: Task,
+  userId: string
+): Promise<void> {
+  try {
+    const activityTaskLinks = await storage.getActivityTasksForTask(task.id);
+
+    for (const link of activityTaskLinks) {
+      const activityTasks = await storage.getActivityTasks(link.activityId, userId);
+      const totalTasks = activityTasks.length;
+      const completedTasks = activityTasks.filter(t => t.completed).length;
+
+      if (totalTasks > 0 && completedTasks === totalTasks) {
+        const activity = await storage.getActivity(link.activityId, userId);
+        if (!activity) continue;
+
+        const message = generateNotificationMessage('activity_completion', {
+          title: activity.title,
+          taskCount: totalTasks,
+        });
+
+        if (message) {
+          await sendImmediateNotification(storage, userId, {
+            type: 'activity_completion',
+            title: message.title,
+            body: message.body,
+            route: `/app?tab=activities&activity=${activity.id}`,
+            haptic: 'celebration',
+            channel: message.channel,
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error in checkActivityCompletion:', error);
+  }
+}
+
+/**
+ * Check if completing a task hits a goal milestone (50%, 75%, 100%)
+ * Only fires once per threshold using deduplication
+ */
+async function checkGoalMilestone(
+  storage: IStorage,
+  task: Task,
+  userId: string
+): Promise<void> {
+  try {
+    if (!task.goalId) return;
+
+    const allTasks = await storage.getUserTasks(userId);
+    const goalTasks = allTasks.filter(t => t.goalId === task.goalId);
+
+    if (goalTasks.length < 2) return; // Skip single-task goals
+
+    const completedCount = goalTasks.filter(t => t.completed).length;
+    const percentage = Math.round((completedCount / goalTasks.length) * 100);
+    const previousCompleted = completedCount - 1;
+    const previousPercentage = Math.round((previousCompleted / goalTasks.length) * 100);
+
+    const milestones = [50, 75, 100];
+
+    for (const milestone of milestones) {
+      if (percentage >= milestone && previousPercentage < milestone) {
+        // Dedup: check if already sent for this milestone
+        const existing = await storage.findPendingSmartNotification(
+          userId, 'goal', task.goalId, `goal_milestone_${milestone}`
+        );
+        if (existing) break;
+
+        const goals = await storage.getUserGoals(userId);
+        const goal = goals.find(g => g.id === task.goalId);
+        if (!goal) break;
+
+        const templateKey = milestone === 100 ? 'goal_completed' : 'goal_milestone';
+        const message = generateNotificationMessage(templateKey, {
+          title: goal.title,
+          percentage: milestone,
+          completedCount,
+          totalCount: goalTasks.length,
+        });
+
+        if (message) {
+          await sendImmediateNotification(storage, userId, {
+            type: `goal_milestone_${milestone}`,
+            title: message.title,
+            body: message.body,
+            route: '/app?tab=goals',
+            haptic: milestone === 100 ? 'celebration' : 'medium',
+            channel: message.channel,
+          });
+        }
+        break; // Only fire the highest milestone crossed
+      }
+    }
+  } catch (error) {
+    console.error('Error in checkGoalMilestone:', error);
   }
 }
 

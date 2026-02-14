@@ -34,6 +34,7 @@ import { isNative, isIOS } from '@/lib/platform';
 import { updateWidgetData } from '@/lib/backgroundService';
 import { updateWidgetData as updateIOSWidgetData } from '@/lib/widgetManager';
 import EndOfDayReview from '@/components/EndOfDayReview';
+import { Telescope, BookOpen } from 'lucide-react';
 
 // Types
 interface CategoryStat {
@@ -234,6 +235,10 @@ export default function ReportsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [showEndOfDayReview, setShowEndOfDayReview] = useState(false);
 
+  // Check if this is a quarterly vision review deep-link
+  const isVisionReview = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('view') === 'vision';
+
   // Fetch progress stats with time range
   const { data: progressData, isLoading: progressLoading } = useQuery<ProgressData>({
     queryKey: ['/api/progress/stats', timeRange],
@@ -354,6 +359,67 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6 px-2 py-3 sm:p-4 md:p-6">
+      {/* Quarterly Vision Review Card - shown when navigated from vision notification */}
+      {isVisionReview && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <Card className="border-2 border-purple-300 dark:border-purple-700 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Telescope className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                Quarterly Vision Review
+              </CardTitle>
+              <CardDescription>
+                Take a few minutes to reflect on your journey this quarter
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="p-3 rounded-lg bg-white/60 dark:bg-white/5">
+                  <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                    {reportsData?.summary?.completedTasks || progressData?.completedCount || 0}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Tasks Done</div>
+                </div>
+                <div className="p-3 rounded-lg bg-white/60 dark:bg-white/5">
+                  <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
+                    {reportsData?.summary?.completedActivities || 0}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Plans Complete</div>
+                </div>
+                <div className="p-3 rounded-lg bg-white/60 dark:bg-white/5">
+                  <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                    {progressData?.currentStreak || 0}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Day Streak</div>
+                </div>
+              </div>
+              <div className="space-y-2 p-3 rounded-lg bg-white/40 dark:bg-white/5">
+                <p className="text-sm font-semibold text-foreground">Reflection prompts</p>
+                <ul className="text-sm text-muted-foreground space-y-1.5">
+                  <li className="flex items-start gap-2"><span className="text-purple-500 mt-0.5">1.</span> What am I most proud of this quarter?</li>
+                  <li className="flex items-start gap-2"><span className="text-purple-500 mt-0.5">2.</span> Which goals still feel aligned with my long-term vision?</li>
+                  <li className="flex items-start gap-2"><span className="text-purple-500 mt-0.5">3.</span> What do I want to focus on in the next 90 days?</li>
+                </ul>
+              </div>
+              <Button
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={() => {
+                  // Navigate to journal/goals to start a reflection entry
+                  window.location.href = '/app?tab=goals';
+                }}
+              >
+                <BookOpen className="w-4 h-4 mr-2" />
+                Start Reflection Journal Entry
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Header with Time Range Filter */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 sm:gap-3">

@@ -114,7 +114,7 @@ export async function updateUserStreak(
           type: templateType,
           title: message.title,
           body: message.body,
-          route: '/app?tab=tasks',
+          route: '/app?tab=reports',
           haptic: 'celebration',
           channel: message.channel,
         });
@@ -193,7 +193,7 @@ export async function checkStreakAtRisk(
       body: message.body,
       scheduledAt,
       timezone: userTimezone,
-      route: '/app?tab=tasks',
+      route: '/app?tab=reports',
       metadata: {
         streakCount: streak.currentStreak,
         haptic: 'heavy',

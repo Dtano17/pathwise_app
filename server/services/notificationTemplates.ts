@@ -156,6 +156,17 @@ export const ActivityTemplates: Record<string, NotificationTemplate> = {
     channel: 'journalmate_activities',
     priority: 'high',
   },
+
+  activity_completion: {
+    title: (ctx) => `🎉 ${truncate(ctx.title, 35)} complete!`,
+    body: (ctx) => ctx.taskCount > 1
+      ? `All ${ctx.taskCount} steps done! Time to celebrate your achievement.`
+      : `You finished your plan. Great work!`,
+    category: 'ACHIEVEMENT',
+    haptic: 'celebration',
+    channel: 'journalmate_achievements',
+    priority: 'default',
+  },
 };
 
 // ============================================
@@ -196,6 +207,24 @@ export const GoalTemplates: Record<string, NotificationTemplate> = {
     category: 'GOAL ALERT',
     haptic: 'urgent',
     channel: 'journalmate_tasks',
+    priority: 'high',
+  },
+
+  goal_milestone: {
+    title: (ctx) => `🎯 ${ctx.percentage}% of "${truncate(ctx.title, 25)}" done!`,
+    body: (ctx) => `${ctx.completedCount} of ${ctx.totalCount} tasks complete. Keep pushing!`,
+    category: 'GOAL PROGRESS',
+    haptic: 'medium',
+    channel: 'journalmate_achievements',
+    priority: 'default',
+  },
+
+  goal_completed: {
+    title: (ctx) => `🏆 Goal achieved: ${truncate(ctx.title, 30)}!`,
+    body: (ctx) => `All ${ctx.totalCount} tasks complete. What an accomplishment!`,
+    category: 'ACHIEVEMENT',
+    haptic: 'celebration',
+    channel: 'journalmate_achievements',
     priority: 'high',
   },
 };
@@ -369,17 +398,17 @@ export const AccountabilityTemplates: Record<string, NotificationTemplate> = {
   },
 
   quarterly_review: {
-    title: () => `🎯 Quarter in Review`,
+    title: () => `🔭 Quarterly Vision Review`,
     body: (ctx) => {
       if (ctx.goalsCompleted && ctx.goalsCompleted > 0) {
-        return `You've achieved ${ctx.goalsCompleted} goals this quarter! Time to dream bigger for the next 3 months.`;
+        return `${ctx.goalsCompleted} goals achieved this quarter! Take 10 minutes to reflect on your journey and set your vision for the next 90 days.`;
       }
-      return `90 days down — let's reflect on your journey and plan your next big moves!`;
+      return `90 days have passed — time for a vision check. Reflect on your dreams, review your progress, and realign your goals for the quarter ahead.`;
     },
     category: 'QUARTERLY REVIEW',
     haptic: 'medium',
     channel: 'journalmate_assistant',
-    priority: 'default',
+    priority: 'high',
   },
 };
 

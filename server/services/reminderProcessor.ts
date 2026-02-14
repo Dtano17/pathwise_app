@@ -11,9 +11,10 @@
 import type { IStorage } from '../storage';
 import { sendUserNotification, type NotificationPayload } from './notificationService';
 import { getWeatherSummary, checkWeatherAlerts } from './weatherService';
-import { processScheduledNotifications } from './smartNotificationScheduler';
+import { processScheduledNotifications, sendImmediateNotification, scheduleSmartNotification } from './smartNotificationScheduler';
 import { processStreakReminders } from './streakService';
 import { processAccountabilityCheckins } from './accountabilityService';
+import { generateNotificationMessage } from './notificationTemplates';
 
 // Reminder timing configuration (in milliseconds before event)
 const REMINDER_INTERVALS = {
@@ -267,6 +268,12 @@ async function processReminders(storage: IStorage): Promise<void> {
 
     // Step 7: Process accountability check-ins (weekly, monthly, quarterly)
     await processUserAccountabilityCheckins(storage);
+
+    // Step 8: Process daily journal prompts (evening reminder if no journal today)
+    await processDailyJournalPrompts(storage);
+
+    // Step 9: Process idle user re-engagement nudges (3+ days inactive)
+    await processIdleUserNudges(storage);
 
     const duration = Date.now() - startTime;
     console.log(`[REMINDER] Processing cycle complete (${duration}ms)`);
@@ -782,5 +789,114 @@ async function processUserAccountabilityCheckins(storage: IStorage): Promise<voi
     await processAccountabilityCheckins(storage);
   } catch (error) {
     console.error('[REMINDER] Error processing accountability check-ins:', error);
+  }
+}
+
+/**
+ * Send daily journal prompt to users who haven't journaled today
+ * Runs at ~7pm (checked via the 5-min processing cycle)
+ */
+async function processDailyJournalPrompts(storage: IStorage): Promise<void> {
+  try {
+    const now = new Date();
+    const currentHour = now.getHours();
+
+    // Only run between 19:00-19:04 (one 5-min cycle window)
+    if (currentHour !== 19 || now.getMinutes() >= 5) return;
+
+    const users = await storage.getUsersWithAccountabilityEnabled();
+    const today = now.toISOString().split('T')[0];
+    let prompted = 0;
+
+    for (const { userId } of users) {
+      try {
+        // Check if user already has a journal entry for today
+        const entries = await storage.getUserJournalEntries(userId, 1);
+        const hasJournaledToday = entries.length > 0 &&
+          entries[0].createdAt && new Date(entries[0].createdAt).toISOString().split('T')[0] === today;
+
+        if (hasJournaledToday) continue;
+
+        // Dedup: don't send if already sent today
+        const existing = await storage.findPendingSmartNotification(
+          userId, 'journal', userId, 'daily_journal_prompt'
+        );
+        if (existing) continue;
+
+        const message = generateNotificationMessage('daily_journal_prompt', {});
+        if (message) {
+          await sendImmediateNotification(storage, userId, {
+            type: 'daily_journal_prompt',
+            title: message.title,
+            body: message.body,
+            route: '/app?tab=goals',
+            haptic: 'light',
+            channel: message.channel,
+          });
+          prompted++;
+        }
+      } catch (err) {
+        // Skip individual user errors silently
+      }
+    }
+
+    if (prompted > 0) {
+      console.log(`[REMINDER] Sent ${prompted} daily journal prompts`);
+    }
+  } catch (error) {
+    console.error('[REMINDER] Error processing daily journal prompts:', error);
+  }
+}
+
+/**
+ * Send re-engagement nudge to users who've been idle 3+ days
+ * Runs at ~11am, once per idle period (deduped)
+ */
+async function processIdleUserNudges(storage: IStorage): Promise<void> {
+  try {
+    const now = new Date();
+    // Only run between 11:00-11:04
+    if (now.getHours() !== 11 || now.getMinutes() >= 5) return;
+
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    const threeDaysAgoStr = threeDaysAgo.toISOString().split('T')[0];
+
+    const usersWithStreaks = await storage.getUsersWithActiveStreaks(0);
+    let nudged = 0;
+
+    for (const streak of usersWithStreaks) {
+      if (!streak.lastActivityDate) continue;
+      if (streak.lastActivityDate >= threeDaysAgoStr) continue; // Active recently
+
+      // Check preferences
+      const prefs = await storage.getNotificationPreferences(streak.userId);
+      if (prefs?.enableAccountabilityReminders === false) continue;
+
+      // Dedup: only send once per idle period
+      const existing = await storage.findPendingSmartNotification(
+        streak.userId, 'idle', streak.userId, 'idle_reminder'
+      );
+      if (existing) continue;
+
+      const message = generateNotificationMessage('idle_reminder', {});
+      if (message) {
+        await sendImmediateNotification(storage, streak.userId, {
+          type: 'idle_reminder',
+          title: message.title,
+          body: message.body,
+          route: '/app?tab=input',
+          haptic: 'light',
+          channel: message.channel,
+        });
+        nudged++;
+      }
+    }
+
+    if (nudged > 0) {
+      console.log(`[REMINDER] Sent ${nudged} idle user nudges`);
+    }
+  } catch (error) {
+    console.error('[REMINDER] Error processing idle user nudges:', error);
   }
 }
