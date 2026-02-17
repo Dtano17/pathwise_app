@@ -1579,11 +1579,9 @@ async function generateYouTubeBanner() {
   const safeW = 1546, safeH = 423;
   const safeL = Math.round((W - safeW) / 2); // 507
   const safeT = Math.round((H - safeH) / 2); // 509
-  const safeR = safeL + safeW; // 2053
-  const safeB = safeT + safeH; // 932
 
-  // Phone mockup dimensions (BIG — the visual centerpiece)
-  const phW = 260, phH = 530;
+  // Phone mockup dimensions — LARGE to fill the banner
+  const phW = 340, phH = 700;
 
   const svg = `
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
@@ -1594,20 +1592,20 @@ async function generateYouTubeBanner() {
         <stop offset="60%" stop-color="#0B0F1A"/>
         <stop offset="100%" stop-color="#041A1E"/>
       </linearGradient>
-      <radialGradient id="ytOrb1" cx="22%" cy="48%" r="30%">
-        <stop offset="0%" stop-color="${C.primary}" stop-opacity="0.40"/>
+      <radialGradient id="ytOrb1" cx="22%" cy="48%" r="35%">
+        <stop offset="0%" stop-color="${C.primary}" stop-opacity="0.45"/>
         <stop offset="100%" stop-color="${C.primary}" stop-opacity="0"/>
       </radialGradient>
-      <radialGradient id="ytOrb2" cx="78%" cy="52%" r="28%">
-        <stop offset="0%" stop-color="${C.teal}" stop-opacity="0.30"/>
+      <radialGradient id="ytOrb2" cx="78%" cy="52%" r="32%">
+        <stop offset="0%" stop-color="${C.teal}" stop-opacity="0.35"/>
         <stop offset="100%" stop-color="${C.teal}" stop-opacity="0"/>
       </radialGradient>
-      <radialGradient id="ytOrb3" cx="50%" cy="20%" r="30%">
-        <stop offset="0%" stop-color="${C.rose}" stop-opacity="0.12"/>
+      <radialGradient id="ytOrb3" cx="50%" cy="20%" r="35%">
+        <stop offset="0%" stop-color="${C.rose}" stop-opacity="0.15"/>
         <stop offset="100%" stop-color="${C.rose}" stop-opacity="0"/>
       </radialGradient>
-      <radialGradient id="ytOrb4" cx="50%" cy="80%" r="30%">
-        <stop offset="0%" stop-color="${C.indigo}" stop-opacity="0.10"/>
+      <radialGradient id="ytOrb4" cx="50%" cy="80%" r="35%">
+        <stop offset="0%" stop-color="${C.indigo}" stop-opacity="0.12"/>
         <stop offset="100%" stop-color="${C.indigo}" stop-opacity="0"/>
       </radialGradient>
       <linearGradient id="ytAccent" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -1615,17 +1613,17 @@ async function generateYouTubeBanner() {
         <stop offset="100%" stop-color="${C.teal}"/>
       </linearGradient>
       <filter id="ytGlow" x="-40%" y="-40%" width="180%" height="180%">
-        <feGaussianBlur in="SourceGraphic" stdDeviation="40"/>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="50"/>
       </filter>
       <filter id="ytPhoneShadow" x="-20%" y="-10%" width="140%" height="130%">
-        <feDropShadow dx="0" dy="12" stdDeviation="35" flood-color="${C.primary}" flood-opacity="0.45"/>
+        <feDropShadow dx="0" dy="16" stdDeviation="45" flood-color="${C.primary}" flood-opacity="0.50"/>
       </filter>
       <filter id="ytTxt">
-        <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000" flood-opacity="0.7"/>
+        <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.8"/>
       </filter>
       <linearGradient id="ytPhGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${C.primary}" stop-opacity="0.35"/>
-        <stop offset="100%" stop-color="${C.teal}" stop-opacity="0.15"/>
+        <stop offset="0%" stop-color="${C.primary}" stop-opacity="0.40"/>
+        <stop offset="100%" stop-color="${C.teal}" stop-opacity="0.20"/>
       </linearGradient>
     </defs>
 
@@ -1637,85 +1635,73 @@ async function generateYouTubeBanner() {
     <rect width="100%" height="100%" fill="url(#ytOrb4)"/>
 
     <!-- Large ambient glows -->
-    <circle cx="350" cy="600" r="280" fill="rgba(124,58,237,0.18)" filter="url(#ytGlow)"/>
-    <circle cx="2100" cy="750" r="300" fill="rgba(20,184,166,0.14)" filter="url(#ytGlow)"/>
-    <circle cx="${W / 2}" cy="200" r="220" fill="rgba(236,72,153,0.06)" filter="url(#ytGlow)"/>
-    <circle cx="${W / 2}" cy="${H - 200}" r="220" fill="rgba(99,102,241,0.06)" filter="url(#ytGlow)"/>
+    <circle cx="400" cy="600" r="380" fill="rgba(124,58,237,0.22)" filter="url(#ytGlow)"/>
+    <circle cx="2050" cy="700" r="400" fill="rgba(20,184,166,0.18)" filter="url(#ytGlow)"/>
+    <circle cx="${W / 2}" cy="150" r="300" fill="rgba(236,72,153,0.08)" filter="url(#ytGlow)"/>
+    <circle cx="${W / 2}" cy="${H - 150}" r="300" fill="rgba(99,102,241,0.08)" filter="url(#ytGlow)"/>
 
     <!-- Scattered sparkles -->
-    ${Array.from({length: 40}, (_, i) => {
+    ${Array.from({length: 50}, (_, i) => {
       const sx = 60 + ((i * 67 + 31) % (W - 120));
       const sy = 60 + ((i * 41 + 97) % (H - 120));
-      const sr = 1 + (i % 4) * 0.7;
-      const so = 0.15 + (i % 6) * 0.08;
+      const sr = 1.2 + (i % 4) * 0.9;
+      const so = 0.18 + (i % 6) * 0.10;
       const cols = [C.primaryLight, 'white', C.tealLight, 'white', C.roseLight, C.skyLight];
       return `<circle cx="${sx}" cy="${sy}" r="${sr}" fill="${cols[i % 6]}" opacity="${so}"/>`;
     }).join('\n    ')}
 
-    <!-- ===== SAFE AREA — visible on ALL devices ===== -->
+    <!-- ===== CONTENT — centered on the canvas ===== -->
+    <!-- Content extends beyond safe area for desktop/TV; safe area content is the priority -->
     <g transform="translate(${safeL}, ${safeT})">
 
-      <!-- LEFT HALF: Branding + Hero Copy -->
-      <!-- Logo composited via sharp at (0, 15) 85x85 -->
-      <text x="100" y="48" font-family="'Segoe UI', Arial, sans-serif" font-size="42" font-weight="800" fill="${C.white}" letter-spacing="-0.5" filter="url(#ytTxt)">JournalMate.ai</text>
-      <text x="100" y="74" font-family="Arial, sans-serif" font-size="17" fill="${C.tealLight}" letter-spacing="0.5">AI Lifestyle Planner</text>
+      <!-- LEFT SIDE: Branding + Hero Copy (vertically centered in safe area) -->
 
-      <!-- Hero tagline — BIG and readable -->
-      <text x="0" y="148" font-family="'Segoe UI', Arial, sans-serif" font-size="64" font-weight="800" fill="${C.white}" letter-spacing="-2" filter="url(#ytTxt)">See It. Share It.</text>
-      <text x="0" y="218" font-family="'Segoe UI', Arial, sans-serif" font-size="64" font-weight="800" fill="${C.white}" letter-spacing="-2" filter="url(#ytTxt)">Own It.</text>
+      <!-- Logo composited via sharp at (0, 0) 100x100 — using transparent circular PNG -->
+      <!-- Brand name next to logo -->
+      <text x="118" y="52" font-family="'Segoe UI', Arial, sans-serif" font-size="52" font-weight="800" fill="${C.white}" letter-spacing="-1" filter="url(#ytTxt)">JournalMate.ai</text>
+      <text x="118" y="82" font-family="Arial, sans-serif" font-size="22" fill="${C.tealLight}" letter-spacing="1">AI Lifestyle Planner</text>
+
+      <!-- Hero tagline — HUGE and impactful -->
+      <text x="0" y="168" font-family="'Segoe UI', Arial, sans-serif" font-size="80" font-weight="800" fill="${C.white}" letter-spacing="-3" filter="url(#ytTxt)">See It. Share It.</text>
+      <text x="0" y="254" font-family="'Segoe UI', Arial, sans-serif" font-size="80" font-weight="800" fill="${C.white}" letter-spacing="-3" filter="url(#ytTxt)">Own It.</text>
       <!-- Gradient accent underline -->
-      <rect x="0" y="232" width="220" height="5" rx="2.5" fill="url(#ytAccent)"/>
+      <rect x="0" y="272" width="300" height="6" rx="3" fill="url(#ytAccent)"/>
 
       <!-- Subtitle -->
-      <text x="0" y="268" font-family="Arial, sans-serif" font-size="20" fill="${C.tealLight}">Share from any app &#8212; AI turns it into your plan</text>
+      <text x="0" y="314" font-family="Arial, sans-serif" font-size="26" fill="${C.tealLight}">Share from any app &#8212; AI turns it into your plan</text>
 
-      <!-- Platform icons — nice and large -->
+      <!-- Platform icons — large and bold -->
       ${['instagram', 'tiktok', 'youtube', 'chatgpt', 'web', 'claude'].map((name, i) => {
         const labels = ['Instagram', 'TikTok', 'YouTube', 'ChatGPT', 'Any URL', 'Claude'];
         return `
-          ${platformIcon(name, 28 + i * 64, 318, 20)}
-          <text x="${28 + i * 64}" y="348" font-family="Arial" font-size="10" fill="${C.textSecondary}" text-anchor="middle">${labels[i]}</text>
+          ${platformIcon(name, 36 + i * 80, 368, 26)}
+          <text x="${36 + i * 80}" y="404" font-family="Arial" font-size="12" fill="${C.textSecondary}" text-anchor="middle">${labels[i]}</text>
         `;
       }).join('')}
 
-      <!-- Key feature pills under icons -->
-      ${[
-        { icon: '&#127919;', label: 'AI Planning', color: C.primary },
-        { icon: '&#128101;', label: 'Collaborate', color: C.teal },
-        { icon: '&#127942;', label: 'Earn Rewards', color: C.amber },
-        { icon: '&#128197;', label: 'Calendar Sync', color: C.emerald },
-      ].map((f, i) => {
-        const px = i * 115;
-        return `
-          <rect x="${px}" y="368" width="108" height="36" rx="18" fill="${f.color}" opacity="0.1" stroke="${f.color}" stroke-opacity="0.3" stroke-width="1"/>
-          <text x="${px + 24}" y="391" font-family="Arial" font-size="13" text-anchor="middle">${f.icon}</text>
-          <text x="${px + 38}" y="391" font-family="Arial" font-size="12" font-weight="600" fill="${C.white}">${f.label}</text>
-        `;
-      }).join('')}
+      <!-- RIGHT SIDE: Phone mockups — extending above and below safe area for dramatic effect -->
 
-      <!-- RIGHT HALF: Phone mockups (inside safe area, extending right) -->
-
-      <!-- Phone 1: Discover (hero phone, largest, front) -->
+      <!-- Phone 1: Discover (hero phone, centered, front) -->
       <g filter="url(#ytPhoneShadow)">
-        <rect x="770" y="-32" width="${phW}" height="${phH}" rx="26" fill="url(#ytPhGlow)" opacity="0.5"/>
-        <rect x="770" y="-32" width="${phW}" height="${phH}" rx="26" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="2.5"/>
-        <rect x="780" y="-8" width="${phW - 20}" height="${phH - 48}" rx="20" fill="${C.dark}"/>
-        <rect x="${770 + phW / 2 - 32}" y="-25" width="64" height="14" rx="7" fill="#000"/>
+        <rect x="780" y="-140" width="${phW}" height="${phH}" rx="32" fill="url(#ytPhGlow)" opacity="0.5"/>
+        <rect x="780" y="-140" width="${phW}" height="${phH}" rx="32" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="3"/>
+        <rect x="792" y="-112" width="${phW - 24}" height="${phH - 56}" rx="24" fill="${C.dark}"/>
+        <rect x="${780 + phW / 2 - 40}" y="-132" width="80" height="16" rx="8" fill="#000"/>
 
-        <g transform="translate(790, 4)">
-          <text x="8" y="18" font-family="Arial" font-size="14" font-weight="bold" fill="${C.white}">Discover</text>
-          <text x="8" y="36" font-family="Arial" font-size="10" fill="${C.textMuted}">Community plans you can use</text>
+        <g transform="translate(804, -96)">
+          <text x="10" y="22" font-family="Arial" font-size="18" font-weight="bold" fill="${C.white}">Discover</text>
+          <text x="10" y="44" font-family="Arial" font-size="13" fill="${C.textMuted}">Community plans you can use</text>
 
           <!-- Search bar -->
-          <rect x="0" y="44" width="${phW - 40}" height="28" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
-          <text x="14" y="63" font-family="Arial" font-size="10" fill="${C.textMuted}">&#128269; Search plans...</text>
+          <rect x="0" y="56" width="${phW - 48}" height="36" rx="18" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
+          <text x="18" y="80" font-family="Arial" font-size="13" fill="${C.textMuted}">&#128269; Search plans...</text>
 
           <!-- Category chips -->
           ${['Trending', 'Food', 'Travel', 'Fitness'].map((cat, ci) => {
-            const chipX = ci * 53;
+            const chipX = ci * 70;
             return `
-              <rect x="${chipX}" y="80" width="48" height="20" rx="10" fill="${ci === 0 ? C.rose : C.darkCard}" opacity="${ci === 0 ? '0.2' : '1'}" stroke="${ci === 0 ? C.rose : C.darkCardBorder}" stroke-opacity="${ci === 0 ? '0.4' : '1'}" stroke-width="0.5"/>
-              <text x="${chipX + 24}" y="94" font-family="Arial" font-size="8" fill="${ci === 0 ? C.roseLight : C.textSecondary}" text-anchor="middle">${cat}</text>
+              <rect x="${chipX}" y="102" width="62" height="26" rx="13" fill="${ci === 0 ? C.rose : C.darkCard}" opacity="${ci === 0 ? '0.2' : '1'}" stroke="${ci === 0 ? C.rose : C.darkCardBorder}" stroke-opacity="${ci === 0 ? '0.4' : '1'}" stroke-width="0.5"/>
+              <text x="${chipX + 31}" y="120" font-family="Arial" font-size="11" fill="${ci === 0 ? C.roseLight : C.textSecondary}" text-anchor="middle">${cat}</text>
             `;
           }).join('')}
 
@@ -1728,41 +1714,41 @@ async function generateYouTubeBanner() {
           ].map((p, idx) => {
             const col = idx % 2;
             const row = Math.floor(idx / 2);
-            const cw = Math.round((phW - 52) / 2);
-            const imgH = 65;
-            const cx = col * (cw + 8);
-            const cy = 108 + row * 160;
+            const cw = Math.round((phW - 60) / 2);
+            const imgH = 85;
+            const cx = col * (cw + 10);
+            const cy = 140 + row * 200;
             const b64 = IMG_CACHE[p.imgKey];
             const clipId = 'ytBnrClip' + idx;
             return `
-              <defs><clipPath id="${clipId}"><rect x="${cx}" y="${cy}" width="${cw}" height="${imgH}" rx="10"/></clipPath></defs>
-              <rect x="${cx}" y="${cy}" width="${cw}" height="150" rx="10" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
+              <defs><clipPath id="${clipId}"><rect x="${cx}" y="${cy}" width="${cw}" height="${imgH}" rx="12"/></clipPath></defs>
+              <rect x="${cx}" y="${cy}" width="${cw}" height="188" rx="12" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
               ${b64
                 ? `<image x="${cx}" y="${cy}" width="${cw}" height="${imgH}" href="${b64}" clip-path="url(#${clipId})" preserveAspectRatio="xMidYMid slice"/>`
-                : `<rect x="${cx}" y="${cy}" width="${cw}" height="${imgH}" rx="10" fill="#333"/>`}
-              <rect x="${cx + cw - 40}" y="${cy + 4}" width="36" height="16" rx="8" fill="#000" opacity="0.65"/>
-              <text x="${cx + cw - 22}" y="${cy + 15}" font-family="Arial" font-size="8" font-weight="bold" fill="white" text-anchor="middle">${p.price}</text>
-              <text x="${cx + 8}" y="${cy + imgH + 16}" font-family="Arial" font-size="10" font-weight="bold" fill="${C.white}">${p.title}</text>
-              <text x="${cx + 8}" y="${cy + imgH + 30}" font-family="Arial" font-size="7" fill="${C.textMuted}">${p.author}</text>
+                : `<rect x="${cx}" y="${cy}" width="${cw}" height="${imgH}" rx="12" fill="#333"/>`}
+              <rect x="${cx + cw - 48}" y="${cy + 6}" width="42" height="20" rx="10" fill="#000" opacity="0.65"/>
+              <text x="${cx + cw - 27}" y="${cy + 20}" font-family="Arial" font-size="10" font-weight="bold" fill="white" text-anchor="middle">${p.price}</text>
+              <text x="${cx + 10}" y="${cy + imgH + 20}" font-family="Arial" font-size="13" font-weight="bold" fill="${C.white}">${p.title}</text>
+              <text x="${cx + 10}" y="${cy + imgH + 38}" font-family="Arial" font-size="10" fill="${C.textMuted}">${p.author}</text>
 
-              <rect x="${cx + 4}" y="${cy + imgH + 38}" width="${Math.round((cw - 12) * 0.45)}" height="22" rx="11" fill="${C.darkSurface}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
-              <text x="${cx + 4 + Math.round((cw - 12) * 0.225)}" y="${cy + imgH + 53}" font-family="Arial" font-size="8" fill="${C.textSecondary}" text-anchor="middle">Preview</text>
-              <rect x="${cx + 4 + Math.round((cw - 12) * 0.5)}" y="${cy + imgH + 38}" width="${Math.round((cw - 12) * 0.45)}" height="22" rx="11" fill="${C.primary}" opacity="0.9"/>
-              <text x="${cx + 4 + Math.round((cw - 12) * 0.725)}" y="${cy + imgH + 53}" font-family="Arial" font-size="8" font-weight="bold" fill="white" text-anchor="middle">+ Use</text>
+              <rect x="${cx + 6}" y="${cy + imgH + 50}" width="${Math.round((cw - 16) * 0.45)}" height="28" rx="14" fill="${C.darkSurface}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
+              <text x="${cx + 6 + Math.round((cw - 16) * 0.225)}" y="${cy + imgH + 69}" font-family="Arial" font-size="10" fill="${C.textSecondary}" text-anchor="middle">Preview</text>
+              <rect x="${cx + 6 + Math.round((cw - 16) * 0.5)}" y="${cy + imgH + 50}" width="${Math.round((cw - 16) * 0.45)}" height="28" rx="14" fill="${C.primary}" opacity="0.9"/>
+              <text x="${cx + 6 + Math.round((cw - 16) * 0.725)}" y="${cy + imgH + 69}" font-family="Arial" font-size="10" font-weight="bold" fill="white" text-anchor="middle">+ Use</text>
             `;
           }).join('')}
         </g>
       </g>
 
-      <!-- Phone 2: Activities (slightly behind, right) -->
+      <!-- Phone 2: Activities (slightly behind and right, overlapping) -->
       <g filter="url(#ytPhoneShadow)">
-        <rect x="1060" y="-6" width="${phW - 20}" height="${phH - 30}" rx="24" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="2"/>
-        <rect x="1069" y="16" width="${phW - 38}" height="${phH - 68}" rx="18" fill="${C.dark}"/>
-        <rect x="${1060 + (phW - 20) / 2 - 28}" y="1" width="56" height="12" rx="6" fill="#000"/>
+        <rect x="1150" y="-90" width="${phW - 30}" height="${phH - 50}" rx="30" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="2.5"/>
+        <rect x="1161" y="-66" width="${phW - 52}" height="${phH - 96}" rx="22" fill="${C.dark}"/>
+        <rect x="${1150 + (phW - 30) / 2 - 35}" y="-82" width="70" height="14" rx="7" fill="#000"/>
 
-        <g transform="translate(1079, 32)">
-          <text x="8" y="16" font-family="Arial" font-size="12" font-weight="bold" fill="${C.white}">My Activities</text>
-          <text x="8" y="32" font-family="Arial" font-size="9" fill="${C.textMuted}">5 active plans</text>
+        <g transform="translate(1174, -48)">
+          <text x="10" y="20" font-family="Arial" font-size="16" font-weight="bold" fill="${C.white}">My Activities</text>
+          <text x="10" y="40" font-family="Arial" font-size="12" fill="${C.textMuted}">5 active plans</text>
 
           ${[
             { title: 'Austin to LA Adventure', pct: 100, color: C.emerald, icon: '&#9992;', badge: '&#10003; Done' },
@@ -1771,43 +1757,20 @@ async function generateYouTubeBanner() {
             { title: 'Thanksgiving Feast', pct: 20, color: C.amber, icon: '&#127835;', badge: 'New' },
             { title: 'Date Night Houston', pct: 0, color: C.rose, icon: '&#128150;', badge: 'Planned' },
           ].map((a, idx) => {
-            const ay = 42 + idx * 72;
-            const barW = phW - 80;
+            const ay = 54 + idx * 90;
+            const barW = phW - 100;
             return `
-              <rect x="0" y="${ay}" width="${phW - 50}" height="62" rx="12" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
-              <rect x="0" y="${ay}" width="4" height="62" rx="2" fill="${a.color}"/>
-              <circle cx="26" cy="${ay + 22}" r="12" fill="${a.color}" opacity="0.15"/>
-              <text x="26" y="${ay + 27}" font-family="Arial" font-size="10" fill="${a.color}" text-anchor="middle">${a.icon}</text>
-              <text x="46" y="${ay + 20}" font-family="Arial" font-size="10" font-weight="bold" fill="${C.white}">${a.title}</text>
-              <rect x="16" y="${ay + 34}" width="${barW}" height="5" rx="2.5" fill="#1F2937"/>
-              <rect x="16" y="${ay + 34}" width="${Math.round(barW * a.pct / 100)}" height="5" rx="2.5" fill="${a.color}"/>
-              <text x="${phW - 56}" y="${ay + 50}" font-family="Arial" font-size="9" font-weight="bold" fill="${a.color}" text-anchor="end">${a.pct}%</text>
-              <text x="16" y="${ay + 52}" font-family="Arial" font-size="8" fill="${C.textMuted}">${a.badge}</text>
+              <rect x="0" y="${ay}" width="${phW - 62}" height="78" rx="14" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
+              <rect x="0" y="${ay}" width="5" height="78" rx="2.5" fill="${a.color}"/>
+              <circle cx="32" cy="${ay + 28}" r="16" fill="${a.color}" opacity="0.15"/>
+              <text x="32" y="${ay + 34}" font-family="Arial" font-size="13" fill="${a.color}" text-anchor="middle">${a.icon}</text>
+              <text x="58" y="${ay + 26}" font-family="Arial" font-size="13" font-weight="bold" fill="${C.white}">${a.title}</text>
+              <rect x="20" y="${ay + 42}" width="${barW}" height="6" rx="3" fill="#1F2937"/>
+              <rect x="20" y="${ay + 42}" width="${Math.round(barW * a.pct / 100)}" height="6" rx="3" fill="${a.color}"/>
+              <text x="${phW - 72}" y="${ay + 64}" font-family="Arial" font-size="11" font-weight="bold" fill="${a.color}" text-anchor="end">${a.pct}%</text>
+              <text x="20" y="${ay + 66}" font-family="Arial" font-size="10" fill="${C.textMuted}">${a.badge}</text>
             `;
           }).join('')}
-        </g>
-      </g>
-
-      <!-- Phone 3: Groups (faded peek, right edge) -->
-      <g opacity="0.4" filter="url(#ytPhoneShadow)">
-        <rect x="1310" y="18" width="${phW - 50}" height="${phH - 60}" rx="22" fill="#1A1A2E" stroke="#3D3D5C" stroke-width="1.5"/>
-        <rect x="1318" y="38" width="${phW - 66}" height="${phH - 96}" rx="16" fill="${C.dark}"/>
-        <rect x="${1310 + (phW - 50) / 2 - 24}" y="25" width="48" height="11" rx="5.5" fill="#000"/>
-
-        <g transform="translate(1328, 52)">
-          <text x="0" y="14" font-family="Arial" font-size="11" font-weight="bold" fill="${C.white}">Groups</text>
-          <text x="0" y="30" font-family="Arial" font-size="8" fill="${C.textMuted}">Collaborate on plans</text>
-          ${[
-            { name: 'Thanksgiving Group', color: C.amber, members: '4 members' },
-            { name: 'Fitness Squad', color: C.emerald, members: '3 members' },
-            { name: 'December Plans', color: C.rose, members: '5 members' },
-            { name: 'Travel Crew', color: C.sky, members: '6 members' },
-          ].map((g, idx) => `
-            <rect x="0" y="${40 + idx * 62}" width="${phW - 80}" height="52" rx="10" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
-            <rect x="0" y="${40 + idx * 62}" width="3" height="52" rx="1.5" fill="${g.color}"/>
-            <text x="14" y="${56 + idx * 62}" font-family="Arial" font-size="10" font-weight="bold" fill="${C.white}">${g.name}</text>
-            <text x="14" y="${72 + idx * 62}" font-family="Arial" font-size="8" fill="${C.textMuted}">Active &#183; ${g.members}</text>
-          `).join('')}
         </g>
       </g>
     </g>
@@ -1815,7 +1778,7 @@ async function generateYouTubeBanner() {
     <!-- ===== EXTENDED AREA (desktop/TV edges) ===== -->
 
     <!-- Left decorative column: lifestyle category circles -->
-    <g transform="translate(100, ${safeT + 40})">
+    <g transform="translate(80, ${safeT - 20})">
       ${[
         { icon: '&#127947;', label: 'Fitness', color: C.emerald },
         { icon: '&#9992;', label: 'Travel', color: C.sky },
@@ -1823,59 +1786,78 @@ async function generateYouTubeBanner() {
         { icon: '&#128150;', label: 'Romance', color: C.rose },
         { icon: '&#128188;', label: 'Career', color: C.amber },
         { icon: '&#127956;', label: 'Nature', color: C.teal },
+        { icon: '&#127912;', label: 'Creative', color: C.pink },
       ].map((c, i) => {
-        const yOff = i * 56;
+        const yOff = i * 68;
         return `
-          <circle cx="22" cy="${yOff + 18}" r="22" fill="${c.color}" opacity="0.12" stroke="${c.color}" stroke-opacity="0.2" stroke-width="1"/>
-          <text x="22" y="${yOff + 24}" font-family="Arial" font-size="18" text-anchor="middle">${c.icon}</text>
-          <text x="54" y="${yOff + 24}" font-family="Arial" font-size="12" fill="${c.color}" opacity="0.7">${c.label}</text>
+          <circle cx="28" cy="${yOff + 24}" r="28" fill="${c.color}" opacity="0.14" stroke="${c.color}" stroke-opacity="0.25" stroke-width="1.5"/>
+          <text x="28" y="${yOff + 30}" font-family="Arial" font-size="22" text-anchor="middle">${c.icon}</text>
+          <text x="66" y="${yOff + 30}" font-family="Arial" font-size="15" fill="${c.color}" opacity="0.7">${c.label}</text>
         `;
       }).join('')}
     </g>
 
-    <!-- Right decorative: faded stats -->
-    <g transform="translate(${W - 430}, ${safeT + 60})" opacity="0.30">
+    <!-- Right decorative: faded stats (beyond safe area right edge) -->
+    <g transform="translate(${W - 470}, ${safeT + 30})" opacity="0.35">
       ${[
         { val: '87%', label: 'Completion Rate', color: C.emerald },
         { val: '12', label: 'Day Streak', color: C.primary },
         { val: '6/20', label: 'Badges Earned', color: C.amber },
       ].map((s, i) => `
-        <rect x="${i * 130}" y="0" width="120" height="80" rx="18" fill="${C.darkCard}" stroke="${s.color}" stroke-opacity="0.3" stroke-width="1.5"/>
-        <text x="${i * 130 + 60}" y="38" font-family="Arial" font-size="26" font-weight="bold" fill="${s.color}" text-anchor="middle">${s.val}</text>
-        <text x="${i * 130 + 60}" y="60" font-family="Arial" font-size="10" fill="${C.textMuted}" text-anchor="middle">${s.label}</text>
+        <rect x="${i * 150}" y="0" width="138" height="100" rx="22" fill="${C.darkCard}" stroke="${s.color}" stroke-opacity="0.3" stroke-width="2"/>
+        <text x="${i * 150 + 69}" y="48" font-family="Arial" font-size="32" font-weight="bold" fill="${s.color}" text-anchor="middle">${s.val}</text>
+        <text x="${i * 150 + 69}" y="74" font-family="Arial" font-size="13" fill="${C.textMuted}" text-anchor="middle">${s.label}</text>
       `).join('')}
     </g>
 
-    <!-- Top/Bottom edges: subtle floating text pills (for TV viewers) -->
-    <g opacity="0.20">
+    <!-- Right decorative: key feature pills (below stats, beyond safe area) -->
+    <g transform="translate(${W - 460}, ${safeT + 160})" opacity="0.35">
+      ${[
+        { icon: '&#127919;', label: 'AI Planning', color: C.primary },
+        { icon: '&#128101;', label: 'Collaborate', color: C.teal },
+        { icon: '&#127942;', label: 'Earn Rewards', color: C.amber },
+        { icon: '&#128197;', label: 'Calendar Sync', color: C.emerald },
+      ].map((f, i) => {
+        const py = i * 52;
+        return `
+          <rect x="0" y="${py}" width="160" height="42" rx="21" fill="${f.color}" opacity="0.12" stroke="${f.color}" stroke-opacity="0.3" stroke-width="1.5"/>
+          <text x="28" y="${py + 28}" font-family="Arial" font-size="16" text-anchor="middle">${f.icon}</text>
+          <text x="44" y="${py + 28}" font-family="Arial" font-size="15" font-weight="600" fill="${C.white}">${f.label}</text>
+        `;
+      }).join('')}
+    </g>
+
+    <!-- Top edge: floating text pills (for TV viewers) -->
+    <g opacity="0.22">
       ${['Plan smarter with AI', 'Track daily progress', 'Earn achievement badges', 'Share with friends', 'Sync your calendar', 'Copy plans instantly'].map((txt, i) => {
-        const bx = 200 + i * 370;
-        const by = 80 + (i % 3) * 30;
-        return `<rect x="${bx}" y="${by}" width="260" height="32" rx="16" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
-          <text x="${bx + 130}" y="${by + 21}" font-family="Arial" font-size="12" fill="${C.textSecondary}" text-anchor="middle">${txt}</text>`;
+        const bx = 180 + i * 380;
+        const by = 60 + (i % 3) * 40;
+        return `<rect x="${bx}" y="${by}" width="280" height="38" rx="19" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
+          <text x="${bx + 140}" y="${by + 25}" font-family="Arial" font-size="14" fill="${C.textSecondary}" text-anchor="middle">${txt}</text>`;
       }).join('\n      ')}
     </g>
-    <g opacity="0.20">
+    <!-- Bottom edge -->
+    <g opacity="0.22">
       ${['500+ community plans', 'AI goal extraction', 'Group collaboration', 'Real-time progress', 'Plan for others', 'Leaderboard &amp; rewards'].map((txt, i) => {
-        const bx = 150 + i * 370;
-        const by = H - 130 + (i % 2) * 30;
-        return `<rect x="${bx}" y="${by}" width="260" height="32" rx="16" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
-          <text x="${bx + 130}" y="${by + 21}" font-family="Arial" font-size="12" fill="${C.textSecondary}" text-anchor="middle">${txt}</text>`;
+        const bx = 130 + i * 380;
+        const by = H - 120 + (i % 2) * 36;
+        return `<rect x="${bx}" y="${by}" width="280" height="38" rx="19" fill="${C.darkCard}" stroke="${C.darkCardBorder}" stroke-width="0.5"/>
+          <text x="${bx + 140}" y="${by + 25}" font-family="Arial" font-size="14" fill="${C.textSecondary}" text-anchor="middle">${txt}</text>`;
       }).join('\n      ')}
     </g>
   </svg>`;
 
   const bgBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
 
-  // Composite app logo
-  const logoPath = path.join(__dirname, '..', 'client/public/icons/android/android-play-store-512.png');
-  const logoBuffer = await sharp(logoPath).resize(85, 85).png().toBuffer();
+  // Composite app logo — using TRANSPARENT circular PNG (no box!)
+  const logoPath = path.join(__dirname, '..', 'client/public/journalmate-logo-transparent.png');
+  const logoBuffer = await sharp(logoPath).resize(100, 100).png().toBuffer();
 
   await sharp(bgBuffer)
-    .composite([{ input: logoBuffer, top: safeT + 12, left: safeL }])
+    .composite([{ input: logoBuffer, top: safeT + 2, left: safeL }])
     .png()
     .toFile(path.join(OUTPUT_DIR, 'youtube-banner-2560x1440.png'));
-  console.log('  YouTube Banner (2560x1440) - redesigned with larger elements');
+  console.log('  YouTube Banner (2560x1440) - v3: bigger content, standalone circular logo');
 }
 
 // ============================================
