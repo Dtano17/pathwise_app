@@ -177,6 +177,13 @@ export async function scheduleQuarterlyReview(
 export async function processAccountabilityCheckins(storage: IStorage): Promise<void> {
   try {
     const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
+    // Only run in the 09:00-09:04 window (one 5-min cycle per day)
+    // This prevents duplicate scheduling when called every 5 minutes
+    if (currentHour !== 9 || currentMinute >= 5) return;
+
     const dayOfWeek = now.getDay(); // 0 = Sunday
     const dayOfMonth = now.getDate();
     const month = now.getMonth();

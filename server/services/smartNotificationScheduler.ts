@@ -139,6 +139,20 @@ export async function scheduleSmartNotification(
       return existing;
     }
 
+    // Also check if this notification was already sent recently (within 24 hours)
+    // This prevents re-scheduling after dispatch when the scheduler runs frequently
+    const recentlySent = await storage.findRecentlySentSmartNotification(
+      data.userId,
+      data.sourceType,
+      data.sourceId,
+      data.notificationType,
+      24
+    );
+    if (recentlySent) {
+      console.log(`[SMART_NOTIFICATIONS] Skipping already-sent: ${data.notificationType} for ${data.sourceId}`);
+      return recentlySent;
+    }
+
     const notification = await storage.createSmartNotification(data);
     console.log(`[SMART_NOTIFICATIONS] Scheduled: ${data.notificationType} for ${data.scheduledAt}`);
     return notification;
