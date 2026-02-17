@@ -81,6 +81,7 @@ export interface BatchCalendarResult {
 /**
  * Request calendar permissions
  * Uses the newer requestFullCalendarAccess() for Android (READ_CALENDAR + WRITE_CALENDAR)
+ * Falls back to requestAllPermissions() if the newer API throws
  */
 export async function requestCalendarPermission(): Promise<CalendarPermissionStatus> {
   if (!isNative()) {
@@ -89,11 +90,26 @@ export async function requestCalendarPermission(): Promise<CalendarPermissionSta
   }
 
   try {
+    // Check current permission state first — skip prompt if already granted
+    console.log('[CALENDAR] Checking current permission state...');
+    const currentPerm = await CapacitorCalendar.checkAllPermissions();
+    console.log('[CALENDAR] checkAllPermissions result:', JSON.stringify(currentPerm));
+
+    const readState = (currentPerm as any).readCalendar || (currentPerm as any).result?.readCalendar;
+    const writeState = (currentPerm as any).writeCalendar || (currentPerm as any).result?.writeCalendar;
+
+    if (readState === 'granted' && writeState === 'granted') {
+      console.log('[CALENDAR] Already have full calendar access');
+      return { granted: true, readOnly: false, denied: false };
+    }
+    if (readState === 'granted') {
+      console.log('[CALENDAR] Have read-only calendar access');
+      return { granted: false, readOnly: true, denied: false };
+    }
+
+    // Request permission using primary API
     console.log('[CALENDAR] Requesting full calendar access...');
-
-    // Use the non-deprecated method for requesting full calendar access
     const permission = await CapacitorCalendar.requestFullCalendarAccess();
-
     console.log('[CALENDAR] requestFullCalendarAccess result:', JSON.stringify(permission));
 
     // permission.result is a PermissionState: 'granted' | 'denied' | 'prompt'
@@ -108,8 +124,25 @@ export async function requestCalendarPermission(): Promise<CalendarPermissionSta
       denied: isDenied
     };
   } catch (error) {
-    console.error('[CALENDAR] Failed to request permission:', error);
-    return { granted: false, readOnly: false, denied: true };
+    console.error('[CALENDAR] requestFullCalendarAccess failed, trying fallback:', error);
+
+    // Fallback: try requestAllPermissions (older API that may work on more devices)
+    try {
+      const fallback = await CapacitorCalendar.requestAllPermissions();
+      console.log('[CALENDAR] requestAllPermissions fallback result:', JSON.stringify(fallback));
+
+      const readGranted = (fallback as any).readCalendar === 'granted' || (fallback as any).result?.readCalendar === 'granted';
+      const writeGranted = (fallback as any).writeCalendar === 'granted' || (fallback as any).result?.writeCalendar === 'granted';
+
+      return {
+        granted: readGranted && writeGranted,
+        readOnly: readGranted && !writeGranted,
+        denied: !readGranted
+      };
+    } catch (fallbackError) {
+      console.error('[CALENDAR] All permission requests failed:', fallbackError);
+      return { granted: false, readOnly: false, denied: true };
+    }
   }
 }
 

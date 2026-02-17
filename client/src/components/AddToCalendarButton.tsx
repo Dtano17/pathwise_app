@@ -284,8 +284,8 @@ export function AddToCalendarButton({
     } catch (apiError: any) {
       console.log('[ADD_CALENDAR] Google Calendar API not available:', apiError.message);
       toast({
-        title: 'Google Calendar Not Available',
-        description: 'Try Device Calendar or Download option instead',
+        title: 'Google Calendar Not Connected',
+        description: 'Please sign in with Google in Settings, or try Device Calendar option',
         variant: 'destructive',
       });
     }
@@ -304,29 +304,49 @@ export function AddToCalendarButton({
 
     try {
       console.log('[ADD_CALENDAR] Trying native calendar...');
-      const hasPermission = await requestCalendarPermission();
-      if (hasPermission) {
-        const nativeCalendars = await getCalendars();
-        if (nativeCalendars && nativeCalendars.length > 0) {
-          const formattedCalendars: DeviceCalendar[] = nativeCalendars.map((cal: any) => ({
-            id: cal.id,
-            title: cal.title || cal.name || 'Calendar',
-            color: cal.color || '#34A853',
-            isPrimary: cal.isPrimary || false,
-            isReadOnly: cal.isReadOnly || false,
-            source: 'native' as const,
-          }));
+      const permResult = await requestCalendarPermission();
+      console.log('[ADD_CALENDAR] Permission result:', JSON.stringify(permResult));
 
-          setAvailableCalendars(formattedCalendars);
-          setShowCalendarPicker(true);
-          setIsAdding(false);
-          return;
+      if (!permResult.granted && !permResult.readOnly) {
+        // Permission not granted
+        if (permResult.denied) {
+          toast({
+            title: 'Calendar Permission Denied',
+            description: 'Please enable calendar access in Settings > Apps > JournalMate > Permissions',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Calendar Permission Required',
+            description: 'Please allow calendar access when prompted, or enable it in device settings',
+            variant: 'destructive',
+          });
         }
+        return;
       }
 
+      // Permission granted — get calendars
+      const nativeCalendars = await getCalendars();
+      if (nativeCalendars && nativeCalendars.length > 0) {
+        const formattedCalendars: DeviceCalendar[] = nativeCalendars.map((cal: any) => ({
+          id: cal.id,
+          title: cal.title || cal.name || 'Calendar',
+          color: cal.color || '#34A853',
+          isPrimary: cal.isPrimary || false,
+          isReadOnly: cal.isReadOnly || false,
+          source: 'native' as const,
+        }));
+
+        setAvailableCalendars(formattedCalendars);
+        setShowCalendarPicker(true);
+        setIsAdding(false);
+        return;
+      }
+
+      // Permission granted but no calendars found
       toast({
-        title: 'Calendar Permission Required',
-        description: 'Please allow calendar access in your device settings',
+        title: 'No Calendars Found',
+        description: 'Please add a calendar account (e.g. Google) in your device settings',
         variant: 'destructive',
       });
     } catch (nativeError: any) {

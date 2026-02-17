@@ -165,19 +165,19 @@ export async function downloadOrShareICS(events: ICSEvent[], filename: string): 
         }, 60000);
       };
 
-      // FALLBACK 1: Try FileOpener to show "Open with" dialog
+      // METHOD 1: Try FileOpener to directly open in calendar app
       // Use variable import path to prevent Vite from trying to resolve at build time
-      // This plugin only exists on mobile native platforms
       try {
-        console.log('[ICS] Fallback 1: Attempting FileOpener...');
+        console.log('[ICS] Method 1: Attempting FileOpener...');
         const fileOpenerModule = '@capacitor-community/file-opener';
         const { FileOpener } = await import(/* @vite-ignore */ fileOpenerModule);
         console.log('[ICS] FileOpener imported successfully');
 
+        // Try with openWithDefault: true first (opens directly in default calendar app)
         await FileOpener.open({
           filePath: fileUri.uri,
           contentType: 'text/calendar',
-          openWithDefault: false, // false = show app chooser
+          openWithDefault: true,
         });
 
         console.log('[ICS] FileOpener.open succeeded!');
@@ -187,9 +187,28 @@ export async function downloadOrShareICS(events: ICSEvent[], filename: string): 
         console.log('[ICS] FileOpener failed:', fileOpenerError);
       }
 
-      // FALLBACK 2: Try Browser plugin to open the ICS file
+      // METHOD 2: Try using Capacitor registered plugin (avoids dynamic import issues)
       try {
-        console.log('[ICS] Fallback 2: Attempting Browser plugin...');
+        console.log('[ICS] Method 2: Attempting FileOpener via registerPlugin...');
+        const { registerPlugin } = await import('@capacitor/core');
+        const FileOpenerPlugin: any = registerPlugin('FileOpener');
+
+        await FileOpenerPlugin.open({
+          filePath: fileUri.uri,
+          contentType: 'text/calendar',
+          openWithDefault: true,
+        });
+
+        console.log('[ICS] FileOpener via registerPlugin succeeded!');
+        scheduleCleanup();
+        return true;
+      } catch (registerError) {
+        console.log('[ICS] FileOpener via registerPlugin failed:', registerError);
+      }
+
+      // METHOD 3: Try Browser plugin to open the ICS file
+      try {
+        console.log('[ICS] Method 3: Attempting Browser plugin...');
         const { Browser } = await import('@capacitor/browser');
 
         // Create a data URL for the ICS content
@@ -208,8 +227,8 @@ export async function downloadOrShareICS(events: ICSEvent[], filename: string): 
         console.log('[ICS] Browser plugin failed:', browserError);
       }
 
-      // FALLBACK 3: Download file (NO share sheet)
-      console.log('[ICS] Fallback 3: Using web download method...');
+      // METHOD 4: Fallback to web download
+      console.log('[ICS] Method 4: Using web download method...');
       scheduleCleanup();
       return downloadICSWeb(icsContent, safeFilename);
 
