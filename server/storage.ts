@@ -97,6 +97,8 @@ import {
   type InsertAchievement,
   type Verification,
   type InsertVerification,
+  type PendingShare,
+  type InsertPendingShare,
   users,
   goals,
   tasks,
@@ -144,6 +146,7 @@ import {
   journalEnrichmentCache,
   verifications,
   achievements,
+  pendingShares,
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -571,6 +574,12 @@ export interface IStorage {
   getEarlyMorningTasksCount(userId: string): Promise<number>;
   getLateNightDaysCount(userId: string): Promise<number>;
   getPlansWithAllTasksComplete(userId: string): Promise<number>;
+
+  // Pending Shares (persist incoming shares to survive app backgrounding)
+  createPendingShare(share: InsertPendingShare): Promise<PendingShare>;
+  getPendingSharesByUser(userId: string, statuses?: string[]): Promise<PendingShare[]>;
+  updatePendingShareStatus(shareId: string, userId: string, status: string, updates?: { activityId?: string; errorMessage?: string }): Promise<PendingShare | undefined>;
+  cleanupOldPendingShares(olderThanHours?: number): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5110,6 +5119,61 @@ export class DatabaseStorage implements IStorage {
     return activitiesWithProgress.filter(
       a => a.totalTasks > 0 && a.completedTasks === a.totalTasks
     ).length;
+  }
+
+  // Pending Shares
+  async createPendingShare(share: InsertPendingShare): Promise<PendingShare> {
+    const [created] = await db
+      .insert(pendingShares)
+      .values(share)
+      .returning();
+    return created;
+  }
+
+  async getPendingSharesByUser(userId: string, statuses?: string[]): Promise<PendingShare[]> {
+    const conditions: any[] = [eq(pendingShares.userId, userId)];
+    if (statuses && statuses.length > 0) {
+      conditions.push(inArray(pendingShares.status, statuses));
+    }
+    return await db
+      .select()
+      .from(pendingShares)
+      .where(and(...conditions))
+      .orderBy(desc(pendingShares.createdAt));
+  }
+
+  async updatePendingShareStatus(
+    shareId: string,
+    userId: string,
+    status: string,
+    updates?: { activityId?: string; errorMessage?: string }
+  ): Promise<PendingShare | undefined> {
+    const [updated] = await db
+      .update(pendingShares)
+      .set({
+        status,
+        updatedAt: new Date(),
+        ...(updates?.activityId && { activityId: updates.activityId }),
+        ...(updates?.errorMessage && { errorMessage: updates.errorMessage }),
+      })
+      .where(and(
+        eq(pendingShares.id, shareId),
+        eq(pendingShares.userId, userId),
+      ))
+      .returning();
+    return updated;
+  }
+
+  async cleanupOldPendingShares(olderThanHours: number = 24): Promise<number> {
+    const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+    const result = await db
+      .delete(pendingShares)
+      .where(and(
+        lte(pendingShares.createdAt, cutoff),
+        inArray(pendingShares.status, ['completed', 'failed']),
+      ))
+      .returning();
+    return result.length;
   }
 }
 

@@ -1,11 +1,12 @@
 /**
- * App Shortcuts Manager for Android
+ * App Shortcuts Manager for iOS & Android
  *
- * Provides dynamic app shortcuts (long-press quick actions) for quick access to features
- * Only works on Android 7.1+ (API level 25+)
+ * Provides dynamic app shortcuts (quick actions) for quick access to features:
+ * - Android: Long-press quick actions (API level 25+)
+ * - iOS: Home Screen Quick Actions (3D Touch / Haptic Touch)
  */
 
-import { isNative, isAndroid } from './platform';
+import { isNative } from './platform';
 
 // Define interface for our custom NativeAppShortcuts plugin
 interface NativeAppShortcutsPlugin {
@@ -77,7 +78,7 @@ async function getNativeShortcutsPluginWithRetry(maxRetries: number = 5): Promis
  * Uses retry logic because Capacitor bridge may not be ready on component mount
  */
 export async function isShortcutsSupported(): Promise<boolean> {
-  if (!isNative() || !isAndroid()) {
+  if (!isNative()) {
     return false;
   }
 
@@ -101,7 +102,7 @@ export async function isShortcutsSupported(): Promise<boolean> {
  * Creates: Quick Journal, Add Task, View Today, View Activities
  */
 export async function setupDefaultShortcuts(): Promise<boolean> {
-  if (!isNative() || !isAndroid()) {
+  if (!isNative()) {
     console.log('[SHORTCUTS] Not available on this platform');
     return false;
   }
@@ -126,7 +127,7 @@ export async function setupDefaultShortcuts(): Promise<boolean> {
  * Set custom shortcuts (replaces existing dynamic shortcuts)
  */
 export async function setShortcuts(shortcuts: ShortcutConfig[]): Promise<boolean> {
-  if (!isNative() || !isAndroid()) {
+  if (!isNative()) {
     return false;
   }
 
@@ -148,7 +149,7 @@ export async function setShortcuts(shortcuts: ShortcutConfig[]): Promise<boolean
  * Add a single shortcut (or update if exists)
  */
 export async function addShortcut(shortcut: ShortcutConfig): Promise<boolean> {
-  if (!isNative() || !isAndroid()) {
+  if (!isNative()) {
     return false;
   }
 
@@ -170,7 +171,7 @@ export async function addShortcut(shortcut: ShortcutConfig): Promise<boolean> {
  * Remove a shortcut by ID
  */
 export async function removeShortcut(id: string): Promise<boolean> {
-  if (!isNative() || !isAndroid()) {
+  if (!isNative()) {
     return false;
   }
 
@@ -192,7 +193,7 @@ export async function removeShortcut(id: string): Promise<boolean> {
  * Get all current dynamic shortcuts
  */
 export async function getShortcuts(): Promise<ShortcutInfo[]> {
-  if (!isNative() || !isAndroid()) {
+  if (!isNative()) {
     return [];
   }
 
@@ -210,7 +211,7 @@ export async function getShortcuts(): Promise<ShortcutInfo[]> {
 }
 
 /**
- * Predefined shortcut actions (must match MainActivity.java handling)
+ * Predefined shortcut actions (must match native handling on both platforms)
  */
 export const ShortcutActions = {
   QUICK_JOURNAL: 'QUICK_JOURNAL',

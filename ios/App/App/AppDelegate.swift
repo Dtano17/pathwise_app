@@ -599,6 +599,34 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Called when the application is about to terminate.
     }
 
+    // MARK: - Home Screen Quick Actions
+
+    func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
+        let action = shortcutItem.userInfo?["action"] as? String ?? shortcutItem.type
+
+        print("[JournalMate] Quick action triggered: \(action)")
+
+        var route: String
+        switch action {
+        case "QUICK_JOURNAL", "quick_journal":
+            route = "journal/new"
+        case "ADD_TASK", "add_task":
+            route = "tasks/new"
+        case "VIEW_TODAY", "view_today":
+            route = "tasks"
+        case "VIEW_ACTIVITIES", "view_activities":
+            route = "activities"
+        default:
+            route = ""
+        }
+
+        if !route.isEmpty {
+            openAppWithRoute(route)
+        }
+
+        completionHandler(!route.isEmpty)
+    }
+
     // MARK: - URL Handling (Deep Links)
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {

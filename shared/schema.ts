@@ -2474,5 +2474,32 @@ export const insertVerificationSchema = createInsertSchema(verifications).omit({
   createdAt: true,
 });
 
+// Pending Shares - persists incoming share data to survive app backgrounding
+export const pendingShares = pgTable("pending_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  shareUrl: text("share_url"),
+  shareText: text("share_text"),
+  shareType: text("share_type").notNull(), // 'url' | 'text' | 'file'
+  platform: text("platform"), // 'instagram' | 'tiktok' | 'youtube' | null
+  status: text("status").notNull().default("pending"), // pending | processing | completed | failed
+  activityId: varchar("activity_id"),
+  errorMessage: text("error_message"),
+  sourcePlatform: text("source_platform"), // 'android' | 'ios'
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userStatusIndex: index("pending_shares_user_status_idx").on(table.userId, table.status),
+}));
+
+export const insertPendingShareSchema = createInsertSchema(pendingShares).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type PendingShare = typeof pendingShares.$inferSelect;
+export type InsertPendingShare = z.infer<typeof insertPendingShareSchema>;
+
 export type Verification = typeof verifications.$inferSelect;
 export type InsertVerification = z.infer<typeof insertVerificationSchema>;

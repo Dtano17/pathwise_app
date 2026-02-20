@@ -3261,6 +3261,105 @@ ${sitemaps
   });
 
   // ============================================
+  // PENDING SHARES API (persist shares to survive app backgrounding)
+  // ============================================
+
+  // Create a pending share record immediately when share is received
+  app.post("/api/shares/pending", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { shareUrl, shareText, shareType, platform, sourcePlatform } = req.body;
+
+      if (!shareUrl && !shareText) {
+        return res.status(400).json({ error: "Either shareUrl or shareText is required" });
+      }
+
+      if (!shareType || !['url', 'text', 'file'].includes(shareType)) {
+        return res.status(400).json({ error: "Valid shareType is required (url, text, file)" });
+      }
+
+      const pendingShare = await storage.createPendingShare({
+        userId,
+        shareUrl: shareUrl || null,
+        shareText: shareText || null,
+        shareType,
+        platform: platform || null,
+        status: "pending",
+        sourcePlatform: sourcePlatform || null,
+      });
+
+      console.log(`[PENDING SHARE] Created ${pendingShare.id} for user ${userId}: ${shareUrl || shareText?.substring(0, 50)}`);
+      res.json(pendingShare);
+    } catch (error: any) {
+      console.error("[PENDING SHARE] Failed to create:", error.message);
+      res.status(500).json({ error: "Failed to save pending share" });
+    }
+  });
+
+  // Check for unprocessed shares on app resume
+  app.get("/api/shares/pending", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const shares = await storage.getPendingSharesByUser(userId, ["pending", "processing"]);
+      res.json({ shares });
+    } catch (error: any) {
+      console.error("[PENDING SHARE] Failed to fetch:", error.message);
+      res.status(500).json({ error: "Failed to fetch pending shares" });
+    }
+  });
+
+  // Update pending share status (mark as processing, completed, or failed)
+  app.patch("/api/shares/pending/:id", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { id } = req.params;
+      const { status, activityId, errorMessage } = req.body;
+
+      if (!status || !['processing', 'completed', 'failed'].includes(status)) {
+        return res.status(400).json({ error: "Valid status required (processing, completed, failed)" });
+      }
+
+      const updated = await storage.updatePendingShareStatus(id, userId, status, {
+        activityId,
+        errorMessage,
+      });
+
+      if (!updated) {
+        return res.status(404).json({ error: "Pending share not found" });
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error("[PENDING SHARE] Failed to update:", error.message);
+      res.status(500).json({ error: "Failed to update pending share" });
+    }
+  });
+
+  // Cleanup old completed/failed pending shares every hour
+  setInterval(async () => {
+    try {
+      const cleaned = await storage.cleanupOldPendingShares(24);
+      if (cleaned > 0) {
+        console.log(`[PENDING SHARE] Cleaned up ${cleaned} old pending shares`);
+      }
+    } catch (err) {
+      // Silent cleanup failure
+    }
+  }, 60 * 60 * 1000);
+
+  // ============================================
   // USER SAVED CONTENT / PREFERENCES API
   // ============================================
 
@@ -15007,6 +15106,220 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           console.log(
             `[STREAM] Session lookup: sessionId=${sessionId}, found=${!!session}, storedPlan=${!!storedPlan}, awaitingConfirmation=${awaitingConfirmation}`,
           );
+
+          // CRITICAL FIX: Early-exit confirmation check (mirrors non-streaming handler at handleSimplePlanConversation)
+          // If user is confirming a plan that's already generated, skip the LLM call entirely and create activity
+          const earlyConfirmKeywords = [
+            "yes", "yeah", "yep", "sure", "ok", "okay", "perfect",
+            "great", "good", "create the plan", "sounds good",
+            "that works", "confirm", "proceed", "go ahead",
+            "yes go ahead",
+          ];
+          const userConfirmedEarly = earlyConfirmKeywords.some((keyword) =>
+            message.toLowerCase().includes(keyword.toLowerCase()),
+          );
+
+          if (awaitingConfirmation && storedPlan && userConfirmedEarly) {
+            console.log(
+              `[STREAM] ✅ EARLY CONFIRMATION DETECTED - skipping LLM call, creating activity directly`,
+            );
+
+            sendEvent("progress", {
+              phase: "creating",
+              message: "Creating your activity and tasks...",
+            });
+
+            // Check plan usage limits
+            const earlyUsageCheck = await checkAndIncrementPlanUsage(userId);
+            if (!earlyUsageCheck.allowed) {
+              sendEvent("complete", {
+                message: `⚠️ **Plan Limit Reached**\n\nYou've used all ${earlyUsageCheck.planLimit} AI plans for this month on the free tier.\n\n**Upgrade to Pro ($6.99/month) for:**\n✅ **Unlimited AI plans**\n✅ Advanced favorites organization\n✅ Journal insights & analytics\n✅ Export all your data\n\nWould you like to upgrade now?`,
+                planLimitReached: true,
+                planCount: earlyUsageCheck.planCount,
+                planLimit: earlyUsageCheck.planLimit,
+              });
+              res.end();
+              return;
+            }
+
+            try {
+              // Fetch backdrop image for the activity
+              const earlyRawTitle =
+                storedPlan.title ||
+                `${mode === "quick" ? "Quick" : "Smart"} Plan Activity`;
+              const earlyPlanEmoji = storedPlan.emoji;
+              const earlyTitle = earlyPlanEmoji
+                ? `${earlyPlanEmoji} ${earlyRawTitle}`
+                : earlyRawTitle;
+              const earlyCategory =
+                storedPlan.category || storedPlan.domain || "personal";
+              const earlyBackdropUrl = await getActivityImage(
+                earlyRawTitle,
+                earlyCategory,
+              );
+
+              // Extract dates from plan
+              const earlyStartDate =
+                storedPlan.activity?.startDate || storedPlan.startDate;
+              const earlyEndDate =
+                storedPlan.activity?.endDate || storedPlan.endDate;
+
+              // Create activity
+              const earlyActivity = await storage.createActivity({
+                title: earlyTitle,
+                description:
+                  storedPlan.summary ||
+                  storedPlan.description ||
+                  "Generated plan",
+                category: earlyCategory,
+                status: "planning",
+                userId,
+                backdrop: earlyBackdropUrl,
+                startDate: earlyStartDate || undefined,
+                endDate: earlyEndDate || undefined,
+              });
+
+              // Create tasks and link them to the activity
+              const earlyCreatedTasks = [];
+              if (storedPlan.tasks && Array.isArray(storedPlan.tasks)) {
+                for (let i = 0; i < storedPlan.tasks.length; i++) {
+                  const taskData = storedPlan.tasks[i];
+
+                  // Build dueDate from scheduledDate and startTime if available
+                  let earlyTaskDueDateStr: string | undefined = undefined;
+                  if (taskData.scheduledDate) {
+                    let effectiveStartTime = taskData.startTime;
+                    if (!effectiveStartTime) {
+                      const taskDescription =
+                        taskData.description || taskData.notes || "";
+                      const taskTitle =
+                        taskData.title || taskData.taskName || "";
+                      effectiveStartTime =
+                        extractTimeFromDescription(taskDescription) ||
+                        extractTimeFromDescription(taskTitle) ||
+                        getSmartDefaultTime(i, storedPlan.tasks.length);
+                    }
+                    earlyTaskDueDateStr = `${taskData.scheduledDate}T${effectiveStartTime}:00`;
+                  } else if (taskData.startDate) {
+                    earlyTaskDueDateStr = taskData.startDate;
+                  }
+                  const earlyTaskDueDate = earlyTaskDueDateStr
+                    ? new Date(earlyTaskDueDateStr)
+                    : undefined;
+
+                  const task = await storage.createTask({
+                    title: taskData.title || taskData.taskName,
+                    description:
+                      taskData.description || taskData.notes || "",
+                    category:
+                      taskData.category || storedPlan.domain || "personal",
+                    priority: taskData.priority || "medium",
+                    timeEstimate:
+                      taskData.timeEstimate ||
+                      `${taskData.duration || 30} min`,
+                    dueDate: earlyTaskDueDate,
+                    userId,
+                  });
+                  await storage.addTaskToActivity(
+                    earlyActivity.id,
+                    task.id,
+                    i,
+                  );
+                  earlyCreatedTasks.push(task);
+                }
+              }
+
+              // Schedule reminders if activity has a start date
+              if (earlyActivity.startDate) {
+                try {
+                  const reminderResult = await scheduleRemindersForActivity(
+                    storage,
+                    earlyActivity.id,
+                    userId,
+                  );
+                  console.log(
+                    `[STREAM EARLY] Scheduled ${reminderResult.created} reminders for activity ${earlyActivity.id}`,
+                  );
+                } catch (reminderError) {
+                  console.error(
+                    "[STREAM EARLY] Failed to schedule reminders:",
+                    reminderError,
+                  );
+                }
+              }
+
+              // Send notification that activity is ready
+              onActivityProcessingComplete(
+                storage,
+                earlyActivity,
+                parseInt(userId),
+                earlyCreatedTasks.length,
+                mode === "quick" ? "quick_plan" : "smart_plan",
+              ).catch((err) =>
+                console.error(
+                  "[NOTIFICATION] Activity ready hook error:",
+                  err,
+                ),
+              );
+
+              // Mark session as complete
+              if (session?.id) {
+                await storage.updateLifestylePlannerSession(
+                  session.id,
+                  {
+                    sessionState: "completed",
+                    isComplete: true,
+                    externalContext: {
+                      ...session.externalContext,
+                      awaitingPlanConfirmation: false,
+                      activityId: earlyActivity.id,
+                    },
+                  },
+                  userId,
+                );
+              }
+
+              // Format success message
+              const earlyEmoji = storedPlan.emoji || "[TARGET_ICON]";
+              const earlyFinalMessage = formatActivitySuccessMessage(
+                earlyActivity,
+                earlyEmoji,
+              );
+
+              console.log(
+                `[STREAM EARLY] ✅ Activity created: ${earlyActivity.id} with ${earlyCreatedTasks.length} tasks`,
+              );
+
+              sendEvent("complete", {
+                message: earlyFinalMessage,
+                readyToGenerate: true,
+                plan: storedPlan,
+                session: await storage.getLifestylePlannerSession(
+                  session?.id || "",
+                  userId,
+                ),
+                activityCreated: true,
+                activityId: earlyActivity.id,
+                activityTitle: earlyActivity.title,
+                taskCount: earlyCreatedTasks.length,
+                backdropUrl: earlyActivity.backdrop,
+                activity: {
+                  id: earlyActivity.id,
+                  title: earlyActivity.title,
+                  backdrop: earlyActivity.backdrop,
+                },
+                createdTasks: earlyCreatedTasks,
+              });
+              res.end();
+              return;
+            } catch (earlyError) {
+              console.error(
+                "[STREAM EARLY] Error creating activity, falling through to normal flow:",
+                earlyError,
+              );
+              // Fall through to normal processMessageStream flow
+            }
+          }
 
           // Stream tokens as they arrive
           const response = await simplePlanner.processMessageStream(

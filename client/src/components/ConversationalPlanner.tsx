@@ -562,7 +562,7 @@ export default function ConversationalPlanner({ onClose, initialMode, initialInp
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setLocation(`/?tab=activities&activity=${finalData.activity.id}`)}
+                  onClick={() => setLocation(`/app?tab=activities&activity=${finalData.activity.id}`)}
                   data-testid="toast-view-activity"
                 >
                   <Target className="w-3 h-3 mr-1 text-emerald-500" />
@@ -1125,7 +1125,7 @@ export default function ConversationalPlanner({ onClose, initialMode, initialInp
           <Button
             size="sm"
             variant="outline"
-            onClick={() => setLocation(`/?tab=activities&activity=${data.activity.id}`)}
+            onClick={() => setLocation(`/app?tab=activities&activity=${data.activity.id}`)}
             data-testid="toast-view-activity"
           >
             <Target className="w-3 h-3 mr-1 text-emerald-500" />
@@ -2634,7 +2634,7 @@ export default function ConversationalPlanner({ onClose, initialMode, initialInp
                                 {activityMeta.taskCount} tasks ready for you
                               </p>
                               <Button
-                                onClick={() => setLocation(`/?tab=activities&activity=${activityMeta.activityId}`)}
+                                onClick={() => setLocation(`/app?tab=activities&activity=${activityMeta.activityId}`)}
                                 className={`w-full font-semibold py-3 rounded-lg flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all ${
                                   planningMode === 'quick'
                                     ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -2769,7 +2769,7 @@ export default function ConversationalPlanner({ onClose, initialMode, initialInp
                 {currentSession?.isComplete && createdActivityInfo && (
                   <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 border border-emerald-200 dark:border-emerald-700">
                     <button
-                      onClick={() => setLocation(`/?tab=activities&activity=${createdActivityInfo.id}`)}
+                      onClick={() => setLocation(`/app?tab=activities&activity=${createdActivityInfo.id}`)}
                       className="flex items-center gap-3 w-full text-left hover:opacity-80 transition-opacity group"
                       data-testid="link-created-activity"
                     >

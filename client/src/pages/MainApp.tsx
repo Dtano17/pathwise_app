@@ -324,6 +324,9 @@ export default function MainApp({
   // Ref for ClaudePlanOutput commands (for natural language control)
   const planCommandRef = useRef<ClaudePlanCommandRef>(null);
 
+  // Ref to track pending share ID for status updates (survives app backgrounding)
+  const pendingShareIdRef = useRef<string | null>(null);
+
   // Activity selection and delete dialog state
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(
     null,
@@ -399,7 +402,7 @@ export default function MainApp({
         setActiveTab(tabParam);
       }
       // Clean up URL after setting state
-      window.history.replaceState({}, "", "/");
+      window.history.replaceState({}, "", "/app");
     } else if (tabParam) {
       // Handle tab parameter without activity parameter
       setActiveTab(tabParam);
@@ -539,6 +542,58 @@ export default function MainApp({
       window.removeEventListener('incomingShare', directHandler);
     };
   }, []);
+
+  // Check for orphaned pending shares on app resume (survive backgrounding)
+  useEffect(() => {
+    if (!userData) return; // Need auth first
+
+    const checkOrphanedShares = async () => {
+      try {
+        const { checkServerPendingShares } = await import('@/lib/shareSheet');
+        const orphanedShares = await checkServerPendingShares();
+
+        if (orphanedShares.length > 0) {
+          const mostRecent = orphanedShares[0];
+          const content = mostRecent.url || mostRecent.text || '';
+          if (content && !pendingShareContent) {
+            console.log('[SHARE MainApp] Recovering orphaned share:', content.substring(0, 100));
+            pendingShareIdRef.current = (mostRecent as any)._pendingShareId || null;
+            setPendingShareContent(content);
+          }
+        }
+      } catch (error) {
+        console.warn('[SHARE MainApp] Could not check orphaned shares:', error);
+      }
+    };
+
+    // Check on mount
+    checkOrphanedShares();
+
+    // Check on app resume (visibility change)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkOrphanedShares();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Check on Capacitor app resume
+    let appResumeCleanup: (() => void) | null = null;
+    if ((window as any).Capacitor?.Plugins?.App) {
+      const App = (window as any).Capacitor.Plugins.App;
+      const handler = App.addListener('appStateChange', (state: { isActive: boolean }) => {
+        if (state.isActive) {
+          checkOrphanedShares();
+        }
+      });
+      appResumeCleanup = () => handler?.remove?.();
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      appResumeCleanup?.();
+    };
+  }, [userData, pendingShareContent]);
 
   // Upgrade modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -1361,6 +1416,16 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
 
+      // Update pending share status if this was from a share
+      if (pendingShareIdRef.current) {
+        import('@/lib/shareSheet').then(({ updatePendingShareStatus }) => {
+          updatePendingShareStatus(pendingShareIdRef.current!, 'completed', {
+            activityId: data.activityId,
+          });
+          pendingShareIdRef.current = null;
+        });
+      }
+
       // Add the new user input to conversation history
       const updatedHistory = [...conversationHistory, variables];
       setConversationHistory(updatedHistory);
@@ -1465,6 +1530,16 @@ export default function MainApp({
         description: errorMessage,
         variant: "destructive",
       });
+
+      // Update pending share status on failure
+      if (pendingShareIdRef.current) {
+        import('@/lib/shareSheet').then(({ updatePendingShareStatus }) => {
+          updatePendingShareStatus(pendingShareIdRef.current!, 'failed', {
+            errorMessage: errorMessage,
+          });
+          pendingShareIdRef.current = null;
+        });
+      }
     },
   });
 
@@ -1521,10 +1596,22 @@ export default function MainApp({
 
   // Process shared content (from share sheet or clipboard paste)
   // This is defined after processGoalMutation so it can use it
-  const processSharedContent = useCallback((sharedContent: string) => {
+  const processSharedContent = useCallback((sharedContent: string, shareId?: string) => {
     if (!sharedContent || sharedContent.trim().length === 0) return;
 
     console.log('[SHARE MainApp] Processing share data:', sharedContent.substring(0, 100));
+
+    // Track pending share ID for status updates
+    if (shareId) {
+      pendingShareIdRef.current = shareId;
+    }
+
+    // Mark as processing on server
+    if (pendingShareIdRef.current) {
+      import('@/lib/shareSheet').then(({ updatePendingShareStatus }) => {
+        updatePendingShareStatus(pendingShareIdRef.current!, 'processing');
+      });
+    }
 
     // Close tutorial if open
     setShowTutorial(false);
@@ -1556,7 +1643,7 @@ export default function MainApp({
   // Process any pending shared content when it's set
   useEffect(() => {
     if (pendingShareContent) {
-      processSharedContent(pendingShareContent);
+      processSharedContent(pendingShareContent, pendingShareIdRef.current || undefined);
       setPendingShareContent(null); // Clear after processing
     }
   }, [pendingShareContent, processSharedContent]);

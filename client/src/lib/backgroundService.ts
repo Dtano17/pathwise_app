@@ -1,16 +1,18 @@
 /**
- * Background Service Manager for Android
+ * Background Service Manager for iOS & Android
  *
  * Provides JavaScript API to control:
- * - Foreground service (persistent notification at top)
- * - Background sync (periodic task fetching)
+ * - Foreground service (Android: persistent notification; iOS: no-op, uses Live Activities)
+ * - Background sync (Android: WorkManager; iOS: BGTaskScheduler)
  * - Task reminders (automatic notifications when tasks are due)
+ * - Widget data updates
+ * - Notifications and haptics
  *
- * These features only work on Android native app.
+ * Works on both Android and iOS native apps.
  */
 
 import { registerPlugin } from '@capacitor/core';
-import { isAndroid } from './platform';
+import { isNative } from './platform';
 
 // Define interface for BackgroundService plugin
 interface BackgroundServicePlugin {
@@ -45,7 +47,7 @@ interface BackgroundServicePlugin {
     reminderMinutesBefore: number;
     hasCredentials: boolean;
   }>;
-  // One-time notifications (uses same reliable method as foreground service)
+  // One-time notifications
   showNotification(options: { title: string; body: string; id?: number }): Promise<{ success: boolean; id?: number; error?: string }>;
   cancelNotification(options: { id: number }): Promise<{ success: boolean }>;
 }
@@ -54,19 +56,20 @@ interface BackgroundServicePlugin {
 const BackgroundService = registerPlugin<BackgroundServicePlugin>('BackgroundService');
 
 /**
- * Check if background services are available (Android only)
+ * Check if background services are available (native platforms only)
  */
 export function isBackgroundServiceAvailable(): boolean {
-  return isAndroid();
+  return isNative();
 }
 
 /**
  * Start the foreground service
- * Shows a persistent notification at the top with task progress
+ * Android: Shows a persistent notification at the top with task progress
+ * iOS: No-op (iOS uses Live Activities instead), returns success for API compatibility
  */
 export async function startForegroundService(): Promise<boolean> {
-  if (!isAndroid()) {
-    console.log('[BACKGROUND] Foreground service only available on Android');
+  if (!isNative()) {
+    console.log('[BACKGROUND] Foreground service only available on native');
     return false;
   }
 
@@ -76,7 +79,6 @@ export async function startForegroundService(): Promise<boolean> {
     console.log('[BACKGROUND] Foreground service started:', result.success);
     return result.success;
   } catch (error: any) {
-    // Log detailed error info for debugging
     console.error('[BACKGROUND] Failed to start foreground service:', error);
     console.error('[BACKGROUND] Error message:', error?.message);
     console.error('[BACKGROUND] Error code:', error?.code);
@@ -89,7 +91,7 @@ export async function startForegroundService(): Promise<boolean> {
  * Stop the foreground service
  */
 export async function stopForegroundService(): Promise<boolean> {
-  if (!isAndroid()) {
+  if (!isNative()) {
     return false;
   }
 
@@ -114,7 +116,7 @@ export async function updateTaskProgress(options: {
   nextTaskTitle?: string;
   nextTaskTime?: string;
 }): Promise<boolean> {
-  if (!isAndroid()) {
+  if (!isNative()) {
     return false;
   }
 
@@ -140,8 +142,8 @@ export async function updateTaskProgress(options: {
  * @param intervalMinutes - Sync interval (minimum 15 minutes)
  */
 export async function enableBackgroundSync(intervalMinutes: number = 60): Promise<boolean> {
-  if (!isAndroid()) {
-    console.log('[BACKGROUND] Background sync only available on Android');
+  if (!isNative()) {
+    console.log('[BACKGROUND] Background sync only available on native');
     return false;
   }
 
@@ -159,7 +161,7 @@ export async function enableBackgroundSync(intervalMinutes: number = 60): Promis
  * Disable background sync
  */
 export async function disableBackgroundSync(): Promise<boolean> {
-  if (!isAndroid()) {
+  if (!isNative()) {
     return false;
   }
 
@@ -180,7 +182,7 @@ export async function disableBackgroundSync(): Promise<boolean> {
  * Call this after user login
  */
 export async function setBackgroundCredentials(userId: string, authToken: string): Promise<boolean> {
-  if (!isAndroid()) {
+  if (!isNative()) {
     return false;
   }
 
@@ -199,7 +201,7 @@ export async function setBackgroundCredentials(userId: string, authToken: string
  * Call this on logout
  */
 export async function clearBackgroundCredentials(): Promise<boolean> {
-  if (!isAndroid()) {
+  if (!isNative()) {
     return false;
   }
 
@@ -219,7 +221,7 @@ export async function clearBackgroundCredentials(): Promise<boolean> {
  * @param minutesBefore - How many minutes before due date to show reminder
  */
 export async function setReminderTime(minutesBefore: number): Promise<boolean> {
-  if (!isAndroid()) {
+  if (!isNative()) {
     return false;
   }
 
@@ -249,8 +251,8 @@ export async function updateWidgetData(data: {
 }): Promise<boolean> {
   console.log('[BACKGROUND] updateWidgetData called:', data);
 
-  if (!isAndroid()) {
-    console.log('[BACKGROUND] updateWidgetData: not Android, skipping');
+  if (!isNative()) {
+    console.log('[BACKGROUND] updateWidgetData: not native, skipping');
     return false;
   }
 
@@ -271,8 +273,8 @@ export async function updateWidgetData(data: {
 export async function refreshWidgets(): Promise<boolean> {
   console.log('[BACKGROUND] refreshWidgets called');
 
-  if (!isAndroid()) {
-    console.log('[BACKGROUND] refreshWidgets: not Android, skipping');
+  if (!isNative()) {
+    console.log('[BACKGROUND] refreshWidgets: not native, skipping');
     return false;
   }
 
@@ -296,7 +298,7 @@ export async function getBackgroundServiceStatus(): Promise<{
   reminderMinutesBefore: number;
   hasCredentials: boolean;
 } | null> {
-  if (!isAndroid()) {
+  if (!isNative()) {
     return null;
   }
 
@@ -322,8 +324,8 @@ export async function initializeBackgroundServices(
     reminderMinutesBefore?: number;
   }
 ): Promise<void> {
-  if (!isAndroid()) {
-    console.log('[BACKGROUND] Background services only available on Android');
+  if (!isNative()) {
+    console.log('[BACKGROUND] Background services only available on native');
     return;
   }
 
@@ -345,7 +347,7 @@ export async function initializeBackgroundServices(
     await enableBackgroundSync(syncIntervalMinutes);
   }
 
-  // Start foreground service
+  // Start foreground service (Android: persistent notification; iOS: no-op)
   if (enableForeground) {
     await startForegroundService();
   }
@@ -357,7 +359,7 @@ export async function initializeBackgroundServices(
  * Cleanup background services on logout
  */
 export async function cleanupBackgroundServices(): Promise<void> {
-  if (!isAndroid()) {
+  if (!isNative()) {
     return;
   }
 
@@ -370,16 +372,16 @@ export async function cleanupBackgroundServices(): Promise<void> {
 
 /**
  * Show a one-time notification (for test, reminders, alerts)
- * Uses the same reliable method as the foreground service notification
- * This works reliably even with remote URL apps
+ * On native: uses BackgroundService plugin for reliable delivery
+ * On web: falls back to Web Notification API
  */
 export async function showAlertNotification(options: {
   title: string;
   body: string;
   id?: number;
 }): Promise<{ success: boolean; id?: number; error?: string }> {
-  if (!isAndroid()) {
-    console.log('[BACKGROUND] showAlertNotification: not Android, using web notification');
+  if (!isNative()) {
+    console.log('[BACKGROUND] showAlertNotification: not native, using web notification');
     // Fallback to web notification
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
@@ -415,7 +417,7 @@ export async function showAlertNotification(options: {
  * Cancel a notification by ID
  */
 export async function cancelAlertNotification(id: number): Promise<boolean> {
-  if (!isAndroid()) {
+  if (!isNative()) {
     return false;
   }
 

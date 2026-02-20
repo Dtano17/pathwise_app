@@ -7,7 +7,8 @@
 
 import { Share, ShareResult } from '@capacitor/share';
 import { registerPlugin } from '@capacitor/core';
-import { isNative, isIOS, isAndroid } from './platform';
+import { isNative, isIOS, isAndroid, getPlatform } from './platform';
+import { apiUrl } from './api';
 
 // Define the SharePlugin interface for our custom Android plugin
 interface SharePluginInterface {
@@ -522,12 +523,67 @@ function handleIncomingIntent(intent: any): void {
 }
 
 /**
+ * Persist share data to the server immediately so it survives app backgrounding.
+ * Fire-and-forget — failure is non-fatal (share still works via volatile path).
+ */
+async function persistPendingShare(data: IncomingShareData): Promise<string | null> {
+  try {
+    const shareUrl = data.url || (data.text && /^https?:\/\//i.test(data.text.trim()) ? data.text.trim() : null);
+    const shareText = !shareUrl ? (data.text || null) : null;
+
+    // Detect platform from URL
+    let platform: string | null = null;
+    if (shareUrl) {
+      const lower = shareUrl.toLowerCase();
+      if (lower.includes('instagram.com')) platform = 'instagram';
+      else if (lower.includes('tiktok.com')) platform = 'tiktok';
+      else if (lower.includes('youtube.com') || lower.includes('youtu.be')) platform = 'youtube';
+    }
+
+    const sourcePlatform = getPlatform() === 'web' ? null : getPlatform();
+
+    const response = await fetch(apiUrl('/api/shares/pending'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        shareUrl,
+        shareText,
+        shareType: data.type || (shareUrl ? 'url' : 'text'),
+        platform,
+        sourcePlatform,
+      }),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('[SHARE] Persisted pending share to server:', result.id);
+      return result.id;
+    } else {
+      console.warn('[SHARE] Failed to persist pending share:', response.status);
+      return null;
+    }
+  } catch (error) {
+    console.warn('[SHARE] Could not persist pending share:', error);
+    return null;
+  }
+}
+
+/**
  * Set pending share data (called from native layer or intent handler)
  */
 export function setPendingShareData(data: IncomingShareData): void {
   pendingShareData = data;
   console.log('[SHARE] Received incoming share:', data);
-  
+
+  // Persist to server immediately (fire-and-forget)
+  // This ensures the share survives app backgrounding
+  persistPendingShare(data).then((pendingShareId) => {
+    if (pendingShareId) {
+      (data as any)._pendingShareId = pendingShareId;
+    }
+  });
+
   // Dispatch custom event so app can react to incoming share
   window.dispatchEvent(new CustomEvent('incoming-share', { detail: data }));
 }
@@ -575,6 +631,58 @@ export function onIncomingShare(callback: (data: IncomingShareData) => void): ()
 }
 
 /**
+ * Check the server for any pending shares that were not completed.
+ * Called on app resume to recover from backgrounding.
+ */
+export async function checkServerPendingShares(): Promise<(IncomingShareData & { _pendingShareId?: string; _isRecovered?: boolean })[]> {
+  try {
+    const response = await fetch(apiUrl('/api/shares/pending'), {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    if (!response.ok) return [];
+
+    const { shares } = await response.json();
+    if (!shares || shares.length === 0) return [];
+
+    console.log(`[SHARE] Found ${shares.length} orphaned pending share(s) on server`);
+
+    return shares.map((share: any) => ({
+      type: share.shareType as 'url' | 'text' | 'file',
+      url: share.shareUrl || undefined,
+      text: share.shareText || undefined,
+      _pendingShareId: share.id,
+      _isRecovered: true,
+    }));
+  } catch (error) {
+    console.warn('[SHARE] Could not check server pending shares:', error);
+    return [];
+  }
+}
+
+/**
+ * Update a pending share's status on the server.
+ */
+export async function updatePendingShareStatus(
+  shareId: string,
+  status: 'processing' | 'completed' | 'failed',
+  details?: { activityId?: string; errorMessage?: string }
+): Promise<void> {
+  try {
+    await fetch(apiUrl(`/api/shares/pending/${shareId}`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ status, ...details }),
+    });
+    console.log(`[SHARE] Updated pending share ${shareId} to ${status}`);
+  } catch (error) {
+    console.warn(`[SHARE] Could not update pending share ${shareId}:`, error);
+  }
+}
+
+/**
  * Quick share to common platforms
  */
 export async function shareToSocial(
@@ -599,4 +707,6 @@ export default {
   hasPendingShareData,
   shareToSocial,
   resetShareState,
+  checkServerPendingShares,
+  updatePendingShareStatus,
 };
