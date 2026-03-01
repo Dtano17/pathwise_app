@@ -10,7 +10,7 @@
  */
 
 import type { IStorage } from '../storage';
-import { scheduleSmartNotification } from './smartNotificationScheduler';
+import { scheduleSmartNotification, cancelNotificationsForSource } from './smartNotificationScheduler';
 import { generateNotificationMessage } from './notificationTemplates';
 
 /**
@@ -45,10 +45,12 @@ export async function scheduleWeeklyCheckin(
     });
 
     if (message) {
+      // Use date-specific sourceId to prevent stale duplicates across weeks
+      const weekId = scheduledAt.toISOString().split('T')[0]; // e.g., "2026-03-08"
       await scheduleSmartNotification(storage, {
         userId,
         sourceType: 'accountability',
-        sourceId: `weekly_${userId}`,
+        sourceId: `weekly_${weekId}_${userId}`,
         notificationType: 'weekly_checkin',
         title: message.title,
         body: message.body,
@@ -85,9 +87,11 @@ export async function scheduleMonthlyReview(
 
     const timezone = prefs?.timezone || 'UTC';
 
-    // Calculate 1st of next month at 10 AM
-    const scheduledAt = getFirstOfNextMonth();
+    // Calculate 1st of next month at 10 AM in user's timezone
+    const scheduledAt = getFirstOfNextMonth(timezone);
 
+    // Use month-specific sourceId to prevent cross-month dedup issues
+    const yearMonth = `${scheduledAt.getFullYear()}-${String(scheduledAt.getMonth() + 1).padStart(2, '0')}`;
     const monthName = scheduledAt.toLocaleString('en-US', { month: 'long' });
     const stats = await getUserMonthlyStats(storage, userId);
 
@@ -98,10 +102,16 @@ export async function scheduleMonthlyReview(
     });
 
     if (message) {
+      // Cancel any stale pending monthly reviews for this user (prevents accumulation)
+      const cancelled = await cancelNotificationsForSource(storage, 'accountability', `monthly_${userId}`);
+      if (cancelled > 0) {
+        console.log(`[ACCOUNTABILITY] Cancelled ${cancelled} stale pending monthly notifications for user ${userId}`);
+      }
+
       await scheduleSmartNotification(storage, {
         userId,
         sourceType: 'accountability',
-        sourceId: `monthly_${userId}`,
+        sourceId: `monthly_${yearMonth}_${userId}`,
         notificationType: 'monthly_review',
         title: message.title,
         body: message.body,
@@ -136,8 +146,11 @@ export async function scheduleQuarterlyReview(
 
     const timezone = prefs?.timezone || 'UTC';
 
-    // Calculate start of next quarter
-    const scheduledAt = getStartOfNextQuarter();
+    // Calculate start of next quarter at 10 AM in user's timezone
+    const scheduledAt = getStartOfNextQuarter(timezone);
+
+    // Use quarter-specific sourceId
+    const quarterLabel = `${scheduledAt.getFullYear()}-Q${Math.floor(scheduledAt.getMonth() / 3) + 1}`;
 
     // Gather quarterly stats for richer notification
     const quarterlyStats = await getUserQuarterlyStats(storage, userId);
@@ -149,10 +162,16 @@ export async function scheduleQuarterlyReview(
     });
 
     if (message) {
+      // Cancel stale pending quarterly reviews
+      const cancelled = await cancelNotificationsForSource(storage, 'accountability', `quarterly_${userId}`);
+      if (cancelled > 0) {
+        console.log(`[ACCOUNTABILITY] Cancelled ${cancelled} stale pending quarterly notifications for user ${userId}`);
+      }
+
       await scheduleSmartNotification(storage, {
         userId,
         sourceType: 'accountability',
-        sourceId: `quarterly_${userId}`,
+        sourceId: `quarterly_${quarterLabel}_${userId}`,
         notificationType: 'quarterly_review',
         title: message.title,
         body: message.body,
@@ -252,21 +271,66 @@ function getNextCheckinDate(day: string, time: string): Date {
   return result;
 }
 
-function getFirstOfNextMonth(): Date {
+function getFirstOfNextMonth(timezone: string = 'UTC'): Date {
   const now = new Date();
-  const result = new Date(now.getFullYear(), now.getMonth() + 1, 1, 10, 0, 0, 0);
-  return result;
+  // Calculate 1st of next month at 10:00 AM in user's timezone
+  const year = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
+  const month = now.getMonth() === 11 ? 0 : now.getMonth() + 1;
+  return getDateInTimezone(year, month, 1, 10, 0, timezone);
 }
 
-function getStartOfNextQuarter(): Date {
+function getStartOfNextQuarter(timezone: string = 'UTC'): Date {
   const now = new Date();
   const currentQuarter = Math.floor(now.getMonth() / 3);
   const nextQuarterMonth = (currentQuarter + 1) * 3;
 
   if (nextQuarterMonth >= 12) {
-    return new Date(now.getFullYear() + 1, 0, 1, 10, 0, 0, 0);
+    return getDateInTimezone(now.getFullYear() + 1, 0, 1, 10, 0, timezone);
   }
-  return new Date(now.getFullYear(), nextQuarterMonth, 1, 10, 0, 0, 0);
+  return getDateInTimezone(now.getFullYear(), nextQuarterMonth, 1, 10, 0, timezone);
+}
+
+/**
+ * Create a Date object representing a specific local time in a given timezone.
+ * Returns the equivalent UTC Date for scheduling purposes.
+ */
+function getDateInTimezone(year: number, month: number, day: number, hour: number, minute: number, timezone: string): Date {
+  try {
+    // Build an ISO-like string for the target date/time
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+
+    // Use Intl to figure out the UTC offset for this timezone at this date
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false,
+    });
+
+    // Create a UTC date first, then adjust based on timezone offset
+    const utcDate = new Date(Date.UTC(year, month, day, hour, minute, 0, 0));
+
+    // Get what time it is in the target timezone when it's `hour:minute` UTC
+    const parts = formatter.formatToParts(utcDate);
+    const tzHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+    const tzDay = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+
+    // Calculate the offset: how many hours ahead/behind the timezone is from UTC
+    // If UTC 10:00 shows as 4:00 AM in CST, offset is -6 hours (CST is UTC-6)
+    // To schedule 10:00 AM CST, we need to set UTC to 16:00 (10 + 6)
+    let hourDiff = tzHour - hour;
+    const dayDiff = tzDay - day;
+    if (dayDiff !== 0) {
+      hourDiff += dayDiff * 24;
+    }
+
+    // Adjust: subtract the offset to get the UTC time that corresponds to the desired local time
+    const adjustedUtc = new Date(Date.UTC(year, month, day, hour - hourDiff, minute, 0, 0));
+    return adjustedUtc;
+  } catch {
+    // Fallback to UTC if timezone is invalid
+    return new Date(Date.UTC(year, month, day, hour, minute, 0, 0));
+  }
 }
 
 async function getUserWeeklyStats(

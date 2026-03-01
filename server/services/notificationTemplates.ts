@@ -410,6 +410,23 @@ export const AccountabilityTemplates: Record<string, NotificationTemplate> = {
     channel: 'journalmate_assistant',
     priority: 'high',
   },
+
+  end_of_day_review: {
+    title: () => `🌙 End of Day Review`,
+    body: (ctx) => {
+      if (ctx.tasksCompleted && ctx.tasksCompleted > 3) {
+        return `Great day! ${ctx.tasksCompleted} tasks completed. Take a moment to reflect and set up for tomorrow.`;
+      }
+      if (ctx.tasksCompleted && ctx.tasksCompleted > 0) {
+        return `You completed ${ctx.tasksCompleted} task${ctx.tasksCompleted > 1 ? 's' : ''} today. How did your day go?`;
+      }
+      return `How did your day go? Take a moment to reflect and set up for tomorrow.`;
+    },
+    category: 'DAILY REVIEW',
+    haptic: 'light',
+    channel: 'journalmate_assistant',
+    priority: 'default',
+  },
 };
 
 // ============================================

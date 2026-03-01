@@ -275,6 +275,9 @@ async function processReminders(storage: IStorage): Promise<void> {
     // Step 9: Process idle user re-engagement nudges (3+ days inactive)
     await processIdleUserNudges(storage);
 
+    // Step 10: Process end-of-day review prompts (9 PM in user's timezone)
+    await processEndOfDayReviewPrompts(storage);
+
     const duration = Date.now() - startTime;
     console.log(`[REMINDER] Processing cycle complete (${duration}ms)`);
   } catch (error) {
@@ -898,5 +901,74 @@ async function processIdleUserNudges(storage: IStorage): Promise<void> {
     }
   } catch (error) {
     console.error('[REMINDER] Error processing idle user nudges:', error);
+  }
+}
+
+/**
+ * Send end-of-day review prompt to users at 9 PM in their local timezone.
+ * Timezone-aware: checks each user's timezone to determine if it's 9 PM locally.
+ */
+async function processEndOfDayReviewPrompts(storage: IStorage): Promise<void> {
+  try {
+    const now = new Date();
+    const users = await storage.getUsersWithAccountabilityEnabled();
+    const today = now.toISOString().split('T')[0];
+    let prompted = 0;
+
+    for (const { userId } of users) {
+      try {
+        // Get user's timezone preference
+        const prefs = await storage.getNotificationPreferences(userId);
+        if (prefs?.enableAccountabilityReminders === false) continue;
+
+        const timezone = prefs?.timezone || 'UTC';
+
+        // Check if it's 21:00-21:04 in the user's local timezone
+        const userLocalTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+        const localHour = userLocalTime.getHours();
+        const localMinute = userLocalTime.getMinutes();
+
+        if (localHour !== 21 || localMinute >= 5) continue;
+
+        // Dedup: check if already sent today for this user
+        const recentlySent = await storage.findRecentlySentSmartNotification(
+          userId, 'accountability', `eod_review_${today}_${userId}`, 'end_of_day_review', 12
+        );
+        if (recentlySent) continue;
+
+        // Get today's completed task count for contextual message
+        const tasks = await storage.getUserTasks(userId);
+        const todayCompletedTasks = tasks.filter(t =>
+          t.completed && t.completedAt &&
+          new Date(t.completedAt).toISOString().split('T')[0] === today
+        ).length;
+
+        const message = generateNotificationMessage('end_of_day_review', {
+          tasksCompleted: todayCompletedTasks,
+        });
+
+        if (message) {
+          await sendImmediateNotification(storage, userId, {
+            type: 'end_of_day_review',
+            title: message.title,
+            body: message.body,
+            route: '/app?tab=reports',
+            haptic: 'light',
+            channel: message.channel,
+            sourceType: 'accountability',
+            sourceId: `eod_review_${today}_${userId}`,
+          });
+          prompted++;
+        }
+      } catch (err) {
+        // Skip individual user errors silently
+      }
+    }
+
+    if (prompted > 0) {
+      console.log(`[REMINDER] Sent ${prompted} end-of-day review prompts`);
+    }
+  } catch (error) {
+    console.error('[REMINDER] Error processing end-of-day review prompts:', error);
   }
 }
