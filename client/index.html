@@ -1,142 +1,150 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="JournalMate" />
-    <title>JournalMate.ai - Discover plans. Make them yours. Share the journey.</title>
-    <meta name="description" content="Discover plans. Make them yours. Share the journey. We journal it for you. Browse community plans, customize to your style, and let JournalMate automatically capture your experiences with AI-powered journaling." />
 
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="JournalMate.ai - Discover plans. Make them yours. Share the journey." />
-    <meta property="og:description" content="Discover plans. Make them yours. Share the journey. We journal it for you. Browse community plans, customize freely, and share your adventures while we handle the journaling automatically." />
-    <meta property="og:image" content="/journalmate-logo-email.png" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="JournalMate" />
+  <title>JournalMate.ai - Discover plans. Make them yours. Share the journey.</title>
+  <meta name="description"
+    content="Discover plans. Make them yours. Share the journey. We journal it for you. Browse community plans, customize to your style, and let JournalMate automatically capture your experiences with AI-powered journaling." />
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:title" content="JournalMate.ai - Discover, Customize, Share" />
-    <meta name="theme-color" content="#6C5CE7" />
-    
-    <!-- Favicons - using updated icons from /icons/web/ directory -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/icons/web/favicon-16x16.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/icons/web/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="48x48" href="/icons/web/favicon-48x48.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/icons/web/apple-touch-icon.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/web/android-chrome-192x192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/icons/web/android-chrome-512x512.png" />
-    <link rel="manifest" href="/manifest.json" />
-    
-    <!-- Mobile App Smart Banners (update IDs when published to app stores) -->
-    <meta name="apple-itunes-app" content="app-id=YOUR_APP_ID, app-argument=journalmate://">
-    <link rel="alternate" href="android-app://com.journalmate.app/https/journalmate.app" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fira+Code:wght@300..700&family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Outfit:wght@100..900&family=Oxanium:wght@200..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
-    
-    <!-- Facebook SDK for JavaScript -->
-    <script>
-      window.fbAsyncInit = function() {
-        FB.init({
-          appId      : '1675001660123017',
-          cookie     : true,
-          xfbml      : true,
-          version    : 'v18.0'
-        });
-          
-        FB.AppEvents.logPageView();
-        
-        // Check login status on page load
-        FB.getLoginStatus(function(response) {
-          statusChangeCallback(response);
-        });
-      };
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="JournalMate.ai - Discover plans. Make them yours. Share the journey." />
+  <meta property="og:description"
+    content="Discover plans. Make them yours. Share the journey. We journal it for you. Browse community plans, customize freely, and share your adventures while we handle the journaling automatically." />
+  <meta property="og:image" content="/journalmate-logo-email.png" />
 
-      function checkLoginState() {
-        FB.getLoginStatus(function(response) {
-          statusChangeCallback(response);
-        });
-      }
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:title" content="JournalMate.ai - Discover, Customize, Share" />
+  <meta name="theme-color" content="#6C5CE7" />
 
-      // Prevent multiple verification attempts
-      let isVerifying = false;
-      
-      function statusChangeCallback(response) {
-        console.log('Facebook login status:', response.status);
-        window.fbLoginStatus = response;
-        
-        if (response.status === 'connected' && !isVerifying) {
-          isVerifying = true;
-          
-          // User is logged into Facebook and your app
-          FB.api('/me', {fields: 'name,email'}, function(userInfo) {
-            // Send to backend for authentication
-            fetch('/api/auth/facebook/verify', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                accessToken: response.authResponse.accessToken,
-                userInfo: userInfo
-              })
-            }).then(res => res.json()).then(data => {
-              console.log('Facebook verification response:', data);
-              if (data.success) {
-                console.log('Facebook login successful, redirecting to dashboard');
-                // Force page reload to refresh authentication state
-                setTimeout(() => {
-                  window.location.href = '/dashboard';
-                }, 100);
-              } else {
-                console.error('Facebook verification failed:', data.error);
-                isVerifying = false;
-              }
-            }).catch(err => {
-              console.error('Error during Facebook authentication:', err);
+  <!-- Favicons - using updated icons from /icons/web/ directory -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/web/favicon-16x16.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/web/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="48x48" href="/icons/web/favicon-48x48.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/web/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/web/android-chrome-192x192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/web/android-chrome-512x512.png" />
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Mobile App Smart Banners (update IDs when published to app stores) -->
+  <meta name="apple-itunes-app" content="app-id=YOUR_APP_ID, app-argument=journalmate://">
+  <link rel="alternate" href="android-app://com.journalmate.app/https/journalmate.app" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Fira+Code:wght@300..700&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Lora:ital,wght@0,400..700;1,400..700&family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Outfit:wght@100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Space+Grotesk:wght@300..700&display=swap"
+    rel="stylesheet">
+
+  <!-- Facebook SDK for JavaScript -->
+  <script>
+    window.fbAsyncInit = function () {
+      FB.init({
+        appId: '1675001660123017',
+        cookie: true,
+        xfbml: true,
+        version: 'v18.0'
+      });
+
+      FB.AppEvents.logPageView();
+
+      // Check login status on page load
+      FB.getLoginStatus(function (response) {
+        statusChangeCallback(response);
+      });
+    };
+
+    function checkLoginState() {
+      FB.getLoginStatus(function (response) {
+        statusChangeCallback(response);
+      });
+    }
+
+    // Prevent multiple verification attempts
+    let isVerifying = false;
+
+    function statusChangeCallback(response) {
+      console.log('Facebook login status:', response.status);
+      window.fbLoginStatus = response;
+
+      if (response.status === 'connected' && !isVerifying) {
+        isVerifying = true;
+
+        // User is logged into Facebook and your app
+        FB.api('/me', { fields: 'name,email' }, function (userInfo) {
+          // Send to backend for authentication
+          fetch('/api/auth/facebook/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              accessToken: response.authResponse.accessToken,
+              userInfo: userInfo
+            })
+          }).then(res => res.json()).then(data => {
+            console.log('Facebook verification response:', data);
+            if (data.success) {
+              console.log('Facebook login successful, redirecting to dashboard');
+              // Force page reload to refresh authentication state
+              setTimeout(() => {
+                window.location.href = '/dashboard';
+              }, 100);
+            } else {
+              console.error('Facebook verification failed:', data.error);
               isVerifying = false;
-            });
+            }
+          }).catch(err => {
+            console.error('Error during Facebook authentication:', err);
+            isVerifying = false;
           });
-        }
-        
-        // Trigger custom event for React to listen to
-        window.dispatchEvent(new CustomEvent('fbStatusChange', { 
-          detail: response 
-        }));
+        });
       }
 
-      // Login function that forces popup display to avoid iframe issues
-      window.facebookLogin = function() {
-        FB.login(function(response) {
-          if (response.authResponse) {
-            console.log('Facebook login successful');
-            statusChangeCallback(response);
-          } else {
-            console.log('Facebook login cancelled or failed');
-          }
-        }, {
-          scope: 'email,public_profile',
-          display: 'popup'  // Force popup to avoid X-Frame-Options issues
-        });
-      };
+      // Trigger custom event for React to listen to
+      window.dispatchEvent(new CustomEvent('fbStatusChange', {
+        detail: response
+      }));
+    }
 
-      (function(d, s, id){
-         var js, fjs = d.getElementsByTagName(s)[0];
-         if (d.getElementById(id)) {return;}
-         js = d.createElement(s); js.id = id;
-         js.src = "https://connect.facebook.net/en_US/sdk.js";
-         fjs.parentNode.insertBefore(js, fjs);
-       }(document, 'script', 'facebook-jssdk'));
-    </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
-    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
-  </body>
+    // Login function that forces popup display to avoid iframe issues
+    window.facebookLogin = function () {
+      FB.login(function (response) {
+        if (response.authResponse) {
+          console.log('Facebook login successful');
+          statusChangeCallback(response);
+        } else {
+          console.log('Facebook login cancelled or failed');
+        }
+      }, {
+        scope: 'email,public_profile',
+        display: 'popup'  // Force popup to avoid X-Frame-Options issues
+      });
+    };
+
+    (function (d, s, id) {
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) { return; }
+      js = d.createElement(s); js.id = id;
+      js.src = "https://connect.facebook.net/en_US/sdk.js";
+      fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+  <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
+  <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
+</body>
+
 </html>

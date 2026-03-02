@@ -41,7 +41,7 @@ import ReportsPage from "./ReportsPage";
 import { SocialLogin } from "@/components/SocialLogin";
 import { SignInPromptModal } from "@/components/SignInPromptModal";
 import {
-  Sparkles,
+  Wand2,
   Target,
   BarChart3,
   CheckSquare,
@@ -2455,17 +2455,17 @@ export default function MainApp({
                     </h1>
                     {((user as any)?.subscriptionTier === "pro" ||
                       (user as any)?.subscriptionTier === "family") && (
-                      <>
-                        {/* Icon-only badge on mobile */}
-                        <div className="sm:hidden">
-                          <ProBadge size="sm" variant="icon-only" />
-                        </div>
-                        {/* Full badge on desktop */}
-                        <div className="hidden sm:block">
-                          <ProBadge size="md" variant="full" />
-                        </div>
-                      </>
-                    )}
+                        <>
+                          {/* Icon-only badge on mobile */}
+                          <div className="sm:hidden">
+                            <ProBadge size="sm" variant="icon-only" />
+                          </div>
+                          {/* Full badge on desktop */}
+                          <div className="hidden sm:block">
+                            <ProBadge size="md" variant="full" />
+                          </div>
+                        </>
+                      )}
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                     {currentPlanOutput
@@ -2748,25 +2748,23 @@ export default function MainApp({
                 {/* Voice Input with Theme Wrapper */}
                 {selectedTheme ? (
                   <div className="max-w-2xl mx-auto px-2 sm:px-3 lg:px-6">
-                    <div className={`rounded-2xl p-1 ${
-                      selectedTheme === 'work' ? 'bg-gradient-to-r from-blue-500/20 via-blue-400/10 to-blue-500/20 ring-1 ring-blue-500/30' :
+                    <div className={`rounded-2xl p-1 ${selectedTheme === 'work' ? 'bg-gradient-to-r from-blue-500/20 via-blue-400/10 to-blue-500/20 ring-1 ring-blue-500/30' :
                       selectedTheme === 'investment' ? 'bg-gradient-to-r from-emerald-500/20 via-emerald-400/10 to-emerald-500/20 ring-1 ring-emerald-500/30' :
-                      selectedTheme === 'spiritual' ? 'bg-gradient-to-r from-violet-500/20 via-violet-400/10 to-violet-500/20 ring-1 ring-violet-500/30' :
-                      selectedTheme === 'romance' ? 'bg-gradient-to-r from-pink-500/20 via-pink-400/10 to-pink-500/20 ring-1 ring-pink-500/30' :
-                      selectedTheme === 'adventure' ? 'bg-gradient-to-r from-orange-500/20 via-orange-400/10 to-orange-500/20 ring-1 ring-orange-500/30' :
-                      selectedTheme === 'wellness' ? 'bg-gradient-to-r from-teal-500/20 via-teal-400/10 to-teal-500/20 ring-1 ring-teal-500/30' :
-                      ''
-                    }`}>
-                      {/* Theme indicator header */}
-                      <div className={`flex items-center justify-between px-4 py-2 rounded-t-xl ${
-                        selectedTheme === 'work' ? 'bg-blue-500/10' :
-                        selectedTheme === 'investment' ? 'bg-emerald-500/10' :
-                        selectedTheme === 'spiritual' ? 'bg-violet-500/10' :
-                        selectedTheme === 'romance' ? 'bg-pink-500/10' :
-                        selectedTheme === 'adventure' ? 'bg-orange-500/10' :
-                        selectedTheme === 'wellness' ? 'bg-teal-500/10' :
-                        ''
+                        selectedTheme === 'spiritual' ? 'bg-gradient-to-r from-violet-500/20 via-violet-400/10 to-violet-500/20 ring-1 ring-violet-500/30' :
+                          selectedTheme === 'romance' ? 'bg-gradient-to-r from-pink-500/20 via-pink-400/10 to-pink-500/20 ring-1 ring-pink-500/30' :
+                            selectedTheme === 'adventure' ? 'bg-gradient-to-r from-orange-500/20 via-orange-400/10 to-orange-500/20 ring-1 ring-orange-500/30' :
+                              selectedTheme === 'wellness' ? 'bg-gradient-to-r from-teal-500/20 via-teal-400/10 to-teal-500/20 ring-1 ring-teal-500/30' :
+                                ''
                       }`}>
+                      {/* Theme indicator header */}
+                      <div className={`flex items-center justify-between px-4 py-2 rounded-t-xl ${selectedTheme === 'work' ? 'bg-blue-500/10' :
+                        selectedTheme === 'investment' ? 'bg-emerald-500/10' :
+                          selectedTheme === 'spiritual' ? 'bg-violet-500/10' :
+                            selectedTheme === 'romance' ? 'bg-pink-500/10' :
+                              selectedTheme === 'adventure' ? 'bg-orange-500/10' :
+                                selectedTheme === 'wellness' ? 'bg-teal-500/10' :
+                                  ''
+                        }`}>
                         <div className="flex items-center gap-2">
                           {selectedTheme === 'work' && <Briefcase className="w-4 h-4 text-blue-600" />}
                           {selectedTheme === 'investment' && <TrendingUp className="w-4 h-4 text-emerald-600" />}
@@ -2774,15 +2772,14 @@ export default function MainApp({
                           {selectedTheme === 'romance' && <Heart className="w-4 h-4 text-pink-600" />}
                           {selectedTheme === 'adventure' && <Mountain className="w-4 h-4 text-orange-600" />}
                           {selectedTheme === 'wellness' && <Target className="w-4 h-4 text-teal-600" />}
-                          <span className={`text-sm font-medium ${
-                            selectedTheme === 'work' ? 'text-blue-700 dark:text-blue-300' :
+                          <span className={`text-sm font-medium ${selectedTheme === 'work' ? 'text-blue-700 dark:text-blue-300' :
                             selectedTheme === 'investment' ? 'text-emerald-700 dark:text-emerald-300' :
-                            selectedTheme === 'spiritual' ? 'text-violet-700 dark:text-violet-300' :
-                            selectedTheme === 'romance' ? 'text-pink-700 dark:text-pink-300' :
-                            selectedTheme === 'adventure' ? 'text-orange-700 dark:text-orange-300' :
-                            selectedTheme === 'wellness' ? 'text-teal-700 dark:text-teal-300' :
-                            ''
-                          }`}>
+                              selectedTheme === 'spiritual' ? 'text-violet-700 dark:text-violet-300' :
+                                selectedTheme === 'romance' ? 'text-pink-700 dark:text-pink-300' :
+                                  selectedTheme === 'adventure' ? 'text-orange-700 dark:text-orange-300' :
+                                    selectedTheme === 'wellness' ? 'text-teal-700 dark:text-teal-300' :
+                                      ''
+                            }`}>
                             {selectedTheme === 'work' && 'Work Focus'}
                             {selectedTheme === 'investment' && 'Investment'}
                             {selectedTheme === 'spiritual' && 'Spiritual'}
@@ -2790,15 +2787,14 @@ export default function MainApp({
                             {selectedTheme === 'adventure' && 'Adventure'}
                             {selectedTheme === 'wellness' && 'Health & Wellness'}
                           </span>
-                          <Badge variant="outline" className={`text-xs ${
-                            selectedTheme === 'work' ? 'border-blue-500/50 text-blue-600' :
+                          <Badge variant="outline" className={`text-xs ${selectedTheme === 'work' ? 'border-blue-500/50 text-blue-600' :
                             selectedTheme === 'investment' ? 'border-emerald-500/50 text-emerald-600' :
-                            selectedTheme === 'spiritual' ? 'border-violet-500/50 text-violet-600' :
-                            selectedTheme === 'romance' ? 'border-pink-500/50 text-pink-600' :
-                            selectedTheme === 'adventure' ? 'border-orange-500/50 text-orange-600' :
-                            selectedTheme === 'wellness' ? 'border-teal-500/50 text-teal-600' :
-                            ''
-                          }`}>
+                              selectedTheme === 'spiritual' ? 'border-violet-500/50 text-violet-600' :
+                                selectedTheme === 'romance' ? 'border-pink-500/50 text-pink-600' :
+                                  selectedTheme === 'adventure' ? 'border-orange-500/50 text-orange-600' :
+                                    selectedTheme === 'wellness' ? 'border-teal-500/50 text-teal-600' :
+                                      ''
+                            }`}>
                             Today's Focus
                           </Badge>
                         </div>
@@ -2807,15 +2803,14 @@ export default function MainApp({
                             variant="ghost"
                             size="sm"
                             onClick={() => onShowThemeSelector(true)}
-                            className={`h-7 text-xs ${
-                              selectedTheme === 'work' ? 'text-blue-600 hover:text-blue-700 hover:bg-blue-500/10' :
+                            className={`h-7 text-xs ${selectedTheme === 'work' ? 'text-blue-600 hover:text-blue-700 hover:bg-blue-500/10' :
                               selectedTheme === 'investment' ? 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10' :
-                              selectedTheme === 'spiritual' ? 'text-violet-600 hover:text-violet-700 hover:bg-violet-500/10' :
-                              selectedTheme === 'romance' ? 'text-pink-600 hover:text-pink-700 hover:bg-pink-500/10' :
-                              selectedTheme === 'adventure' ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-500/10' :
-                              selectedTheme === 'wellness' ? 'text-teal-600 hover:text-teal-700 hover:bg-teal-500/10' :
-                              ''
-                            }`}
+                                selectedTheme === 'spiritual' ? 'text-violet-600 hover:text-violet-700 hover:bg-violet-500/10' :
+                                  selectedTheme === 'romance' ? 'text-pink-600 hover:text-pink-700 hover:bg-pink-500/10' :
+                                    selectedTheme === 'adventure' ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-500/10' :
+                                      selectedTheme === 'wellness' ? 'text-teal-600 hover:text-teal-700 hover:bg-teal-500/10' :
+                                        ''
+                              }`}
                           >
                             Change
                           </Button>
@@ -3327,7 +3322,7 @@ export default function MainApp({
                                     !activity.isPublic ||
                                     !user ||
                                     (user as any).authenticationMethod ===
-                                      "demo"
+                                    "demo"
                                   }
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -3336,7 +3331,7 @@ export default function MainApp({
                                     if (
                                       !user ||
                                       (user as any).authenticationMethod ===
-                                        "demo"
+                                      "demo"
                                     ) {
                                       toast({
                                         title: "Sign In Required",
@@ -3377,7 +3372,7 @@ export default function MainApp({
                                   data-testid={`button-share-${activity.id}`}
                                   title={
                                     !user ||
-                                    (user as any).authenticationMethod ===
+                                      (user as any).authenticationMethod ===
                                       "demo"
                                       ? "Sign in to share activities"
                                       : activity.isPublic
@@ -3387,11 +3382,10 @@ export default function MainApp({
                                   className="group"
                                 >
                                   <Share2
-                                    className={`w-4 h-4 transition-all duration-300 ${
-                                      activity.isPublic
-                                        ? "text-blue-600 group-hover:drop-shadow-[0_0_6px_rgba(37,99,235,0.5)] group-hover:scale-110"
-                                        : "text-muted-foreground group-hover:drop-shadow-[0_0_4px_rgba(147,51,234,0.3)] group-hover:scale-105"
-                                    }`}
+                                    className={`w-4 h-4 transition-all duration-300 ${activity.isPublic
+                                      ? "text-blue-600 group-hover:drop-shadow-[0_0_6px_rgba(37,99,235,0.5)] group-hover:scale-110"
+                                      : "text-muted-foreground group-hover:drop-shadow-[0_0_4px_rgba(147,51,234,0.3)] group-hover:scale-105"
+                                      }`}
                                   />
                                 </Button>
                                 <Button
@@ -3457,11 +3451,10 @@ export default function MainApp({
                                   className="group"
                                 >
                                   <Heart
-                                    className={`w-4 h-4 transition-all duration-300 ${
-                                      (activity as any).userLiked
-                                        ? "text-red-600 fill-red-600 group-hover:scale-110"
-                                        : "text-muted-foreground group-hover:text-red-600 group-hover:scale-105"
-                                    }`}
+                                    className={`w-4 h-4 transition-all duration-300 ${(activity as any).userLiked
+                                      ? "text-red-600 fill-red-600 group-hover:scale-110"
+                                      : "text-muted-foreground group-hover:text-red-600 group-hover:scale-105"
+                                      }`}
                                   />
                                 </Button>
                                 {progressPercent > 0 && (
@@ -3478,11 +3471,10 @@ export default function MainApp({
                                     }}
                                     data-testid={`button-journal-${activity.id}`}
                                     title="Journal about this activity"
-                                    className={`transition-all duration-300 ${
-                                      progressPercent === 100
-                                        ? "text-purple-600 animate-pulse hover:scale-110"
-                                        : "hover:text-purple-600"
-                                    }`}
+                                    className={`transition-all duration-300 ${progressPercent === 100
+                                      ? "text-purple-600 animate-pulse hover:scale-110"
+                                      : "hover:text-purple-600"
+                                      }`}
                                   >
                                     <BookOpen className="w-4 h-4" />
                                   </Button>
@@ -3862,9 +3854,9 @@ export default function MainApp({
                               {selectedActivityId
                                 ? "No tasks found for this activity with the current filters."
                                 : searchQuery ||
-                                    selectedCategory !== "all" ||
-                                    selectedPriority !== "all" ||
-                                    filter !== "all"
+                                  selectedCategory !== "all" ||
+                                  selectedPriority !== "all" ||
+                                  filter !== "all"
                                   ? "No tasks match your current filters."
                                   : "No tasks available."}
                             </p>
@@ -4119,8 +4111,8 @@ export default function MainApp({
                                   extracted •{" "}
                                   {chatImport.processedAt
                                     ? new Date(
-                                        chatImport.processedAt,
-                                      ).toLocaleDateString()
+                                      chatImport.processedAt,
+                                    ).toLocaleDateString()
                                     : "Processing..."}
                                 </p>
                               </div>
@@ -4323,8 +4315,8 @@ export default function MainApp({
                     <Card className="p-6 bg-gradient-to-r from-purple-500/5 to-emerald-500/5 border-dashed">
                       <div className="text-center mb-4">
                         <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500/10 to-emerald-500/10 px-4 py-2 rounded-full mb-3">
-                          <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                          <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+                          <Wand2 className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-semibold text-primary">
                             Community Powered
                           </span>
                         </div>
@@ -4341,7 +4333,7 @@ export default function MainApp({
                             className="gap-2"
                             data-testid="button-browse-community-plans"
                           >
-                            <Sparkles className="w-4 h-4" />
+                            <Wand2 className="w-4 h-4" />
                             Browse Community Plans
                           </Button>
                         </Link>
@@ -4422,11 +4414,11 @@ export default function MainApp({
                   <div className="text-center mb-8">
                     <Button
                       size="lg"
-                      className="bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white text-lg px-8 py-6 h-auto"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-lg px-8 py-6 h-auto transition-transform hover:scale-105"
                       onClick={() => setActiveTab("input")}
                       data-testid="button-plan-adventure"
                     >
-                      <Sparkles className="w-5 h-5 mr-2" />
+                      <Wand2 className="w-5 h-5 mr-2" />
                       Plan Your Next Adventure
                     </Button>
                     <p className="text-sm text-muted-foreground mt-3">
@@ -4451,11 +4443,11 @@ export default function MainApp({
                       }
                       data-testid="feature-adaptive-planning"
                     >
-                      <Badge className="absolute top-2 right-2 bg-purple-600 text-white text-xs">
+                      <Badge className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs">
                         PRIMARY
                       </Badge>
-                      <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <Sparkles className="w-7 h-7 text-white" />
+                      <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <Brain className="w-7 h-7 text-primary-foreground" />
                       </div>
                       <h3 className="text-lg font-semibold mb-2">
                         Adaptive Planning Engine

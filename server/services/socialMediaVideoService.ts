@@ -7,7 +7,14 @@ import OpenAI from "openai";
 import { apifyService } from "./apifyService";
 
 const execAsync = promisify(exec);
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openai: OpenAI | null = null;
+try {
+  if (process.env.OPENAI_API_KEY) {
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+} catch (e) {
+  console.warn("OpenAI API Key missing or invalid - Social Media transcription will fail.");
+}
 
 const INSTAGRAM_HEADERS = {
   "User-Agent":
@@ -180,7 +187,7 @@ class SocialMediaVideoService {
 
       if (downloadResult.isCarousel && downloadResult.carouselFiles) {
         console.log(`[SOCIAL_MEDIA] Processing ${downloadResult.carouselFiles.length} carousel items in PARALLEL`);
-        
+
         // Process ALL carousel items in parallel with error handling per-item
         const processPromises = downloadResult.carouselFiles.map(async (file, idx) => {
           try {
@@ -202,7 +209,7 @@ class SocialMediaVideoService {
             this.cleanupFile(file.path);
           }
         });
-        
+
         result.carouselItems = await Promise.all(processPromises);
         const successCount = result.carouselItems.filter(i => i.ocrText || i.transcript).length;
         console.log(`[SOCIAL_MEDIA] Completed parallel OCR: ${successCount}/${result.carouselItems.length} items successful`);
@@ -271,7 +278,7 @@ class SocialMediaVideoService {
       // Download ALL carousel items in parallel for complete content capture
       const downloadPromises = apifyResult.carouselItems.map(async (item, i) => {
         if (!item.url) return null;
-        
+
         const ext = item.type === "video" ? "mp4" : "jpg";
         const filePath = path.join(
           this.tempDir,
@@ -1624,7 +1631,7 @@ class SocialMediaVideoService {
       );
       try {
         fs.rmSync(framesDir, { recursive: true, force: true });
-      } catch (e) {}
+      } catch (e) { }
       return undefined;
     }
   }

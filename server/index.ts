@@ -24,7 +24,7 @@ function validateEnvironment() {
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
     warnings.push('⚠️  Google OAuth not configured (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)');
   }
-  
+
   if (!process.env.FACEBOOK_APP_ID || !process.env.FACEBOOK_APP_SECRET) {
     warnings.push('⚠️  Facebook OAuth not configured (FACEBOOK_APP_ID, FACEBOOK_APP_SECRET)');
   }
@@ -160,11 +160,11 @@ async function initializeBackground() {
   try {
     const databaseUrl = process.env.DATABASE_URL;
     const stripeApiKey = process.env.STRIPE_API_KEY; // Check for env variable first
-    
+
     if (databaseUrl && (stripeApiKey || process.env.NODE_ENV === 'development')) {
       try {
         console.log('[STRIPE] Initializing schema...');
-        await runMigrations({ 
+        await runMigrations({
           databaseUrl,
           schema: 'stripe'
         });
@@ -261,27 +261,26 @@ async function initializeBackground() {
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
-    
+
     // Fire background initialization tasks (non-blocking)
     // These run in the background without blocking server startup
-    
+
     // Initialize Stripe in background
     initializeBackground().catch((err) => {
       console.error('[STARTUP] Background initialization error:', err);
     });
-    
+
     // Seed sample groups for demo user (non-blocking)
     seedSampleGroups().catch((error) => {
       console.error('[SEED] Failed to seed sample groups:', error);
     });
-    
+
     // Start the reminder processor for plan notifications (non-blocking)
     startReminderProcessor(storage);
     console.log('[REMINDER] Reminder processor started');
-    
+
     // Journal enrichment runs on-demand when users fetch their entries
     // Background enrichment triggers automatically via GET /api/journal/entries
     console.log('[JOURNAL ENRICH] On-demand enrichment enabled (triggers when users load journal)');

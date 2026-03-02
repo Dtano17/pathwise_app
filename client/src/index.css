@@ -16,6 +16,7 @@
 /* Android WebView: Set these via JavaScript or use fallback detection */
 /* The 'wv' marker in user agent indicates Android WebView */
 @media screen and (max-width: 768px) {
+
   /* Apply mobile safe areas - these are 0 by default */
   body {
     padding-top: var(--mobile-safe-top) !important;
@@ -61,6 +62,7 @@ body {
 /* Android Capacitor WebView detection - applies immediately without JavaScript */
 /* Capacitor Android uses a custom scheme (https://localhost or capacitor://) */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
+
   /* iOS with proper env() support */
   body {
     padding-bottom: env(safe-area-inset-bottom);
@@ -163,232 +165,204 @@ body.platform-android .mb-safe {
  * set when Android WebView is detected via User Agent.
  */
 
-/* LIGHT MODE */
+/* ===================================
+   DYNAMIC AESTHETIC PRESETS (ENERGY)
+   =================================== */
+
+/* DEFAULT: PRESET B (SOFT FOCUS) */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --background: 270 100% 98%;
+  /* Snow */
+  --foreground: 215 25% 27%;
+  /* Slate */
+  --card: 0 0% 100%;
+  --card-foreground: 215 25% 27%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 25% 27%;
+  --primary: 255 92% 76%;
+  /* Lavender */
+  --primary-foreground: 270 100% 98%;
+  --secondary: 28 98% 72%;
+  /* Peach */
+  --secondary-foreground: 0 0% 10%;
+  --muted: 270 20% 90%;
+  --muted-foreground: 215 20% 45%;
+  --accent: 270 20% 90%;
+  --accent-foreground: 215 25% 27%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 270 20% 90%;
+  --input: 270 20% 90%;
+  --ring: 255 92% 76%;
 
-  /* Automatic computation of border around primary / danger buttons */
-  --opaque-button-border-intensity: -8; /* In terms of percentages */
+  --radius: 2rem;
+  /* Massive rounding for social feel */
+  --button-outline: rgba(0, 0, 0, .05);
+  --badge-outline: rgba(0, 0, 0, .05);
 
-  /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
-
-  --background: 220 14% 98%;
-
-  --foreground: 210 11% 21%;
-
-  --border: 220 13% 91%;
-
-  --card: 220 12% 95%;
-
-  --card-foreground: 210 11% 21%;
-
-  --card-border: 220 13% 89%;
-
-  --sidebar: 220 10% 92%;
-
-  --sidebar-foreground: 210 11% 21%;
-
-  --sidebar-border: 220 12% 87%;
-
-  --sidebar-primary: 258 62% 59%;
-
-  --sidebar-primary-foreground: 220 8% 92%;
-
-  --sidebar-accent: 220 8% 88%;
-
-  --sidebar-accent-foreground: 210 11% 21%;
-
-  --sidebar-ring: 258 62% 59%;
-
-  --popover: 220 8% 90%;
-
-  --popover-foreground: 210 11% 21%;
-
-  --popover-border: 220 10% 85%;
-
-  --primary: 258 62% 59%;
-
-  --primary-foreground: 220 8% 92%;
-
-  --secondary: 165 100% 36%;
-
-  --secondary-foreground: 210 11% 21%;
-
-  --muted: 220 5% 88%;
-
-  --muted-foreground: 210 11% 45%;
-
-  --accent: 220 8% 85%;
-
-  --accent-foreground: 210 11% 21%;
-
-  --destructive: 0 62% 50%;
-
-  --destructive-foreground: 0 8% 95%;
-
-  --input: 220 13% 89%;
-  --ring: 258 62% 59%;
-  --chart-1: 258 62% 35%;
-  --chart-2: 165 100% 36%;
-  --chart-3: 35 89% 70%;
-  --chart-4: 263 71% 45%;
-  --chart-5: 340 82% 42%;
-
-  --font-sans: Inter, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: Menlo, monospace;
-  --radius: .5rem; /* 8px */
-  --shadow-2xs: 0px 2px 0px 0px hsl(210 40% 8% / 0.05);
-  --shadow-xs: 0px 1px 2px 0px hsl(210 40% 8% / 0.06);
-  --shadow-sm: 0px 1px 2px 0px hsl(210 40% 8% / 0.06), 0px 1px 3px 0px hsl(210 40% 8% / 0.10);
-  --shadow: 0px 1px 2px 0px hsl(210 40% 8% / 0.06), 0px 2px 4px 0px hsl(210 40% 8% / 0.10);
-  --shadow-md: 0px 2px 4px 0px hsl(210 40% 8% / 0.06), 0px 4px 8px 0px hsl(210 40% 8% / 0.10);
-  --shadow-lg: 0px 4px 6px 0px hsl(210 40% 8% / 0.05), 0px 10px 15px 0px hsl(210 40% 8% / 0.10);
-  --shadow-xl: 0px 8px 10px 0px hsl(210 40% 8% / 0.04), 0px 20px 25px 0px hsl(210 40% 8% / 0.10);
-  --shadow-2xl: 0px 25px 50px 0px hsl(210 40% 8% / 0.25);
-  --tracking-normal: 0em;
-  --spacing: 0.25rem;
-
-  /* Automatically computed borders - intensity can be controlled by the user by the --opaque-button-border-intensity setting */
-
-  /* Fallback for older browsers */
-  --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
-  --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
-  --primary-border: hsl(var(--primary));
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
-  --secondary-border: hsl(var(--secondary));
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
-  --muted-border: hsl(var(--muted));
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
-  --accent-border: hsl(var(--accent));
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
-  --destructive-border: hsl(var(--destructive));
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  /* Soft, diffuse shadow system */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 12px 24px -4px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 20px 30px -4px rgba(0, 0, 0, 0.1);
 
   /* Plan type border colors for Discovery */
   --plan-emergency: 0 85% 55%;
   --plan-emergency-border: hsl(var(--plan-emergency));
-  
   --plan-sponsored: 210 100% 50%;
   --plan-sponsored-border: hsl(var(--plan-sponsored));
-  
   --plan-trending: 142 76% 45%;
   --plan-trending-border: hsl(var(--plan-trending));
-  
   --plan-community: var(--border);
   --plan-community-border: hsl(var(--border));
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  --background: 215 25% 10%;
+  --foreground: 270 100% 98%;
+  --card: 215 25% 15%;
+  --card-foreground: 270 100% 98%;
+  --popover: 215 25% 15%;
+  --popover-foreground: 270 100% 98%;
+  --primary: 255 92% 76%;
+  /* Lavender */
+  --primary-foreground: 215 25% 10%;
+  --secondary: 28 98% 72%;
+  /* Peach */
+  --secondary-foreground: 215 25% 10%;
+  --muted: 215 20% 20%;
+  --muted-foreground: 270 20% 80%;
+  --accent: 215 20% 20%;
+  --accent-foreground: 270 100% 98%;
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 215 20% 20%;
+  --input: 215 20% 20%;
+  --ring: 255 92% 76%;
 
-  --opaque-button-border-intensity: 9;  /* In terms of percentages */
+  --button-outline: rgba(255, 255, 255, .10);
+  --badge-outline: rgba(255, 255, 255, .05);
 
-  /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
-
-  --background: 220 15% 8%;
-
-  --foreground: 220 8% 92%;
-
-  --border: 220 10% 16%;
-
-  --card: 220 10% 12%;
-
-  --card-foreground: 220 8% 92%;
-
-  --card-border: 220 8% 18%;
-
-  --sidebar: 220 8% 10%;
-
-  --sidebar-foreground: 220 8% 92%;
-
-  --sidebar-border: 220 6% 15%;
-
-  --sidebar-primary: 258 62% 59%;
-
-  --sidebar-primary-foreground: 220 8% 92%;
-
-  --sidebar-accent: 220 6% 14%;
-
-  --sidebar-accent-foreground: 220 8% 92%;
-
-  --sidebar-ring: 258 62% 59%;
-
-  --popover: 220 6% 16%;
-
-  --popover-foreground: 220 8% 92%;
-
-  --popover-border: 220 5% 22%;
-
-  --primary: 258 62% 59%;
-
-  --primary-foreground: 220 8% 92%;
-
-  --secondary: 220 4% 20%;
-
-  --secondary-foreground: 220 8% 92%;
-
-  --muted: 220 3% 18%;
-
-  --muted-foreground: 220 8% 65%;
-
-  --accent: 220 4% 17%;
-
-  --accent-foreground: 220 8% 92%;
-
-  --destructive: 0 62% 50%;
-
-  --destructive-foreground: 0 8% 95%;
-
-  --input: 220 8% 18%;
-  --ring: 258 62% 59%;
-  --chart-1: 258 62% 75%;
-  --chart-2: 165 100% 65%;
-  --chart-3: 35 89% 70%;
-  --chart-4: 263 71% 75%;
-  --chart-5: 340 82% 72%;
-
-  --shadow-2xs: 0px 2px 0px 0px hsl(210 40% 0% / 0.15);
-  --shadow-xs: 0px 1px 2px 0px hsl(210 40% 0% / 0.20);
-  --shadow-sm: 0px 1px 2px 0px hsl(210 40% 0% / 0.20), 0px 1px 3px 0px hsl(210 40% 0% / 0.25);
-  --shadow: 0px 1px 2px 0px hsl(210 40% 0% / 0.20), 0px 2px 4px 0px hsl(210 40% 0% / 0.25);
-  --shadow-md: 0px 2px 4px 0px hsl(210 40% 0% / 0.20), 0px 4px 8px 0px hsl(210 40% 0% / 0.25);
-  --shadow-lg: 0px 4px 6px 0px hsl(210 40% 0% / 0.18), 0px 10px 15px 0px hsl(210 40% 0% / 0.25);
-  --shadow-xl: 0px 8px 10px 0px hsl(210 40% 0% / 0.15), 0px 20px 25px 0px hsl(210 40% 0% / 0.25);
-  --shadow-2xl: 0px 25px 50px 0px hsl(210 40% 0% / 0.40);
-
-  /* Plan type border colors for Discovery */
+  /* Dark mode specific plan border overrides */
   --plan-emergency: 0 85% 60%;
   --plan-emergency-border: hsl(var(--plan-emergency));
-  
   --plan-sponsored: 210 100% 55%;
   --plan-sponsored-border: hsl(var(--plan-sponsored));
-  
   --plan-trending: 142 76% 50%;
   --plan-trending-border: hsl(var(--plan-trending));
-  
   --plan-community: var(--border);
   --plan-community-border: hsl(var(--border));
+}
+
+/* PRESET A: GOLDEN HOUR */
+.theme-golden-hour {
+  --background: 48 100% 96%;
+  /* Cream */
+  --foreground: 24 10% 10%;
+  /* Charcoal */
+  --primary: 38 92% 50%;
+  /* Amber */
+  --primary-foreground: 48 100% 96%;
+  --secondary: 351 95% 71%;
+  /* Coral */
+  --secondary-foreground: 24 10% 10%;
+  --muted: 48 30% 90%;
+  --muted-foreground: 24 10% 45%;
+  --accent: 48 30% 90%;
+  --accent-foreground: 24 10% 10%;
+  --border: 48 30% 85%;
+  --input: 48 30% 85%;
+  --ring: 38 92% 50%;
+}
+
+.dark .theme-golden-hour,
+.theme-golden-hour.dark {
+  --background: 24 10% 10%;
+  --foreground: 48 100% 96%;
+  --primary: 38 92% 50%;
+  --primary-foreground: 24 10% 10%;
+  --secondary: 351 95% 71%;
+  --secondary-foreground: 24 10% 10%;
+  --muted: 24 10% 20%;
+  --muted-foreground: 48 30% 80%;
+  --accent: 24 10% 20%;
+  --accent-foreground: 48 100% 96%;
+  --border: 24 10% 20%;
+  --input: 24 10% 20%;
+}
+
+/* PRESET C: NEON PULSE */
+.theme-neon-pulse {
+  --background: 250 100% 98%;
+  /* Ghost White */
+  --foreground: 244 47% 20%;
+  /* Deep Indigo */
+  --primary: 262 83% 58%;
+  /* Electric Violet */
+  --primary-foreground: 250 100% 98%;
+  --secondary: 84 81% 44%;
+  /* Lime */
+  --secondary-foreground: 250 100% 98%;
+  --muted: 250 20% 90%;
+  --muted-foreground: 244 47% 45%;
+  --accent: 250 20% 90%;
+  --accent-foreground: 244 47% 20%;
+  --border: 250 20% 85%;
+  --input: 250 20% 85%;
+  --ring: 262 83% 58%;
+}
+
+.dark .theme-neon-pulse,
+.theme-neon-pulse.dark {
+  --background: 244 47% 10%;
+  --foreground: 250 100% 98%;
+  --primary: 262 83% 58%;
+  --primary-foreground: 250 100% 98%;
+  --secondary: 84 81% 44%;
+  --secondary-foreground: 244 47% 10%;
+  --muted: 244 47% 20%;
+  --muted-foreground: 250 20% 80%;
+  --accent: 244 47% 20%;
+  --accent-foreground: 250 100% 98%;
+  --border: 244 47% 20%;
+  --input: 244 47% 20%;
+}
+
+/* PRESET D: TERRA */
+.theme-terra {
+  --background: 55 92% 95%;
+  /* Linen */
+  --foreground: 24 5% 15%;
+  /* Espresso */
+  --primary: 85 85% 35%;
+  /* Sage */
+  --primary-foreground: 55 92% 95%;
+  --secondary: 17 88% 40%;
+  /* Terracotta */
+  --secondary-foreground: 55 92% 95%;
+  --muted: 55 20% 85%;
+  --muted-foreground: 24 5% 45%;
+  --accent: 55 20% 85%;
+  --accent-foreground: 24 5% 15%;
+  --border: 55 20% 80%;
+  --input: 55 20% 80%;
+  --ring: 85 85% 35%;
+}
+
+.dark .theme-terra,
+.theme-terra.dark {
+  --background: 24 5% 10%;
+  --foreground: 55 92% 95%;
+  --primary: 85 85% 45%;
+  --primary-foreground: 24 5% 10%;
+  --secondary: 17 88% 50%;
+  --secondary-foreground: 24 5% 10%;
+  --muted: 24 5% 20%;
+  --muted-foreground: 55 20% 80%;
+  --accent: 24 5% 20%;
+  --accent-foreground: 55 92% 95%;
+  --border: 24 5% 20%;
+  --input: 24 5% 20%;
 }
 
 @layer base {
@@ -406,6 +380,7 @@ body.platform-android .mb-safe {
    =================================== */
 
 @layer utilities {
+
   /* Base Glass Effects */
   .glass-light {
     @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-lg;
@@ -440,6 +415,7 @@ body.platform-android .mb-safe {
     .glass-card {
       @apply backdrop-blur-sm;
     }
+
     .glass-interactive {
       @apply backdrop-blur-sm;
     }
@@ -447,6 +423,7 @@ body.platform-android .mb-safe {
 
   /* Accessibility: Reduced Motion */
   @media (prefers-reduced-motion: reduce) {
+
     .glass-card,
     .glass-interactive,
     .glass-light,
@@ -484,7 +461,7 @@ body.platform-android .mb-safe {
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -594,7 +571,9 @@ body.platform-android .mb-safe {
 }
 
 /* Allow text selection where needed */
-input, textarea, [contenteditable] {
+input,
+textarea,
+[contenteditable] {
   -webkit-user-select: text;
   -moz-user-select: text;
   -ms-user-select: text;
@@ -602,7 +581,8 @@ input, textarea, [contenteditable] {
 }
 
 /* Smooth momentum scrolling on iOS */
-body, html {
+body,
+html {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: none;
 }
@@ -613,29 +593,31 @@ body, html {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
   }
-  
+
   /* Better touch targets on mobile */
-  button, [role="button"], .cursor-pointer {
+  button,
+  [role="button"],
+  .cursor-pointer {
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* Adjust tab navigation for mobile */
   [role="tablist"] {
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
-  
+
   [role="tablist"]::-webkit-scrollbar {
     display: none;
   }
-  
+
   /* Make task cards more mobile-friendly */
   [data-testid^="task-card-"] {
     max-width: calc(100vw - 2rem);
   }
-  
+
   /* Improve toast positioning on mobile */
   [data-sonner-toaster] {
     position: fixed !important;
@@ -665,7 +647,7 @@ body, html {
 
 /* PRO Badge Neon Glow Effect */
 .pro-badge-neon {
-  box-shadow: 
+  box-shadow:
     0 0 4px rgba(139, 92, 246, 0.6),
     0 0 8px rgba(16, 185, 129, 0.5),
     0 0 12px rgba(139, 92, 246, 0.4);
@@ -674,13 +656,14 @@ body, html {
 
 @keyframes pro-badge-pulse {
   0% {
-    box-shadow: 
+    box-shadow:
       0 0 4px rgba(139, 92, 246, 0.6),
       0 0 8px rgba(16, 185, 129, 0.5),
       0 0 12px rgba(139, 92, 246, 0.4);
   }
+
   100% {
-    box-shadow: 
+    box-shadow:
       0 0 6px rgba(139, 92, 246, 0.7),
       0 0 12px rgba(16, 185, 129, 0.6),
       0 0 18px rgba(139, 92, 246, 0.5);

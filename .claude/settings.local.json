@@ -30,7 +30,10 @@
       "Bash(git push:*)",
       "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -d -t 200)",
       "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" uninstall ai.journalmate.app)",
-      "Bash(JAVA_HOME=\"/c/Program Files/Android/Android Studio/jbr\" ./gradlew bundleRelease:*)"
+      "Bash(JAVA_HOME=\"/c/Program Files/Android/Android Studio/jbr\" ./gradlew bundleRelease:*)",
+      "Bash(curl:*)",
+      "Bash(powershell -NoProfile -Command:*)",
+      "WebFetch(domain:support.google.com)"
     ],
     "deny": [],
     "ask": []
