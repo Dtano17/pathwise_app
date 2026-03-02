@@ -376,13 +376,13 @@ export default function LandingPage() {
     <div className="h-screen w-full overflow-y-auto overflow-x-hidden bg-background text-foreground touch-pan-y scroll-smooth">
       <SEO {...PAGE_SEO.home} />
       {/* Header - Welcome Bar (Pill) */}
-      <header className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl bg-background/80 backdrop-blur-md rounded-full shadow-lg border border-border/50 transition-all duration-300">
-        <div className="px-4 py-2 sm:px-6 sm:py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center min-w-0 gap-2">
+      <header className="fixed top-3 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl bg-background/80 backdrop-blur-md rounded-full shadow-lg border border-border/50 transition-all duration-300">
+        <div className="px-3 py-1.5 sm:px-6 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center min-w-0 gap-1.5 sm:gap-2">
             <div className="flex-shrink-0">
-              <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate Icon" className="h-6 w-6 sm:h-8 sm:w-8 object-contain" />
+              <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate Icon" className="h-5 w-5 sm:h-8 sm:w-8 object-contain" />
             </div>
-            <span className="font-bold text-lg sm:text-xl tracking-tight cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap">
+            <span className="font-bold text-base sm:text-xl tracking-tight cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap">
               JournalMate
             </span>
           </div>
@@ -409,7 +409,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Link href="/login">
-              <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 sm:px-6 shadow-sm hover:shadow-md transition-shadow" data-testid="button-login-landing">
+              <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-4 sm:px-6 h-8 sm:h-9 text-xs sm:text-sm shadow-sm hover:shadow-md transition-shadow" data-testid="button-login-landing">
                 Sign In
               </Button>
             </Link>
@@ -458,17 +458,17 @@ export default function LandingPage() {
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background to-transparent z-20" />
         </div>
 
-        <div className="container mx-auto px-4 relative z-10 flex flex-col items-center justify-center text-center pt-24 pb-16 mt-12">
-          <div className="flex flex-col items-center gap-2 mb-6 max-w-4xl w-full">
+        <div className="container mx-auto px-4 relative z-10 flex flex-col items-center justify-center text-center pt-24 pb-8 sm:pb-16 mt-0 sm:mt-12">
+          <div className="flex flex-col items-center gap-1 sm:gap-2 mb-4 sm:mb-6 max-w-4xl w-full">
             <h1
               ref={el => { textRefs.current[0] = el; }}
-              className="text-6xl sm:text-7xl md:text-[6rem] lg:text-[7.5rem] font-bold tracking-tight text-white leading-[1.05] drop-shadow-md"
+              className="text-5xl sm:text-7xl md:text-[6rem] lg:text-[7.5rem] font-bold tracking-tight text-white leading-[1.05] drop-shadow-md"
             >
               {currentPresetData.verb}
             </h1>
             <span
               ref={el => { textRefs.current[1] = el; }}
-              className="text-6xl sm:text-7xl md:text-[6.5rem] lg:text-[7.5rem] font-drama italic text-primary leading-[1] ml-[-0.02em]"
+              className="text-[4.5rem] sm:text-7xl md:text-[6.5rem] lg:text-[7.5rem] font-drama italic text-primary leading-[1] ml-[-0.02em]"
               style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.3))" }}
             >
               {currentPresetData.noun}
@@ -477,14 +477,14 @@ export default function LandingPage() {
 
           <p
             ref={el => { textRefs.current[2] = el; }}
-            className="text-lg md:text-xl text-white/90 mb-8 max-w-2xl font-medium leading-relaxed px-4 lg:px-0 drop-shadow-md"
+            className="text-base md:text-xl text-white/90 mb-6 sm:mb-8 max-w-2xl font-medium leading-relaxed px-2 lg:px-0 drop-shadow-md"
           >
             The AI-powered lifestyle planner that turns inspiration into action. Plan your perfect routine, stay accountable with friends, and celebrate every win together.
           </p>
 
           <div
             ref={el => { textRefs.current[3] = el; }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto px-4 lg:px-0 mb-8"
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto px-4 lg:px-0 mb-6 sm:mb-8"
           >
             <Link href="/login">
               <Button
@@ -500,24 +500,27 @@ export default function LandingPage() {
           {/* URL to Plan Input */}
           <div
             ref={el => { textRefs.current[4] = el; }}
-            className="w-full max-w-2xl lg:max-w-3xl relative group px-4 lg:px-0 mt-2 mb-8"
+            className="w-full max-w-2xl lg:max-w-3xl relative group px-2 lg:px-0 mt-1 sm:mt-2 mb-6 sm:mb-8"
           >
             <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-accent to-primary rounded-full blur opacity-40 group-hover:opacity-70 transition duration-1000 group-hover:duration-200"></div>
             <div className="relative flex items-center bg-black/40 backdrop-blur-md rounded-full border border-white/20 shadow-xl p-1.5 focus-within:ring-2 focus-within:ring-primary/50 transition-all focus-within:bg-black/60">
-              <div className="pl-4 pr-2 text-primary">
-                <LinkIcon className="w-5 h-5" />
+              <div className="pl-3 sm:pl-4 pr-1 sm:pr-2 text-primary">
+                <LinkIcon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <input
                 type="url"
-                placeholder="Paste any idea online from social media to journal or create plan..."
-                className="flex-1 bg-transparent border-none focus:outline-none text-sm data-[placeholder]:text-white/60 placeholder:text-white/60 w-full text-white"
+                placeholder="Paste idea URL..."
+                className="flex-1 bg-transparent border-none focus:outline-none text-xs sm:text-sm data-[placeholder]:text-white/60 placeholder:text-white/60 w-full text-white sm:placeholder-shown:text-transparent"
                 value={importUrl}
                 onChange={(e) => setImportUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleImportSubmit()}
               />
+              <span className="hidden sm:inline-block pointer-events-none absolute left-[44px] text-sm text-white/60 peer-focus:hidden opacity-100 transition-opacity">
+                {importUrl ? "" : "Paste any idea online from social media to journal or create plan..."}
+              </span>
               <Button
                 size="sm"
-                className="rounded-full bg-white text-black hover:bg-white/90 font-semibold px-5 h-10 ml-1 transition-transform hover:scale-105 border-0 shadow-lg"
+                className="rounded-full bg-white text-black hover:bg-white/90 font-semibold px-4 sm:px-5 h-9 sm:h-10 ml-1 transition-transform hover:scale-105 border-0 shadow-lg shrink-0 text-xs sm:text-sm"
                 onClick={handleImportSubmit}
               >
                 Create Plan
@@ -550,9 +553,9 @@ export default function LandingPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -5 }}
                 transition={{ duration: 0.8 }}
-                className="mt-8 px-6 py-2 bg-black/20 backdrop-blur-sm rounded-full border border-white/5 shadow-diffuse-primary max-w-2xl"
+                className="mt-6 sm:mt-8 px-4 sm:px-6 py-2 bg-black/20 backdrop-blur-sm rounded-full border border-white/5 shadow-diffuse-primary max-w-2xl"
               >
-                <p className="text-sm md:text-base text-white/80 font-medium italic tracking-wide">
+                <p className="text-xs sm:text-base text-white/80 font-medium italic tracking-wide max-w-[280px] sm:max-w-full mx-auto line-clamp-2 sm:line-clamp-none">
                   "{currentPresetData.video[currentMediaIndex % currentPresetData.video.length].caption}"
                 </p>
               </motion.div>
