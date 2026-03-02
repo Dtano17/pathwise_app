@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import gsap from "gsap";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
@@ -31,65 +32,36 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiUrl, isNativePlatform } from "@/lib/api";
 import { getStoredAuthToken } from "@/lib/nativeGoogleAuth";
 
-// Stock image imports
-import romanticParisCityscape from "@assets/stock_images/romantic_paris_citys_dfc7c798.jpg";
-import fitnessWorkoutGym from "@assets/stock_images/fitness_workout_gym__2325ee98.jpg";
-import elegantWeddingCeremony from "@assets/stock_images/elegant_wedding_cere_9aa2c585.jpg";
-import modernTechWorkspace from "@assets/stock_images/modern_tech_workspac_ef8fa108.jpg";
-import beautifulModernHome from "@assets/stock_images/beautiful_modern_hom_0f24a3e6.jpg";
-import organizedProductivity from "@assets/stock_images/organized_productivi_df70e725.jpg";
-import tokyoJapanTravel from "@assets/stock_images/tokyo_japan_travel_d_8a196170.jpg";
-import baliIndonesiaTropical from "@assets/stock_images/bali_indonesia_tropi_95575be5.jpg";
-import newYorkCityTimes from "@assets/stock_images/new_york_city_times__e09e766b.jpg";
-import parisEiffelTower from "@assets/stock_images/paris_eiffel_tower_f_fce5772c.jpg";
-import icelandNorthernLights from "@assets/stock_images/iceland_northern_lig_9fbbf14d.jpg";
-import runnerJoggingTrail from "@assets/stock_images/runner_jogging_on_tr_9a63ddad.jpg";
-import yogaStudioPeaceful from "@assets/stock_images/yoga_studio_peaceful_84f9a366.jpg";
-import cyclistRidingBike from "@assets/stock_images/cyclist_riding_bike__9ae17ca2.jpg";
-import modernGymWorkout from "@assets/stock_images/modern_gym_workout_w_99dc5406.jpg";
-import modernWorkspaceDesk from "@assets/stock_images/modern_workspace_des_9f6c2608.jpg";
-import businessPresentation from "@assets/stock_images/business_presentatio_aee687af.jpg";
-import professionalNetworking from "@assets/stock_images/professional_network_48ccc448.jpg";
-import personReadingBook from "@assets/stock_images/person_reading_book__bc916131.jpg";
-import birthdayPartyCelebration from "@assets/stock_images/birthday_party_celeb_414d649e.jpg";
-import concertMusicFestival from "@assets/stock_images/concert_music_festiv_18316657.jpg";
-import personCodingLaptop from "@assets/stock_images/person_coding_on_lap_ba381062.jpg";
-import homeRenovationKitchen from "@assets/stock_images/home_renovation_kitc_0ceb0522.jpg";
-import spanishLanguageLearning from "@assets/stock_images/spanish_language_lea_2d2edb39.jpg";
-import modernKitchenRenovation from "@assets/stock_images/modern_kitchen_renov_a5563863.jpg";
-import professionalDeveloper from "@assets/stock_images/professional_develop_960cd8cf.jpg";
-import spanishLanguageLearning2 from "@assets/stock_images/spanish_language_lea_269b1aa7.jpg";
-import personMeditating from "@assets/stock_images/person_meditating_pe_43f13693.jpg";
-
+// Load background images from public directory
 const stockImageMap: Record<string, string> = {
-  "romantic_paris_citys_dfc7c798.jpg": romanticParisCityscape,
-  "fitness_workout_gym__2325ee98.jpg": fitnessWorkoutGym,
-  "elegant_wedding_cere_9aa2c585.jpg": elegantWeddingCeremony,
-  "modern_tech_workspac_ef8fa108.jpg": modernTechWorkspace,
-  "beautiful_modern_hom_0f24a3e6.jpg": beautifulModernHome,
-  "organized_productivi_df70e725.jpg": organizedProductivity,
-  "tokyo_japan_travel_d_8a196170.jpg": tokyoJapanTravel,
-  "bali_indonesia_tropi_95575be5.jpg": baliIndonesiaTropical,
-  "new_york_city_times__e09e766b.jpg": newYorkCityTimes,
-  "paris_eiffel_tower_f_fce5772c.jpg": parisEiffelTower,
-  "iceland_northern_lig_9fbbf14d.jpg": icelandNorthernLights,
-  "runner_jogging_on_tr_9a63ddad.jpg": runnerJoggingTrail,
-  "yoga_studio_peaceful_84f9a366.jpg": yogaStudioPeaceful,
-  "cyclist_riding_bike__9ae17ca2.jpg": cyclistRidingBike,
-  "modern_gym_workout_w_99dc5406.jpg": modernGymWorkout,
-  "modern_workspace_des_9f6c2608.jpg": modernWorkspaceDesk,
-  "business_presentatio_aee687af.jpg": businessPresentation,
-  "professional_network_48ccc448.jpg": professionalNetworking,
-  "person_reading_book__bc916131.jpg": personReadingBook,
-  "birthday_party_celeb_414d649e.jpg": birthdayPartyCelebration,
-  "concert_music_festiv_18316657.jpg": concertMusicFestival,
-  "person_coding_on_lap_ba381062.jpg": personCodingLaptop,
-  "home_renovation_kitc_0ceb0522.jpg": homeRenovationKitchen,
-  "spanish_language_lea_2d2edb39.jpg": spanishLanguageLearning,
-  "modern_kitchen_renov_a5563863.jpg": modernKitchenRenovation,
-  "professional_develop_960cd8cf.jpg": professionalDeveloper,
-  "spanish_language_lea_269b1aa7.jpg": spanishLanguageLearning2,
-  "person_meditating_pe_43f13693.jpg": personMeditating,
+  "romantic_paris_citys_dfc7c798.jpg": "/community-backdrops/romantic_paris_citys_dfc7c798.jpg",
+  "fitness_workout_gym__2325ee98.jpg": "/community-backdrops/fitness_workout_gym__2325ee98.jpg",
+  "elegant_wedding_cere_9aa2c585.jpg": "/community-backdrops/elegant_wedding_cere_9aa2c585.jpg",
+  "modern_tech_workspac_ef8fa108.jpg": "/community-backdrops/modern_tech_workspac_ef8fa108.jpg",
+  "beautiful_modern_hom_0f24a3e6.jpg": "/community-backdrops/beautiful_modern_hom_0f24a3e6.jpg",
+  "organized_productivi_df70e725.jpg": "/community-backdrops/organized_productivi_df70e725.jpg",
+  "tokyo_japan_travel_d_8a196170.jpg": "/community-backdrops/tokyo_japan_travel_d_8a196170.jpg",
+  "bali_indonesia_tropi_95575be5.jpg": "/community-backdrops/bali_indonesia_tropi_95575be5.jpg",
+  "new_york_city_times__e09e766b.jpg": "/community-backdrops/new_york_city_times__e09e766b.jpg",
+  "paris_eiffel_tower_f_fce5772c.jpg": "/community-backdrops/paris_eiffel_tower_f_fce5772c.jpg",
+  "iceland_northern_lig_9fbbf14d.jpg": "/community-backdrops/iceland_northern_lig_9fbbf14d.jpg",
+  "runner_jogging_on_tr_9a63ddad.jpg": "/community-backdrops/runner_jogging_on_tr_9a63ddad.jpg",
+  "yoga_studio_peaceful_84f9a366.jpg": "/community-backdrops/yoga_studio_peaceful_84f9a366.jpg",
+  "cyclist_riding_bike__9ae17ca2.jpg": "/community-backdrops/cyclist_riding_bike__9ae17ca2.jpg",
+  "modern_gym_workout_w_99dc5406.jpg": "/community-backdrops/modern_gym_workout_w_99dc5406.jpg",
+  "modern_workspace_des_9f6c2608.jpg": "/community-backdrops/modern_workspace_des_9f6c2608.jpg",
+  "business_presentatio_aee687af.jpg": "/community-backdrops/business_presentatio_aee687af.jpg",
+  "professional_network_48ccc448.jpg": "/community-backdrops/professional_network_48ccc448.jpg",
+  "person_reading_book__bc916131.jpg": "/community-backdrops/person_reading_book__bc916131.jpg",
+  "birthday_party_celeb_414d649e.jpg": "/community-backdrops/birthday_party_celeb_414d649e.jpg",
+  "concert_music_festiv_18316657.jpg": "/community-backdrops/concert_music_festiv_18316657.jpg",
+  "person_coding_on_lap_ba381062.jpg": "/community-backdrops/person_coding_on_lap_ba381062.jpg",
+  "home_renovation_kitc_0ceb0522.jpg": "/community-backdrops/home_renovation_kitc_0ceb0522.jpg",
+  "spanish_language_lea_2d2edb39.jpg": "/community-backdrops/spanish_language_lea_2d2edb39.jpg",
+  "modern_kitchen_renov_a5563863.jpg": "/community-backdrops/modern_kitchen_renov_a5563863.jpg",
+  "professional_develop_960cd8cf.jpg": "/community-backdrops/professional_develop_960cd8cf.jpg",
+  "spanish_language_lea_269b1aa7.jpg": "/community-backdrops/spanish_language_lea_269b1aa7.jpg",
+  "person_meditating_pe_43f13693.jpg": "/community-backdrops/person_meditating_pe_43f13693.jpg",
 };
 
 const categories = [
@@ -138,21 +110,21 @@ const getPlanTypeBadge = (planType: string | null | undefined, trendingScore?: n
   // Auto-detect trending based on high trending score (15000+)
   const isTrending = (trendingScore ?? 0) >= 15000;
   const type = planType ?? 'community';
-  
+
   // Sponsored and Emergency plans have priority over trending for visual distinction
   switch (type) {
     case 'emergency':
-      return { 
+      return {
         type: 'emergency',
-        label: 'Emergency Alert', 
+        label: 'Emergency Alert',
         ariaLabel: 'Emergency plan from government agency',
         borderColor: 'var(--plan-emergency-border)',
         bgColor: 'rgba(255, 59, 48, 0.15)', // Red with transparency
       };
     case 'sponsored':
-      return { 
+      return {
         type: 'sponsored',
-        label: 'SPONSORED', 
+        label: 'SPONSORED',
         ariaLabel: 'Sponsored content from brand partner',
         borderColor: 'var(--plan-sponsored-border)',
         bgColor: 'rgba(245, 158, 11, 0.15)', // Gold with transparency
@@ -160,17 +132,17 @@ const getPlanTypeBadge = (planType: string | null | undefined, trendingScore?: n
     default:
       // Show trending badge for non-sponsored, non-emergency plans
       if (isTrending) {
-        return { 
+        return {
           type: 'trending',
-          label: 'Trending', 
+          label: 'Trending',
           ariaLabel: 'Trending community plan with high engagement',
           borderColor: 'var(--plan-trending-border)',
           bgColor: 'rgba(52, 211, 153, 0.15)', // Green with transparency
         };
       }
-      return { 
+      return {
         type: 'community',
-        label: 'Community', 
+        label: 'Community',
         ariaLabel: 'Community-created plan',
         borderColor: 'var(--plan-community-border)',
         bgColor: 'transparent',
@@ -182,7 +154,7 @@ const getPlanTypeBadge = (planType: string | null | undefined, trendingScore?: n
 const getVerificationLabel = (sourceType: string | null | undefined, verificationBadge: string | null | undefined): string | null => {
   // Bail early if sourceType is missing
   if (!sourceType) return null;
-  
+
   if (sourceType === 'official_seed') return 'Verified by JournalMate';
   if (sourceType === 'brand_partnership') return 'Verified Brand Partner';
   if (sourceType === 'community_reviewed') {
@@ -199,7 +171,7 @@ const getVerificationLabel = (sourceType: string | null | undefined, verificatio
 // Get platform-specific verification icon component
 const getVerificationIconComponent = (verificationBadge: string | null | undefined): typeof CheckCircle2 | typeof SiX | typeof SiInstagram | typeof SiLinkedin => {
   if (!verificationBadge) return CheckCircle2;
-  
+
   switch (verificationBadge) {
     case 'twitter':
       return SiX;
@@ -300,6 +272,7 @@ interface DiscoverPlansViewProps {
 }
 
 export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansViewProps = {}) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const { filters, updateFilter, setLocationData, toggleLocation } = useDiscoverFilters();
   const { user } = useAuth();
   const { preferences: displayPrefs, updatePreference, resetPreferences } = useCardDisplayPreferences(user?.id || null);
@@ -353,11 +326,11 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
       });
       return;
     }
-    
+
     setIsRemixing(true);
     try {
-      const response = await apiRequest('POST', '/api/community-plans/remix/preview', { 
-        activityIds: Array.from(selectedForRemix) 
+      const response = await apiRequest('POST', '/api/community-plans/remix/preview', {
+        activityIds: Array.from(selectedForRemix)
       });
       const data = await response.json();
       setRemixPreview(data.preview || data);
@@ -376,7 +349,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
 
   const handleRemixConfirm = async () => {
     if (!remixPreview) return;
-    
+
     setIsRemixing(true);
     try {
       const response = await apiRequest('POST', '/api/community-plans/remix/confirm', {
@@ -386,14 +359,14 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
         mergedTasks: remixPreview.mergedTasks,
         attributions: remixPreview.attributions
       });
-      
+
       await response.json();
-      
+
       toast({
         title: "Remix created!",
         description: `Created "${remixPreview.mergedTitle}" with ${remixPreview.mergedTasks.length} tasks`
       });
-      
+
       setRemixDialogOpen(false);
       setRemixMode(false);
       setSelectedForRemix(new Set());
@@ -481,14 +454,14 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
       if (filters.budget !== "all") {
         params.set("budgetRange", filters.budget);
       }
-      
+
       // Add location parameters if enabled
       if (filters.locationEnabled && filters.userCoords) {
         params.set("lat", filters.userCoords.lat.toString());
         params.set("lon", filters.userCoords.lon.toString());
         params.set("radius", filters.radius.toString());
       }
-      
+
       params.set("limit", "50");
 
       // Build headers - add auth token for native platforms
@@ -596,7 +569,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
       const activityTitle = data?.activity?.title || data?.originalTitle;
       toast({
         title: "Plan adopted!",
-        description: activityTitle 
+        description: activityTitle
           ? `"${activityTitle}" has been added to your personal activities`
           : data?.message || "The plan has been added to your activities",
       });
@@ -666,9 +639,9 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
         body: JSON.stringify({ activityId: copiedActivityId }),
         credentials: "include",
       });
-      
+
       const shareData = await shareResponse.json();
-      
+
       if (!shareResponse.ok) {
         if (shareData.error?.includes('already shared')) {
           throw {
@@ -679,13 +652,13 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
         }
         throw new Error(shareData.error || "Failed to share to group");
       }
-      
+
       try {
         await apiRequest("POST", `/api/activities/${activityId}/increment-views`);
       } catch (error) {
         console.warn('[SHARE] Failed to increment views:', error);
       }
-      
+
       return { ...shareData, copiedActivityId };
     },
     onSuccess: () => {
@@ -706,7 +679,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
         setAdoptDialogOpen(false);
         return;
       }
-      
+
       if (error.status === 409 && error.requiresConfirmation) {
         setDuplicateConfirmation({
           show: true,
@@ -715,7 +688,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
         });
         return;
       }
-      
+
       toast({
         title: "Failed to share plan to group",
         description: error.message || "Please try again",
@@ -737,24 +710,24 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
     onMutate: async (activityId: string) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["/api/community-plans"] });
-      
+
       // Snapshot the previous value
       const previousPlans = queryClient.getQueryData(["/api/community-plans", filters.category, filters.search, filters.budget]);
-      
+
       // Optimistically update
       queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], (old: any) => {
         if (!old) return old;
-        return old.map((plan: any) => 
-          plan.id === activityId 
-            ? { 
-                ...plan, 
-                userHasLiked: true,
-                likeCount: (plan.likeCount || 0) + (plan.userHasLiked ? 0 : 1)
-              }
+        return old.map((plan: any) =>
+          plan.id === activityId
+            ? {
+              ...plan,
+              userHasLiked: true,
+              likeCount: (plan.likeCount || 0) + (plan.userHasLiked ? 0 : 1)
+            }
             : plan
         );
       });
-      
+
       return { previousPlans };
     },
     onError: (error: any, activityId, context) => {
@@ -786,20 +759,20 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
     onMutate: async (activityId: string) => {
       await queryClient.cancelQueries({ queryKey: ["/api/community-plans"] });
       const previousPlans = queryClient.getQueryData(["/api/community-plans", filters.category, filters.search, filters.budget]);
-      
+
       queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], (old: any) => {
         if (!old) return old;
-        return old.map((plan: any) => 
-          plan.id === activityId 
-            ? { 
-                ...plan, 
-                userHasLiked: false,
-                likeCount: Math.max(0, (plan.likeCount || 0) - (plan.userHasLiked ? 1 : 0))
-              }
+        return old.map((plan: any) =>
+          plan.id === activityId
+            ? {
+              ...plan,
+              userHasLiked: false,
+              likeCount: Math.max(0, (plan.likeCount || 0) - (plan.userHasLiked ? 1 : 0))
+            }
             : plan
         );
       });
-      
+
       return { previousPlans };
     },
     onError: (error: any, activityId, context) => {
@@ -830,20 +803,20 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
     onMutate: async (activityId: string) => {
       await queryClient.cancelQueries({ queryKey: ["/api/community-plans"] });
       const previousPlans = queryClient.getQueryData(["/api/community-plans", filters.category, filters.search, filters.budget]);
-      
+
       queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], (old: any) => {
         if (!old) return old;
-        return old.map((plan: any) => 
-          plan.id === activityId 
-            ? { 
-                ...plan, 
-                userHasBookmarked: true,
-                bookmarkCount: (plan.bookmarkCount || 0) + (plan.userHasBookmarked ? 0 : 1)
-              }
+        return old.map((plan: any) =>
+          plan.id === activityId
+            ? {
+              ...plan,
+              userHasBookmarked: true,
+              bookmarkCount: (plan.bookmarkCount || 0) + (plan.userHasBookmarked ? 0 : 1)
+            }
             : plan
         );
       });
-      
+
       return { previousPlans };
     },
     onError: (error: any, activityId, context) => {
@@ -874,20 +847,20 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
     onMutate: async (activityId: string) => {
       await queryClient.cancelQueries({ queryKey: ["/api/community-plans"] });
       const previousPlans = queryClient.getQueryData(["/api/community-plans", filters.category, filters.search, filters.budget]);
-      
+
       queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], (old: any) => {
         if (!old) return old;
-        return old.map((plan: any) => 
-          plan.id === activityId 
-            ? { 
-                ...plan, 
-                userHasBookmarked: false,
-                bookmarkCount: Math.max(0, (plan.bookmarkCount || 0) - (plan.userHasBookmarked ? 1 : 0))
-              }
+        return old.map((plan: any) =>
+          plan.id === activityId
+            ? {
+              ...plan,
+              userHasBookmarked: false,
+              bookmarkCount: Math.max(0, (plan.bookmarkCount || 0) - (plan.userHasBookmarked ? 1 : 0))
+            }
             : plan
         );
       });
-      
+
       return { previousPlans };
     },
     onError: (error: any, activityId, context) => {
@@ -918,16 +891,16 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
     onMutate: async (activityId: string) => {
       await queryClient.cancelQueries({ queryKey: ["/api/community-plans"] });
       const previousPlans = queryClient.getQueryData(["/api/community-plans", filters.category, filters.search, filters.budget]);
-      
+
       queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], (old: any) => {
         if (!old) return old;
-        return old.map((plan: any) => 
-          plan.id === activityId 
+        return old.map((plan: any) =>
+          plan.id === activityId
             ? { ...plan, userHasPinned: !plan.userHasPinned }
             : plan
         );
       });
-      
+
       return { previousPlans };
     },
     onError: (error: any, activityId, context) => {
@@ -975,6 +948,27 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
     }
   }, [isLoading, plans.length, hasSeedAttempted, filters.search]);
 
+  // Staggered load animation for plan cards
+  useEffect(() => {
+    if (!isLoading && plans.length > 0 && containerRef.current) {
+      const cards = containerRef.current.querySelectorAll('.plan-card-animate');
+      if (cards.length > 0) {
+        gsap.fromTo(
+          cards,
+          { y: 30, opacity: 0 },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.6,
+            stagger: 0.1,
+            ease: "back.out(1.2)",
+            clearProps: "all"
+          }
+        );
+      }
+    }
+  }, [isLoading, plans]);
+
   const handlePreviewPlan = (activityId: string, shareToken: string | null, title: string) => {
     if (!shareToken) {
       toast({
@@ -1002,7 +996,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
       onSignInRequired();
       return;
     }
-    
+
     setPreviewDialogOpen(false);
     setAdoptDialogOpen(true);
   };
@@ -1087,22 +1081,72 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
     return stockImageMap[backdrop] || null;
   };
 
+  // Define seasonal banner variations
+  const seasonalVibes = {
+    spring: {
+      tag: "Spring Reset 🌸",
+      title: "Discover your next era.",
+      bgGradient: "from-pink-100 via-primary/10 to-emerald-100",
+      pillTags: ["#SpringCleaning", "#FreshStart", "#OutdoorWorkouts", "#MorningRoutine", "#MindfulMoments", "#ThatGirl"]
+    },
+    summer: {
+      tag: "Summer Energy ☀️",
+      title: "Chase the sunset.",
+      bgGradient: "from-yellow-100 via-orange-50 to-red-100",
+      pillTags: ["#HotGirlWalk", "#SummerReads", "#BeachDays", "#TravelHacks", "#FitnessJourney", "#SummerVibes"]
+    },
+    autumn: {
+      tag: "Cozy Autumn 🍂",
+      title: "Settle into your routine.",
+      bgGradient: "from-orange-100 via-amber-50 to-stone-200",
+      pillTags: ["#CozyVibes", "#FallRecipes", "#StudyMotivation", "#NightRoutine", "#PumpkinSpice", "#Reset"]
+    },
+    winter: {
+      tag: "Winter Wellness ❄️",
+      title: "Embrace the chill.",
+      bgGradient: "from-blue-100 via-slate-50 to-indigo-100",
+      pillTags: ["#WinterArc", "#SkiTrip", "#IndoorHobbies", "#MentalReset", "#CozyNightIn", "#Productivity"]
+    }
+  };
+
+  // Determine active season based on current real-time month
+  const currentMonth = new Date().getMonth(); // 0-11
+  let activeSeasonKey = "spring";
+  if (currentMonth >= 2 && currentMonth <= 4) activeSeasonKey = "spring"; // Mar-May
+  else if (currentMonth >= 5 && currentMonth <= 7) activeSeasonKey = "summer"; // Jun-Aug
+  else if (currentMonth >= 8 && currentMonth <= 10) activeSeasonKey = "autumn"; // Sep-Nov
+  else activeSeasonKey = "winter"; // Dec-Feb
+
+  const activeSeason = seasonalVibes[activeSeasonKey as keyof typeof seasonalVibes];
+
   return (
     <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
-      {/* Header */}
-      <div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-          <h1 className="text-xl sm:text-2xl md:text-4xl font-bold" data-testid="text-page-title">
-            Discover & Use Community Plans
-          </h1>
-          <Badge variant="secondary" className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 w-fit" data-testid="badge-community-powered">
+      {/* Seasonal Discovery Header (Lemon8 / Pinterest Vibe) */}
+      <div className={`relative w-full rounded-[2rem] overflow-hidden mb-8 bg-gradient-to-br ${activeSeason.bgGradient} p-8 sm:p-12 shadow-sm border border-white/50`}>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-accent/20 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
+
+        <div className="relative z-10">
+          <Badge className="bg-white/80 text-primary hover:bg-white backdrop-blur-md border-0 mb-4 shadow-sm" data-testid="badge-seasonal">
             <Sparkles className="w-3 h-3 mr-1" />
-            Community Powered
+            {activeSeason.tag}
           </Badge>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 font-drama italic text-slate-800" data-testid="text-page-title">
+            {activeSeason.title}
+          </h1>
+          <p className="text-muted-foreground text-base sm:text-lg max-w-2xl mb-8" data-testid="text-page-description">
+            Explore trending routines, aesthetic setups, and community plans to elevate your lifestyle right now.
+          </p>
+
+          {/* Swipeable Lifestyle Tags */}
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 snap-x">
+            {activeSeason.pillTags.map(tag => (
+              <Badge key={tag} variant="outline" className="snap-start flex-shrink-0 bg-white/60 hover:bg-white/90 backdrop-blur-sm border-white/40 text-slate-700 py-1.5 px-4 rounded-full cursor-pointer transition-all hover:scale-105 shadow-sm">
+                {tag}
+              </Badge>
+            ))}
+          </div>
         </div>
-        <p className="text-muted-foreground text-base sm:text-lg" data-testid="text-page-description">
-          Browse curated plans from the community and instantly add them to your collection
-        </p>
       </div>
 
       {/* Filters Section - Mobile Responsive */}
@@ -1119,7 +1163,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
               data-testid="input-search"
             />
           </div>
-          
+
           {/* Location, Remix & Settings Icons */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button
@@ -1153,41 +1197,44 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
             >
               <Combine className="w-4 h-4" />
             </Button>
-            <CardDisplaySettings 
-              preferences={displayPrefs} 
-              onUpdatePreference={updatePreference} 
-              onResetPreferences={resetPreferences} 
+            <CardDisplaySettings
+              preferences={displayPrefs}
+              onUpdatePreference={updatePreference}
+              onResetPreferences={resetPreferences}
             />
           </div>
         </div>
 
         {/* Category Tabs - Horizontally Scrollable on Mobile */}
-        <Tabs value={filters.category} onValueChange={(value) => updateFilter("category", value)} className="w-full">
+        <Tabs value={filters.category} onValueChange={(value) => updateFilter("category", value)} className="w-full mt-2">
           <div className="relative">
-            <div className="overflow-x-auto scrollbar-hide">
-              <TabsList data-testid="tabs-categories" className="inline-flex gap-1 w-max min-w-full justify-start">
-                {categories.map((cat) => (
-                  <TabsTrigger
-                    key={cat.value}
-                    value={cat.value}
-                    data-testid={`tab-${cat.value}`}
-                    className="flex-shrink-0"
-                    aria-label={`Filter by ${cat.label}`}
-                  >
-                    {cat.label}
-                  </TabsTrigger>
-                ))}
+            <div className="overflow-x-auto scrollbar-hide py-1.5 px-1 -mx-1">
+              <TabsList data-testid="tabs-categories" className="inline-flex gap-2.5 w-max min-w-full justify-start bg-transparent p-0 h-auto">
+                {categories.map((cat) => {
+                  const Icon = cat.Icon;
+                  return (
+                    <TabsTrigger
+                      key={cat.value}
+                      value={cat.value}
+                      data-testid={`tab-${cat.value}`}
+                      className="flex-shrink-0 flex items-center gap-1.5 rounded-full px-4 py-2 font-medium bg-secondary/60 hover:bg-secondary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300 hover-squish shadow-sm data-[state=active]:shadow-diffuse-primary border border-transparent data-[state=active]:border-primary/20"
+                      aria-label={`Filter by ${cat.label}`}
+                    >
+                      {Icon && <Icon className="w-3.5 h-3.5 opacity-80" />}
+                      {cat.label}
+                    </TabsTrigger>
+                  );
+                })}
               </TabsList>
             </div>
             {/* Scroll indicator arrow for mobile */}
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none sm:hidden">
-              <div className="flex items-center bg-gradient-to-l from-background via-background to-transparent pl-6 pr-1">
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none sm:hidden z-10 h-full">
+              <div className="flex items-center bg-gradient-to-l from-background via-background/90 to-transparent pl-8 pr-1 h-full">
                 <ChevronRight className="w-4 h-4 text-muted-foreground animate-pulse" />
               </div>
             </div>
           </div>
         </Tabs>
-
         {/* Budget Filter */}
         <div className="w-full sm:w-auto sm:max-w-xs">
           <div className="flex items-center gap-3">
@@ -1198,8 +1245,8 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
               </SelectTrigger>
               <SelectContent>
                 {budgetRanges.map((range) => (
-                  <SelectItem 
-                    key={range.value} 
+                  <SelectItem
+                    key={range.value}
                     value={range.value}
                     data-testid={`budget-option-${range.value}`}
                   >
@@ -1212,22 +1259,21 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
         </div>
       </div>
 
-      {/* Plans Grid */}
+      {/* Plans Masonry Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 sm:gap-8">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="overflow-hidden">
-              <Skeleton className="h-48 w-full" />
+            <Card key={i} className="mb-6 overflow-hidden break-inside-avoid shadow-sm rounded-[2rem]">
+              <Skeleton className="h-64 w-full" />
               <CardContent className="p-4 space-y-3">
                 <Skeleton className="h-6 w-3/4" />
                 <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
               </CardContent>
             </Card>
           ))}
         </div>
       ) : plans.length === 0 ? (
-        <Card className="p-8 text-center">
+        <Card className="p-8 text-center rounded-[2rem]">
           <div className="flex flex-col items-center gap-3">
             <Search className="w-12 h-12 text-muted-foreground" />
             <h3 className="text-lg font-semibold">No plans found</h3>
@@ -1239,12 +1285,12 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
           </div>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div ref={containerRef} className="columns-1 sm:columns-2 lg:columns-3 gap-6 sm:gap-8 pb-10">
           {plans.map((plan) => {
             const stockImage = getStockImage(plan.backdrop);
             const planTypeBadge = getPlanTypeBadge(plan.planType, plan.trendingScore);
             const verificationLabel = getVerificationLabel(plan.sourceType, plan.verificationBadge);
-            
+
             // Calculate distance if user location is available and plan has coordinates
             let distance: string | null = null;
             if (filters.userCoords && plan.latitude && plan.longitude) {
@@ -1256,267 +1302,163 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
               );
               distance = formatDistance(distanceMeters);
             }
-            
+
             const isSelected = selectedForRemix.has(plan.id);
-            
+
             return (
-              <HoverCard key={plan.id} openDelay={300} closeDelay={200}>
-                <HoverCardTrigger asChild>
-                  <Card 
-                    className={`flex flex-col group hover-elevate cursor-pointer relative ${
-                      remixMode && isSelected ? 'ring-2 ring-purple-500 ring-offset-2' : ''
-                    }`}
-                    onClick={() => {
-                      if (remixMode) {
-                        toggleRemixSelection(plan.id);
-                      } else {
-                        handlePreviewPlan(plan.id, plan.shareToken, plan.title);
-                      }
-                    }}
-                    style={{ 
-                      borderColor: remixMode && isSelected ? 'var(--purple-500)' : planTypeBadge.borderColor,
-                      borderWidth: '2px'
-                    }}
-                    data-testid={`card-plan-${plan.id}`}
-                  >
-                    {/* Remix mode selection overlay */}
-                    {remixMode && (
-                      <div className={`absolute top-3 right-3 z-20 w-6 h-6 rounded-full flex items-center justify-center ${
-                        isSelected 
-                          ? 'bg-purple-500 text-white' 
-                          : 'bg-white/80 backdrop-blur-sm border-2 border-purple-300'
-                      }`}>
-                        {isSelected && <Check className="w-4 h-4" />}
-                      </div>
-                    )}
-                {stockImage && (
-                  <div className="relative h-56 sm:h-64 overflow-hidden rounded-t-md">
-                    <img
-                      src={stockImage}
-                      alt={plan.title}
-                      className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
-                      data-testid={`img-plan-backdrop-${plan.id}`}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                    {plan.category && (
-                      <Badge 
-                        className={`absolute top-3 left-3 ${getCategoryColor(plan.category)} text-white border-0`}
-                        data-testid={`badge-category-${plan.id}`}
-                      >
-                        {plan.category}
-                      </Badge>
-                    )}
-                    {/* Plan Type Badge */}
-                    <div 
-                      className={`absolute ${plan.category ? 'top-12' : 'top-3'} left-3 px-2 py-1 rounded-md text-xs font-medium text-white border flex items-center gap-1`}
-                      style={{ backgroundColor: planTypeBadge.bgColor, borderColor: planTypeBadge.borderColor }}
-                      data-testid={`badge-plan-type-${plan.id}`}
-                      aria-label={planTypeBadge.ariaLabel}
+              <div key={plan.id} className="break-inside-avoid inline-block w-full mb-6 sm:mb-8">
+                <HoverCard openDelay={300} closeDelay={200}>
+                  <HoverCardTrigger asChild>
+                    <Card
+                      className={`plan-card-animate flex flex-col group hover-squish cursor-pointer relative overflow-hidden bg-card border-0 rounded-[2rem] ${remixMode && isSelected ? 'ring-2 ring-primary ring-offset-2' : 'shadow-md hover:shadow-xl transition-all duration-500'}`}
+                      onClick={() => {
+                        if (remixMode) {
+                          toggleRemixSelection(plan.id);
+                        } else {
+                          handlePreviewPlan(plan.id, plan.shareToken, plan.title);
+                        }
+                      }}
+                      data-testid={`card-plan-${plan.id}`}
                     >
-                      {planTypeBadge.type === 'emergency' && <ShieldAlert className="w-3 h-3" />}
-                      {planTypeBadge.type === 'sponsored' && <Megaphone className="w-3 h-3" />}
-                      {planTypeBadge.type === 'trending' && <TrendingUp className="w-3 h-3" />}
-                      {planTypeBadge.type === 'community' && <Users className="w-3 h-3" />}
-                      {planTypeBadge.label}
-                    </div>
-                    {/* Budget and Distance Badges */}
-                    <div className="absolute bottom-3 left-3 flex gap-2">
-                      {displayPrefs.showBudget && plan.budget !== null && plan.budget !== undefined && (
-                        <div 
-                          className="px-2 py-1 rounded-md text-xs font-semibold text-white bg-black/60 backdrop-blur-sm border border-white/20"
-                          data-testid={`badge-budget-${plan.id}`}
-                          aria-label={`Budget: ${formatBudget(plan.budget)}`}
-                        >
-                          {formatBudget(plan.budget)}
-                        </div>
-                      )}
-                      {displayPrefs.showDistance && distance && (
-                        <div 
-                          className="px-2 py-1 rounded-md text-xs font-semibold text-white bg-black/60 backdrop-blur-sm border border-white/20 flex items-center gap-1"
-                          data-testid={`badge-distance-${plan.id}`}
-                          aria-label={`Distance: ${distance}`}
-                        >
-                          <MapPin className="w-3 h-3" />
-                          {distance}
-                        </div>
-                      )}
-                    </div>
-                    <div className="absolute top-3 right-3 flex gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleLike(plan.id, plan.userHasLiked || false);
-                        }}
-                        className="p-2 rounded-full bg-background/80 backdrop-blur-sm hover-elevate active-elevate-2 transition-all"
-                        data-testid={`button-like-${plan.id}`}
-                        aria-label={plan.userHasLiked ? "Unlike plan" : "Like plan"}
-                      >
-                        <Heart className={`w-4 h-4 ${plan.userHasLiked ? "fill-red-500 text-red-500" : "text-foreground"}`} />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleBookmark(plan.id, plan.userHasBookmarked || false);
-                        }}
-                        className="p-2 rounded-full bg-background/80 backdrop-blur-sm hover-elevate active-elevate-2 transition-all"
-                        data-testid={`button-bookmark-${plan.id}`}
-                        aria-label={plan.userHasBookmarked ? "Remove bookmark" : "Bookmark plan"}
-                      >
-                        <Bookmark className={`w-4 h-4 ${plan.userHasBookmarked ? "fill-amber-500 text-amber-500" : "text-foreground"}`} />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleTogglePin(plan.id);
-                        }}
-                        className="p-2 rounded-full bg-background/80 backdrop-blur-sm hover-elevate active-elevate-2 transition-all"
-                        data-testid={`button-pin-${plan.id}`}
-                        aria-label={(plan as any).userHasPinned ? "Unpin plan" : "Pin plan"}
-                      >
-                        <Pin className={`w-4 h-4 ${(plan as any).userHasPinned ? "fill-purple-500 text-purple-500" : "text-foreground"}`} />
-                      </button>
-                    </div>
-                  </div>
-                )}
-                
-                <CardHeader className="p-3 pb-2">
-                  <div className="flex items-start gap-2">
-                    {displayPrefs.showOwner && (
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
-                          <Avatar className="w-8 h-8 cursor-pointer" data-testid={`avatar-creator-${plan.id}`}>
-                            <AvatarImage src={plan.creatorAvatar || undefined} alt={plan.creatorName || "User"} />
-                            <AvatarFallback>{getInitials(plan.creatorName || "User")}</AvatarFallback>
-                          </Avatar>
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-64">
-                          <div className="flex gap-3">
-                            <Avatar className="w-12 h-12">
-                              <AvatarImage src={plan.creatorAvatar || undefined} alt={plan.creatorName || "User"} />
-                              <AvatarFallback>{getInitials(plan.creatorName || "User")}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-sm">{plan.creatorName || "Unknown User"}</h4>
-                              <p className="text-xs text-muted-foreground">Plan Creator</p>
-                            </div>
+
+
+                      {/* HERO IMAGE takes precedence in Masonry */}
+                      {stockImage ? (
+                        <div className="relative w-full bg-muted overflow-hidden rounded-t-[2rem]">
+                          <img
+                            src={stockImage}
+                            alt={plan.title}
+                            className="w-full h-auto object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                            data-testid={`img-plan-backdrop-${plan.id}`}
+                          />
+                          {/* Overlay Gradient for readability of badges on top edge */}
+                          <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />
+
+                          {/* Tags on Image Top */}
+                          <div className="absolute top-4 left-4 flex flex-col gap-2">
+                            {plan.category && (
+                              <Badge
+                                className={`w-fit ${getCategoryColor(plan.category)} text-white border-0 shadow-lg px-2.5 py-0.5 bg-opacity-90 backdrop-blur-md`}
+                                data-testid={`badge-category-${plan.id}`}
+                              >
+                                {plan.category}
+                              </Badge>
+                            )}
+                            {planTypeBadge.type !== 'community' && (
+                              <div
+                                className="w-fit px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-white border flex items-center gap-1 shadow-lg backdrop-blur-md"
+                                style={{ backgroundColor: planTypeBadge.bgColor, borderColor: planTypeBadge.borderColor }}
+                                data-testid={`badge-plan-type-${plan.id}`}
+                                aria-label={planTypeBadge.ariaLabel}
+                              >
+                                {planTypeBadge.type === 'emergency' && <ShieldAlert className="w-3 h-3" />}
+                                {planTypeBadge.type === 'sponsored' && <Megaphone className="w-3 h-3" />}
+                                {planTypeBadge.type === 'trending' && <TrendingUp className="w-3 h-3" />}
+                                {planTypeBadge.label}
+                              </div>
+                            )}
                           </div>
-                        </HoverCardContent>
-                      </HoverCard>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm leading-tight mb-0.5 line-clamp-2" data-testid={`text-plan-title-${plan.id}`}>
-                        {plan.title}
-                      </h3>
-                      {displayPrefs.showOwner && (
-                        <div className="flex items-center gap-1">
-                          <p className="text-xs text-muted-foreground">
-                            by {plan.creatorName || "Unknown"}
-                          </p>
-                          {displayPrefs.showVerificationBadge && verificationLabel && (
-                            <VerificationIcon
-                              verificationBadge={plan.verificationBadge}
-                              sourceType={plan.sourceType}
-                              label={verificationLabel}
-                              planId={plan.id}
-                              plannerProfileId={plan.plannerProfileId}
-                              twitterPostUrl={(plan as any).twitterPostUrl}
-                              instagramPostUrl={(plan as any).instagramPostUrl}
-                              threadsPostUrl={(plan as any).threadsPostUrl}
-                              linkedinPostUrl={(plan as any).linkedinPostUrl}
-                              instagramHandle={(plan as any).instagramHandle}
-                              twitterHandle={(plan as any).twitterHandle}
-                            />
+                        </div>
+                      ) : (
+                        <div className="p-5 pb-0">
+                          <div className="flex items-center gap-2">
+                            {plan.category && (
+                              <Badge className={`${getCategoryColor(plan.category)} text-white border-0`}>{plan.category}</Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Masonry Card Content */}
+                      <CardContent className="p-4 pt-3 pb-2 flex-grow flex flex-col gap-2">
+                        {/* Title & Description */}
+                        <div className="space-y-1">
+                          <h3 className="font-bold text-base leading-snug line-clamp-2" data-testid={`text-plan-title-${plan.id}`}>
+                            {plan.title}
+                          </h3>
+                          {plan.description && (
+                            <p className="text-xs text-muted-foreground line-clamp-2" data-testid={`text-plan-description-${plan.id}`}>
+                              {plan.description}
+                            </p>
                           )}
                         </div>
+
+                        {/* Social Footer: Creator and Meta */}
+                        <div className="flex items-center justify-between mt-auto pt-2">
+                          {/* Creator Info */}
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-6 h-6 border border-primary/10">
+                              <AvatarImage src={plan.creatorAvatar || undefined} />
+                              <AvatarFallback className="bg-primary/5 text-[10px] text-primary">{getInitials(plan.creatorName || "User")}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline cursor-pointer">{plan.creatorName || "Community Member"}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+
+                      {/* Interaction Bar (Like, Bookmark, Views) */}
+                      <div className="flex items-center justify-between px-4 pb-4 pt-0 bg-transparent">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleLike(plan.id, plan.userHasLiked || false);
+                            }}
+                            className="p-1.5 -ml-1.5 rounded-full hover:bg-primary/10 transition-colors flex items-center gap-1"
+                            data-testid={`button-like-${plan.id}`}
+                          >
+                            <Heart className={`w-4 h-4 ${plan.userHasLiked ? "fill-red-500 text-red-500" : "text-foreground"}`} />
+                            <span className="text-xs font-medium text-muted-foreground">{plan.likeCount || 0}</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleBookmark(plan.id, plan.userHasBookmarked || false);
+                            }}
+                            className="p-1.5 rounded-full hover:bg-primary/10 transition-colors flex items-center gap-1"
+                            data-testid={`button-bookmark-${plan.id}`}
+                          >
+                            <Bookmark className={`w-4 h-4 ${plan.userHasBookmarked ? "fill-primary text-primary" : "text-foreground"}`} />
+                            <span className="text-xs font-medium text-muted-foreground">{plan.bookmarkCount || 0}</span>
+                          </button>
+                        </div>
+
+                        {/* Stats Summary */}
+                        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                          {plan.budget && plan.budget > 0 && (
+                            <span className="flex items-center gap-1 font-semibold text-primary">
+                              {formatBudget(plan.budget)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80" side="top" align="center">
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-sm line-clamp-2">{plan.title}</h4>
+                      {plan.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-3">{plan.description}</p>
                       )}
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="flex-1 p-3 pt-0">
-                  {plan.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2" data-testid={`text-plan-description-${plan.id}`}>
-                      {plan.description}
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    {displayPrefs.showLikes && (
-                      <div className="flex items-center gap-1" data-testid={`stat-likes-${plan.id}`}>
-                        <Heart className="w-3 h-3" />
-                        <span>{plan.likeCount || 0}</span>
+                      <div className="flex items-center gap-4 text-xs">
+                        {displayPrefs.showBudget && plan.budget !== null && plan.budget !== undefined && (
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="w-3 h-3 text-muted-foreground" />
+                            <span className="font-medium">{formatBudget(plan.budget)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-3 h-3 text-muted-foreground" />
+                          <span>{plan.viewCount || 0} views</span>
+                        </div>
                       </div>
-                    )}
-                    {displayPrefs.showBookmarks && (
-                      <div className="flex items-center gap-1" data-testid={`stat-bookmarks-${plan.id}`}>
-                        <Bookmark className="w-3 h-3" />
-                        <span>{plan.bookmarkCount || 0}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1" data-testid={`stat-views-${plan.id}`}>
-                      <Eye className="w-3 h-3" />
-                      <span>{plan.viewCount || 0}</span>
+                      <p className="text-xs text-muted-foreground italic border-t pt-2">
+                        Hover to preview • Click "Preview" for full details
+                      </p>
                     </div>
-                  </div>
-                </CardContent>
-                
-                <CardFooter className="gap-2 p-3 pt-2 border-t">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 h-7 text-xs"
-                    onClick={() => handlePreviewPlan(plan.id, plan.shareToken, plan.title)}
-                    data-testid={`button-preview-${plan.id}`}
-                  >
-                    <Eye className="w-3 h-3 mr-1" />
-                    Preview
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="flex-1 h-7 text-xs"
-                    onClick={() => handleUsePlan(plan.id, plan.shareToken, plan.title)}
-                    data-testid={`button-use-${plan.id}`}
-                  >
-                    <Plus className="w-3 h-3 mr-1" />
-                    Use Plan
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={(e) => handleReportPlan(plan.id, plan.title, e)}
-                    title="Report plan"
-                    data-testid={`button-report-${plan.id}`}
-                  >
-                    <Flag className="w-3 h-3 text-muted-foreground" />
-                  </Button>
-                </CardFooter>
-              </Card>
-            </HoverCardTrigger>
-            <HoverCardContent className="w-80" side="top" align="center">
-              <div className="space-y-3">
-                <h4 className="font-semibold text-sm line-clamp-2">{plan.title}</h4>
-                {plan.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-3">{plan.description}</p>
-                )}
-                <div className="flex items-center gap-4 text-xs">
-                  {displayPrefs.showBudget && plan.budget !== null && plan.budget !== undefined && (
-                    <div className="flex items-center gap-1">
-                      <DollarSign className="w-3 h-3 text-muted-foreground" />
-                      <span className="font-medium">{formatBudget(plan.budget)}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1">
-                    <Eye className="w-3 h-3 text-muted-foreground" />
-                    <span>{plan.viewCount || 0} views</span>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground italic border-t pt-2">
-                  Hover to preview • Click "Preview" for full details
-                </p>
+                  </HoverCardContent>
+                </HoverCard>
               </div>
-            </HoverCardContent>
-          </HoverCard>
             );
           })}
         </div>
@@ -1547,7 +1489,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                   <p className="text-sm text-muted-foreground leading-relaxed">{previewData.activity.description}</p>
                 </div>
               )}
-              
+
               {/* Total Budget Section */}
               {previewData.activity?.budget !== null && previewData.activity?.budget !== undefined && (
                 <div className="border rounded-lg p-4 bg-muted/30">
@@ -1557,7 +1499,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                       {formatBudgetPrecise(previewData.activity.budget)}
                     </span>
                   </div>
-                  
+
                   {/* Budget Breakdown Collapsible */}
                   {previewData.activity?.budgetBreakdown && previewData.activity.budgetBreakdown.length > 0 && (
                     <Collapsible>
@@ -1582,7 +1524,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                   )}
                 </div>
               )}
-              
+
               {/* Tasks Section */}
               {previewData.tasks && previewData.tasks.length > 0 && (
                 <div>
@@ -1610,7 +1552,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                   </div>
                 </div>
               )}
-              
+
               {/* Likes/Views Stats Footer */}
               <div className="flex items-center gap-4 pt-2 border-t text-sm text-muted-foreground">
                 <div className="flex items-center gap-1.5" data-testid="stat-preview-likes">
@@ -1622,7 +1564,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                   <span>{previewData.activity?.viewCount?.toLocaleString() || 0} views</span>
                 </div>
               </div>
-              
+
               {/* Action Buttons */}
               <div className="flex gap-2 pt-4">
                 <Button variant="outline" onClick={() => setPreviewDialogOpen(false)} className="flex-1" data-testid="button-preview-close">
@@ -1733,12 +1675,12 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 pt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setDuplicateConfirmation(null);
                 setAdoptDialogOpen(false);
-              }} 
+              }}
               className="flex-1"
               data-testid="button-cancel-update"
             >
@@ -1768,77 +1710,81 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
       />
 
       {/* Report Dialog */}
-      {reportingPlan && (
-        <ReportDialog
-          open={reportDialogOpen}
-          onOpenChange={setReportDialogOpen}
-          activityId={reportingPlan.id}
-          activityTitle={reportingPlan.title}
-        />
-      )}
+      {
+        reportingPlan && (
+          <ReportDialog
+            open={reportDialogOpen}
+            onOpenChange={setReportDialogOpen}
+            activityId={reportingPlan.id}
+            activityTitle={reportingPlan.title}
+          />
+        )
+      }
 
       {/* Remix Mode Floating Action Bar - respects iOS and Android safe areas */}
-      {remixMode && (
-        <div 
-          className="fixed left-0 right-0 p-2 sm:p-4 bg-gradient-to-t from-background via-background to-transparent z-50"
-          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--android-safe-area-bottom, 0px))' }}
-        >
-          <div className="max-w-2xl mx-auto">
-            <Card className="p-3 sm:p-4 shadow-lg border-purple-200 dark:border-purple-800">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-                <div className="flex-1">
-                  <p className="font-medium text-foreground text-sm sm:text-base">
-                    {selectedForRemix.size === 0 
-                      ? "Select plans to remix" 
-                      : `${selectedForRemix.size} plan${selectedForRemix.size !== 1 ? 's' : ''} selected`
-                    }
-                  </p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    {selectedForRemix.size < 2 
-                      ? "Select at least 2 plans" 
-                      : "Ready to create your remix"
-                    }
-                  </p>
+      {
+        remixMode && (
+          <div
+            className="fixed left-0 right-0 p-2 sm:p-4 bg-gradient-to-t from-background via-background to-transparent z-50"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--android-safe-area-bottom, 0px))' }}
+          >
+            <div className="max-w-2xl mx-auto">
+              <Card className="p-3 sm:p-4 shadow-lg border-purple-200 dark:border-purple-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground text-sm sm:text-base">
+                      {selectedForRemix.size === 0
+                        ? "Select plans to remix"
+                        : `${selectedForRemix.size} plan${selectedForRemix.size !== 1 ? 's' : ''} selected`
+                      }
+                    </p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      {selectedForRemix.size < 2
+                        ? "Select at least 2 plans"
+                        : "Ready to create your remix"
+                      }
+                    </p>
+                  </div>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setRemixMode(false);
+                        setSelectedForRemix(new Set());
+                      }}
+                      data-testid="button-cancel-remix"
+                      className="flex-1 sm:flex-none"
+                    >
+                      <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      <span className="text-xs sm:text-sm">Cancel</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1 sm:flex-none bg-gradient-to-r from-purple-500 to-violet-600 text-white"
+                      onClick={handleRemixPreview}
+                      disabled={selectedForRemix.size < 2 || isRemixing}
+                      data-testid="button-preview-remix"
+                    >
+                      {isRemixing ? (
+                        <>
+                          <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin" />
+                          <span className="text-xs sm:text-sm">Processing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Combine className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                          <span className="text-xs sm:text-sm">Remix {selectedForRemix.size}</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setRemixMode(false);
-                      setSelectedForRemix(new Set());
-                    }}
-                    data-testid="button-cancel-remix"
-                    className="flex-1 sm:flex-none"
-                  >
-                    <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                    <span className="text-xs sm:text-sm">Cancel</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="flex-1 sm:flex-none bg-gradient-to-r from-purple-500 to-violet-600 text-white"
-                    onClick={handleRemixPreview}
-                    disabled={selectedForRemix.size < 2 || isRemixing}
-                    data-testid="button-preview-remix"
-                  >
-                    {isRemixing ? (
-                      <>
-                        <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin" />
-                        <span className="text-xs sm:text-sm">Processing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Combine className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                        <span className="text-xs sm:text-sm">Remix {selectedForRemix.size}</span>
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </Card>
+              </Card>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Remix Preview Dialog */}
       <Dialog open={remixDialogOpen} onOpenChange={setRemixDialogOpen}>
@@ -1852,7 +1798,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
               Review your remixed plan before saving
             </DialogDescription>
           </DialogHeader>
-          
+
           {remixPreview && (
             <div className="space-y-4 py-4">
               <div>
@@ -1861,7 +1807,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                   {remixPreview.mergedTitle}
                 </p>
               </div>
-              
+
               {remixPreview.mergedDescription && (
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Description</label>
@@ -1870,7 +1816,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                   </p>
                 </div>
               )}
-              
+
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-medium text-muted-foreground">
@@ -1884,8 +1830,8 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                 </div>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {remixPreview.mergedTasks?.map((task: any, index: number) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border"
                       data-testid={`task-remix-${index}`}
                     >
@@ -1907,7 +1853,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                   ))}
                 </div>
               </div>
-              
+
               {remixPreview.attributions?.length > 0 && (
                 <div>
                   <label className="text-sm font-medium text-muted-foreground mb-2 block">
@@ -1925,10 +1871,10 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
               )}
             </div>
           )}
-          
+
           <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setRemixDialogOpen(false)}
               className="flex-1"
               data-testid="button-cancel-save-remix"
@@ -1956,6 +1902,6 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }

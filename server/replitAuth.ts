@@ -11,7 +11,7 @@ import { storage } from "./storage";
 import { sendWelcomeEmail } from "./emailService";
 
 if (!process.env.REPLIT_DOMAINS) {
-  throw new Error("Environment variable REPLIT_DOMAINS not provided");
+  console.warn("Environment variable REPLIT_DOMAINS not provided - assuming local development");
 }
 
 const getOidcConfig = memoize(
@@ -63,18 +63,18 @@ async function upsertUser(
   // Generate username from email if available, or use sub as fallback
   const email = claims["email"];
   let username = claims["sub"]; // fallback to user ID
-  
+
   if (email && typeof email === 'string') {
     // Extract username part from email and sanitize it
     username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
   }
-  
+
   const userId = claims["sub"];
-  
+
   // Check if user already exists (to determine if this is a new user)
   const existingUser = await storage.getUser(userId);
   const isNewUser = !existingUser;
-  
+
   // Create or update user
   await storage.upsertUser({
     id: userId,
@@ -85,7 +85,7 @@ async function upsertUser(
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
   });
-  
+
   // Create or update user profile
   const existingProfile = await storage.getUserProfile(userId);
   if (!existingProfile) {
@@ -157,7 +157,7 @@ export async function setupAuth(app: Express) {
     // First try to find exact match
     const exactMatch = domains.find(d => d === hostname);
     if (exactMatch) return `replitauth:${exactMatch}`;
-    
+
     // If no exact match, use the first domain (default)
     return `replitauth:${domains[0]}`;
   };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Sparkles,
+  Bot,
   Target,
   BarChart3,
   Users,
@@ -31,6 +32,7 @@ import {
   Loader2,
   Link as LinkIcon,
   X,
+  ChevronDown,
   Crown,
   Gift,
   Infinity as InfinityIcon,
@@ -39,69 +41,143 @@ import {
   LayoutGrid,
   Award,
   Trophy,
+  Heart,
+  Leaf,
 } from "lucide-react";
 import { SiApple, SiGoogleplay, SiTiktok, SiYoutube } from "react-icons/si";
 import { motion, AnimatePresence } from "framer-motion";
 import ThemeToggle from "@/components/ThemeToggle";
 import { SEO, PAGE_SEO } from "@/components/SEO";
+import { useTheme, PresetTheme } from "@/components/ThemeProvider";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+gsap.registerPlugin(ScrollTrigger);
+
+// Photorealistic Images for Hero
+import photoYoga from "../assets/photorealistic_yoga.png";
+import photoJournaling from "../assets/photorealistic_journaling.png";
+import photoCelebrating from "../assets/photorealistic_celebrating.png";
+
+const allHeroVideos = [
+  { src: "/hero-videos/golden.mp4", caption: "See an idea online, adapt it, and plan with your group to get things done." },
+  { src: "/hero-videos/soft.mp4", caption: "Grow together. Build your perfect routine and stay accountable." },
+  { src: "/hero-videos/soft_focus.mp4", caption: "Find inspiration, invite your circle, and achieve milestones." },
+  { src: "/hero-videos/terra.mp4", caption: "Plan with your group, hold each other accountable, and turn 'one day' into day one." },
+  { src: "/hero-videos/terra_earthy.mp4", caption: "Schedule constant breaks and meditation or make it the theme for the day." },
+  { src: "/hero-videos/terra_earthy_2.mp4", caption: "Stay in sync with your group. The ultimate planning copilot." },
+  { src: "/hero-videos/terra_earthy_3.mp4", caption: "Turn wellness into a shared journey. Plan and grow together." },
+  { src: "/hero-videos/plan_as_couple.mp4", caption: "Plan fun trips based on inspiration gotten online, just share with the app and start planning and add your team." },
+  { src: "/hero-videos/plan_trips_togther.mp4", caption: "Plan fun trips based on inspiration gotten online, just share with the app and start planning and add your team." }
+];
+
+const presetData: Record<string, { verb: string; noun: string; image: string[]; video?: { src: string; caption: string }[]; fonts: { heading: string; drama: string; data: string } }> = {
+  "golden-hour": {
+    verb: "Celebrate your",
+    noun: "Moments.",
+    image: [photoCelebrating, photoJournaling, photoYoga, photoCelebrating],
+    video: allHeroVideos,
+    fonts: {
+      heading: "font-['Plus_Jakarta_Sans']",
+      drama: "font-['Fraunces'] italic",
+      data: "font-['DM_Mono']"
+    }
+  },
+  "neon-pulse": {
+    verb: "Activate your",
+    noun: "Energy.",
+    image: [photoYoga, photoCelebrating, photoJournaling, photoYoga],
+    video: allHeroVideos,
+    fonts: {
+      heading: "font-['Space_Grotesk']",
+      drama: "font-['Instrument_Serif'] italic",
+      data: "font-['JetBrains_Mono']"
+    }
+  },
+  "soft-focus": {
+    verb: "Reflect on",
+    noun: "Growth.",
+    image: [photoJournaling, photoYoga, photoCelebrating, photoJournaling],
+    video: allHeroVideos,
+    fonts: {
+      heading: "font-['Outfit']",
+      drama: "font-['Lora'] italic",
+      data: "font-['IBM_Plex_Mono']"
+    }
+  },
+  "terra": {
+    verb: "Ground your",
+    noun: "Ambition.",
+    image: [photoYoga, photoCelebrating, photoJournaling, photoYoga],
+    video: allHeroVideos,
+    fonts: {
+      heading: "font-['Nunito_Sans']",
+      drama: "font-['Cormorant_Garamond'] italic",
+      data: "font-['Fira_Code']"
+    }
+  },
+  "default": {
+    verb: "Plan your",
+    noun: "Tomorrow.",
+    image: [photoJournaling, photoCelebrating, photoYoga, photoJournaling],
+    video: allHeroVideos,
+    fonts: {
+      heading: "font-sans",
+      drama: "font-serif italic",
+      data: "font-mono"
+    }
+  }
+};
 
 const features = [
   {
     icon: Target,
-    title: "Activate Your Goals",
+    title: "Turn ideas into action",
     description:
-      "Turn AI suggestions into real action items with deadlines, priorities, and categories.",
+      "Stop staring at blank lists. We gently shape your scattered thoughts into clear, doable steps so you always know what's next.",
     color: "text-emerald-500",
     bgColor: "bg-emerald-100 dark:bg-emerald-900/30",
   },
   {
-    icon: BarChart3,
-    title: "Track Your Progress",
+    icon: Users,
+    title: "Grow with your people",
     description:
-      "Visual dashboards, completion streaks, and insights to keep you motivated and on track.",
+      "Share your journey with friends who get it. Cheer each other on, swap plans, and celebrate the small wins together.",
     color: "text-blue-500",
     bgColor: "bg-blue-100 dark:bg-blue-900/30",
   },
   {
     icon: BookMarked,
-    title: "AI Auto-Journal",
+    title: "A journal that writes itself",
     description:
-      "Automatically create journal entries as you complete tasks, capturing your achievements and growth.",
+      "We remember the little things for you. As you check things off, we weave them into a beautiful, reflective timeline of your growth.",
     color: "text-orange-500",
     bgColor: "bg-orange-100 dark:bg-orange-900/30",
   },
   {
-    icon: Share2,
-    title: "Discover & Remix Plans",
+    icon: Compass,
+    title: "Explore new rhythms",
     description:
-      "Download plans from other users, discover trending plans, and remix multiple plans to create your perfect routine.",
+      "Feeling stuck? Borrow routines from the community. Mix and match pieces of different plans to find the flow that feels just right for you.",
     color: "text-pink-500",
     bgColor: "bg-pink-100 dark:bg-pink-900/30",
   },
   {
-    icon: Globe,
-    title: "Find What's Nearby",
-    description:
-      "Discover emergency plans and trending activities near you. Connect with local community goals.",
-    color: "text-violet-500",
-    bgColor: "bg-violet-100 dark:bg-violet-900/30",
-  },
-  {
-    icon: TrendingUp,
-    title: "Share Plans & Get Rewards",
-    description:
-      "Share your plans on Instagram, TikTok, LinkedIn, X, and Facebook. Tag @JournalMate and unlock rewards.",
-    color: "text-rose-500",
-    bgColor: "bg-rose-100 dark:bg-rose-900/30",
-  },
-  {
     icon: Instagram,
-    title: "Integrate & Transform Content",
+    title: "Inspiration to reality",
     description:
-      "Share TikTok videos, Instagram Reels, posts, stories, and content from anywhere you get inspiration. We'll journal it for you so you can plan with it and track your progress.",
+      "Found a morning routine on TikTok or a healthy recipe on Instagram? Just paste the link, and we'll magically turn it into a trackable plan.",
     color: "text-cyan-500",
     bgColor: "bg-cyan-100 dark:bg-cyan-900/30",
   },
+  {
+    icon: Trophy,
+    title: "Celebrate everything",
+    description:
+      "Life is hard enough. Whether you meditated for two minutes or finally ran that 5K, we make every milestone feel like a party.",
+    color: "text-violet-500",
+    bgColor: "bg-violet-100 dark:bg-violet-900/30",
+  }
 ];
 
 const stats = [
@@ -153,6 +229,92 @@ function isValidUrl(url: string): boolean {
 
 export default function LandingPage() {
   const [, navigate] = useLocation();
+  const { preset } = useTheme();
+  const currentPresetData = presetData[preset] || presetData["default"];
+
+  const heroRef = useRef<HTMLDivElement>(null);
+  const textRefs = useRef<(HTMLElement | null)[]>([]);
+  const imageRef = useRef<HTMLDivElement>(null); // This ref is now less critical for background, but kept for potential other animations
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0); // Combined index for images/videos
+
+  // Reset media index when preset changes
+  useEffect(() => {
+    if (currentPresetData.video && currentPresetData.video.length > 0) {
+      setCurrentMediaIndex(Math.floor(Math.random() * currentPresetData.video.length));
+    } else {
+      setCurrentMediaIndex(0);
+    }
+  }, [preset, currentPresetData.video]);
+
+  // Handle video ending to transition to a random next video
+  const handleVideoEnded = () => {
+    if (currentPresetData.video && currentPresetData.video.length > 0) {
+      setCurrentMediaIndex((prev) => {
+        const length = currentPresetData.video!.length;
+        if (length <= 1) return 0;
+        let nextIndex = prev;
+        while (nextIndex === prev) {
+          nextIndex = Math.floor(Math.random() * length);
+        }
+        return nextIndex;
+      });
+    }
+  };
+
+  // Media Rotation for presets with multiple images/videos
+  useEffect(() => {
+    // We only want a time-based interval if we are showing images.
+    // Videos will turn over automatically via the onEnded event.
+    if (currentPresetData.video && currentPresetData.video.length > 0) {
+      return;
+    }
+
+    const mediaArray = currentPresetData.image;
+    if (!mediaArray || mediaArray.length <= 1) return;
+
+    // Rotate every 15 seconds for images
+    const interval = setInterval(() => {
+      setCurrentMediaIndex((prev) => (prev + 1) % mediaArray.length);
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [currentPresetData.video, currentPresetData.image]);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      // Text stagger animation
+      const validTextRefs = textRefs.current.filter(Boolean);
+      if (validTextRefs.length > 0) {
+        gsap.from(validTextRefs, {
+          y: 40,
+          opacity: 0,
+          duration: 0.8,
+          stagger: 0.1,
+          ease: "elastic.out(1, 0.75)"
+        });
+      }
+
+      // Image float animation (if imageRef is still used for foreground elements)
+      if (imageRef.current) {
+        gsap.from(imageRef.current, {
+          opacity: 0,
+          x: 40,
+          duration: 1,
+          ease: "power2.out"
+        });
+        gsap.fromTo(imageRef.current,
+          { y: 0 },
+          { y: -12, duration: 3.5, repeat: -1, yoyo: true, ease: "sine.inOut", delay: 1 }
+        );
+      }
+    }, heroRef);
+    return () => ctx.revert();
+  }, [preset]);
+
+  // Auto theme switcher removed to allow hero videos to properly cycle every 15s without interruption.
+  // The user can still change themes manually via the ThemeToggle in the navbar.
+
+
   const [importUrl, setImportUrl] = useState("");
   const [showExtractingOverlay, setShowExtractingOverlay] = useState(false);
   const [extractionPhase, setExtractionPhase] = useState<
@@ -213,199 +375,190 @@ export default function LandingPage() {
   return (
     <div className="h-screen w-full overflow-y-auto overflow-x-hidden bg-background text-foreground touch-pan-y scroll-smooth">
       <SEO {...PAGE_SEO.home} />
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        {/* Row 1: Logo, Desktop Nav, Theme Toggle, Sign In */}
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-2 border-b">
-          <div className="flex items-center gap-2 min-w-0">
-            <img
-              src="/icons/web/android-chrome-192x192.png"
-              alt="JournalMate.ai - AI-powered plan tracker and journaling app"
-              className="w-8 h-8 rounded-lg flex-shrink-0"
-              loading="eager"
-              data-testid="img-logo-header"
-            />
-            <span className="font-bold text-lg sm:text-xl truncate">
+      {/* Header - Welcome Bar (Pill) */}
+      <header className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl bg-background/80 backdrop-blur-md rounded-full shadow-lg border border-border/50 transition-all duration-300">
+        <div className="px-4 py-2 sm:px-6 sm:py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center min-w-0 gap-2">
+            <div className="flex-shrink-0">
+              <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate Icon" className="h-6 w-6 sm:h-8 sm:w-8 object-contain" />
+            </div>
+            <span className="font-bold text-lg sm:text-xl tracking-tight cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap">
               JournalMate
             </span>
           </div>
 
-          {/* Desktop: Navigation buttons with text labels (hidden on mobile) */}
-          <div className="hidden sm:flex items-center gap-2">
+          {/* Desktop Nav */}
+          <div className="hidden sm:flex items-center gap-1">
             <Link href="/updates">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700 text-orange-700 dark:text-orange-300 text-sm px-3"
-                data-testid="link-updates"
-              >
-                <Megaphone className="w-4 h-4" />
-                <span>Updates</span>
+              <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4 data-[active=true]:bg-muted" data-testid="link-updates">
+                Updates
               </Button>
             </Link>
             <Link href="/discover">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-200 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-700 text-blue-700 dark:text-blue-300 text-sm px-3"
-                data-testid="link-discover"
-              >
-                <Compass className="w-4 h-4" />
-                <span>Discover</span>
+              <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4" data-testid="link-discover">
+                Discover
               </Button>
             </Link>
             <Link href="/import-plan">
-              <Button
-                size="sm"
-                className="gap-1.5 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white text-sm px-3 relative"
-                data-testid="link-import"
-              >
-                <Upload className="w-4 h-4" />
-                <span>Import</span>
-                <Badge className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs px-1.5 py-0 h-4 border-0">
-                  New
-                </Badge>
+              <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4" data-testid="link-import">
+                Import
               </Button>
             </Link>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-2">
             <ThemeToggle />
             <Link href="/login">
-              <Button
-                size="sm"
-                variant="outline"
-                data-testid="button-login-landing"
-              >
+              <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 sm:px-6 shadow-sm hover:shadow-md transition-shadow" data-testid="button-login-landing">
                 Sign In
               </Button>
             </Link>
           </div>
         </div>
-
-        {/* Row 2: Mobile Navigation - Icons with labels below header (visible only on mobile) */}
-        <div className="sm:hidden border-b">
-          <div className="container mx-auto px-4 py-2">
-            <div className="flex items-center justify-center gap-2">
-              <Link href="/updates">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700 text-orange-700 dark:text-orange-300 text-xs px-3"
-                  data-testid="link-updates-mobile"
-                >
-                  <Megaphone className="w-4 h-4" />
-                  <span>Updates</span>
-                </Button>
-              </Link>
-              <Link href="/discover">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 gap-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-200 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-700 text-blue-700 dark:text-blue-300 text-xs px-3"
-                  data-testid="link-discover-mobile"
-                >
-                  <Compass className="w-4 h-4" />
-                  <span>Discover</span>
-                </Button>
-              </Link>
-              <Link href="/import-plan">
-                <Button
-                  size="sm"
-                  className="flex-1 gap-1.5 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white text-xs px-3 relative"
-                  data-testid="link-import-mobile"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>Import</span>
-                  <Badge className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[10px] px-1 py-0 h-4 border-0">
-                    New
-                  </Badge>
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-emerald-500/10" />
-        <div className="container mx-auto px-4 py-8 sm:py-16 md:py-32 relative">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center max-w-4xl mx-auto"
-          >
-            <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-violet-600 to-emerald-500 bg-clip-text text-transparent leading-tight py-1">
-              Execute your plans, track and share your progress
+      <section className="relative min-h-[100dvh] flex flex-col justify-center items-center overflow-hidden">
+        {/* Ambient Full-Screen Background */}
+        <div className="absolute inset-0 z-0 bg-black">
+          <AnimatePresence mode="wait">
+            {(!currentPresetData.video || currentPresetData.video.length === 0) && (
+              <motion.img
+                key={`img-${currentMediaIndex}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1 }}
+                src={currentPresetData.image[currentMediaIndex % currentPresetData.image.length]}
+                alt="Ambient Background"
+                className="absolute inset-0 w-full h-full object-cover z-10"
+              />
+            )}
+            {currentPresetData.video && currentPresetData.video.length > 0 && (
+              <motion.video
+                key={`video-${preset}-${currentMediaIndex}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1 }}
+                autoPlay
+                muted
+                playsInline
+                onEnded={handleVideoEnded}
+                className="absolute inset-0 w-full h-full object-cover z-10"
+              >
+                <source src={currentPresetData.video[currentMediaIndex % currentPresetData.video.length].src} type="video/mp4" />
+              </motion.video>
+            )}
+          </AnimatePresence>
+
+          {/* Dark Overlay for Text Readability */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-20" />
+          {/* Bottom fade to content area */}
+          <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background to-transparent z-20" />
+        </div>
+
+        <div className="container mx-auto px-4 relative z-10 flex flex-col items-center justify-center text-center pt-24 pb-16 mt-12">
+          <div className="flex flex-col items-center gap-2 mb-6 max-w-4xl w-full">
+            <h1
+              ref={el => { textRefs.current[0] = el; }}
+              className="text-6xl sm:text-7xl md:text-[6rem] lg:text-[7.5rem] font-bold tracking-tight text-white leading-[1.05] drop-shadow-md"
+            >
+              {currentPresetData.verb}
             </h1>
+            <span
+              ref={el => { textRefs.current[1] = el; }}
+              className="text-6xl sm:text-7xl md:text-[6.5rem] lg:text-[7.5rem] font-drama italic text-primary leading-[1] ml-[-0.02em]"
+              style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.3))" }}
+            >
+              {currentPresetData.noun}
+            </span>
+          </div>
 
-            <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Create plans with our AI agent, or import from ChatGPT, Claude,
-              and social media. JournalMate devises and tracks your plan to help
-              you achieve your goals.
-            </p>
+          <p
+            ref={el => { textRefs.current[2] = el; }}
+            className="text-lg md:text-xl text-white/90 mb-8 max-w-2xl font-medium leading-relaxed px-4 lg:px-0 drop-shadow-md"
+          >
+            The AI-powered lifestyle planner that turns inspiration into action. Plan your perfect routine, stay accountable with friends, and celebrate every win together.
+          </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-              <Link href="/login">
-                <Button
-                  size="lg"
-                  className="gap-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white"
-                  data-testid="button-get-started"
-                >
-                  Get Started Free
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
-              <Link href="/discover">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="gap-2"
-                  data-testid="button-browse-plans"
-                >
-                  <Globe className="w-4 h-4" />
-                  Browse Community Plans
-                </Button>
-              </Link>
-            </div>
-
-            {/* App Store Badges */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <a
-                href="https://apps.apple.com/app/journalmate"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block"
-                data-testid="link-app-store"
+          <div
+            ref={el => { textRefs.current[3] = el; }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto px-4 lg:px-0 mb-8"
+          >
+            <Link href="/login">
+              <Button
+                size="lg"
+                className="rounded-full hover-squish bg-primary hover:bg-primary/90 text-primary-foreground shadow-diffuse-primary h-14 px-10 text-lg font-semibold w-full sm:w-auto relative overflow-hidden group border-0"
               >
-                <div className="flex items-center gap-2 bg-black text-white px-5 py-3 rounded-xl hover:bg-gray-800 transition-colors">
-                  <SiApple className="w-7 h-7" />
-                  <div className="text-left">
-                    <div className="text-xs">Download on the</div>
-                    <div className="text-lg font-semibold -mt-1">App Store</div>
-                  </div>
-                </div>
-              </a>
-              <a
-                href="https://play.google.com/store/apps/details?id=ai.journalmate.app"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block"
-                data-testid="link-play-store"
+                <span className="relative z-10">Start for Free</span>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,theme(colors.white)_0%,transparent_100%)] opacity-0 group-hover:opacity-20 transition-opacity duration-500 scale-150" />
+              </Button>
+            </Link>
+          </div>
+
+          {/* URL to Plan Input */}
+          <div
+            ref={el => { textRefs.current[4] = el; }}
+            className="w-full max-w-2xl lg:max-w-3xl relative group px-4 lg:px-0 mt-2 mb-8"
+          >
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-accent to-primary rounded-full blur opacity-40 group-hover:opacity-70 transition duration-1000 group-hover:duration-200"></div>
+            <div className="relative flex items-center bg-black/40 backdrop-blur-md rounded-full border border-white/20 shadow-xl p-1.5 focus-within:ring-2 focus-within:ring-primary/50 transition-all focus-within:bg-black/60">
+              <div className="pl-4 pr-2 text-primary">
+                <LinkIcon className="w-5 h-5" />
+              </div>
+              <input
+                type="url"
+                placeholder="Paste any idea online from social media to journal or create plan..."
+                className="flex-1 bg-transparent border-none focus:outline-none text-sm data-[placeholder]:text-white/60 placeholder:text-white/60 w-full text-white"
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleImportSubmit()}
+              />
+              <Button
+                size="sm"
+                className="rounded-full bg-white text-black hover:bg-white/90 font-semibold px-5 h-10 ml-1 transition-transform hover:scale-105 border-0 shadow-lg"
+                onClick={handleImportSubmit}
               >
-                <div className="flex items-center gap-2 bg-black text-white px-5 py-3 rounded-xl hover:bg-gray-800 transition-colors">
-                  <SiGoogleplay className="w-6 h-6" />
-                  <div className="text-left">
-                    <div className="text-xs">GET IT ON</div>
-                    <div className="text-lg font-semibold -mt-1">
-                      Google Play
-                    </div>
-                  </div>
-                </div>
-              </a>
+                Create Plan
+              </Button>
             </div>
-          </motion.div>
+          </div>
+
+          <div
+            ref={el => { textRefs.current[5] = el; }}
+            className="flex items-center gap-3 bg-black/30 rounded-full py-1.5 px-5 backdrop-blur-md border border-white/10 shadow-lg"
+          >
+            <div className="flex -space-x-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="w-8 h-8 rounded-full border-2 border-[#1a1a1a] overflow-hidden bg-muted">
+                  <img src={`https://i.pravatar.cc/100?img=${i + 15}`} alt="User star" className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+            <span className="text-sm font-medium text-white/90 whitespace-nowrap">
+              Trusted by <span className="text-white font-bold">10K+ planners</span>
+            </span>
+          </div>
+
+          {/* Dynamic Video Subscript */}
+          {currentPresetData.video && currentPresetData.video.length > 0 && (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`caption-${currentMediaIndex}`}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.8 }}
+                className="mt-8 px-6 py-2 bg-black/20 backdrop-blur-sm rounded-full border border-white/5 shadow-diffuse-primary max-w-2xl"
+              >
+                <p className="text-sm md:text-base text-white/80 font-medium italic tracking-wide">
+                  "{currentPresetData.video[currentMediaIndex % currentPresetData.video.length].caption}"
+                </p>
+              </motion.div>
+            </AnimatePresence>
+          )}
+
         </div>
       </section>
 
@@ -433,6 +586,64 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Domains / Categories Section */}
+      <section className="py-24 bg-background overflow-hidden relative">
+        <div className="container mx-auto px-4 mb-12 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="flex flex-col md:flex-row md:items-end justify-between gap-6"
+          >
+            <div className="max-w-2xl">
+              <h2 className={`text-3xl md:text-5xl font-bold mb-4 italic text-primary tracking-tight ${currentPresetData.fonts.drama}`}>
+                Plan every part of your life
+              </h2>
+              <p className="text-muted-foreground text-lg">
+                Whether you're organizing a weekend getaway, a new fitness routine, or a romantic evening, we have the perfect canvas for your journey.
+              </p>
+            </div>
+            <div className="hidden md:flex gap-2">
+              <Button variant="outline" className="rounded-full h-12 px-6 hover-squish border-border/50 shadow-sm">Explore all domains <ArrowRight className="w-4 h-4 ml-2" /></Button>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Horizontal Card Scroll */}
+        <div className="w-full relative z-10 flex gap-4 px-4 pb-8 overflow-x-auto snap-x snap-mandatory no-scrollbar md:container md:mx-auto">
+          {[
+            { tag: "Travel", title: "Weekend Escapes to Global Adventures", img: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&q=80" },
+            { tag: "Fitness", title: "Marathon Prep to Daily Movement", img: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=800&q=80" },
+            { tag: "Date Night", title: "Cozy Dinners to Grand Gestures", img: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&q=80" },
+            { tag: "Career", title: "Project Sprints to Skill Building", img: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800&q=80" },
+            { tag: "Wellness", title: "Morning Rituals to Deep Rest", img: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&q=80" }
+          ].map((domain, i) => (
+            <motion.div
+              key={domain.tag}
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              className="relative shrink-0 w-[280px] sm:w-[320px] h-[400px] sm:h-[480px] rounded-[2rem] overflow-hidden snap-center group shadow-diffuse-primary border border-border/10 cursor-pointer hover:-translate-y-2 transition-transform duration-500"
+            >
+              <img src={domain.img} alt={domain.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute inset-0 p-6 sm:p-8 flex flex-col justify-between text-white">
+                <div className="self-start px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-xs font-semibold uppercase tracking-wider">
+                  {domain.tag}
+                </div>
+                <div className="translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                  <h3 className="text-xl sm:text-2xl font-bold leading-tight mb-4 drop-shadow-md">{domain.title}</h3>
+                  <Button size="sm" variant="ghost" className="rounded-full text-white bg-white/10 hover:bg-white/20 hover:text-white backdrop-blur-md border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    See templates <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="py-20">
         <div className="container mx-auto px-4">
@@ -442,12 +653,12 @@ export default function LandingPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Everything You Need to Succeed
+            <h2 className="text-3xl md:text-5xl font-bold mb-4 font-drama italic text-primary tracking-tight">
+              More than just a to-do list
             </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              From AI-powered planning to group accountability, JournalMate has
-              all the tools to help you achieve your goals.
+            <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+              We built JournalMate to feel like a supportive friend, not a demanding boss.
+              Here's how we help you find your rhythm.
             </p>
           </motion.div>
 
@@ -484,142 +695,122 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* How It Works Section */}
-      <section className="py-20 bg-card/50">
-        <div className="container mx-auto px-4">
+      {/* Consolidated Journey & Community Section */}
+      <section className="py-24 border-b border-border/50 relative overflow-hidden bg-background">
+        <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay pointer-events-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.8\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")' }}></div>
+
+        <div className="container mx-auto px-4 relative z-10">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              How It Works
+            <h2 className={`text-3xl md:text-5xl lg:text-6xl font-bold mb-6 italic text-primary tracking-tight ${currentPresetData.fonts.drama}`}>
+              Your Journey, Shared.
             </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Get started in minutes with our simple three-step process.
+            <p className={`text-muted-foreground max-w-2xl mx-auto text-lg md:text-xl leading-relaxed ${currentPresetData.fonts.data}`}>
+              Turn that "someday" idea into something you actually do today. Build a circle of friends to keep you grounded, motivated, and celebrated.
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {[
-              {
-                step: "1",
-                title: "Create or Integrate",
-                description:
-                  "Use our AI agent for Quick/Smart Plan, or paste from ChatGPT, Claude, Perplexity, and social media.",
-              },
-              {
-                step: "2",
-                title: "We Devise Your Plan",
-                description:
-                  "JournalMate transforms raw ideas into actionable tasks, priorities, and deadlines tailored to your goals.",
-              },
-              {
-                step: "3",
-                title: "Track & Celebrate",
-                description:
-                  "Check off tasks, view your progress dashboard, and share wins with friends. Earn badges and streaks.",
-              },
-            ].map((item, index) => (
-              <motion.div
-                key={item.step}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.15 }}
-                className="text-center"
-              >
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-violet-600 text-white flex items-center justify-center text-xl font-bold mx-auto mb-4">
-                  {item.step}
-                </div>
-                <h3 className="text-xl font-semibold mb-2">{item.title}</h3>
-                <p className="text-muted-foreground">{item.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+          <div className="flex flex-col lg:flex-row gap-12 items-center max-w-7xl mx-auto">
+            {/* Dynamic Large Image Left Side */}
+            <div className="w-full lg:w-1/2 relative lg:pr-8">
+              <div className="relative w-full aspect-[4/5] md:aspect-square lg:aspect-[4/5] rounded-[3rem] overflow-hidden shadow-2xl group border border-border/20">
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={`journey-img-${currentMediaIndex}`}
+                    initial={{ opacity: 0, scale: 1.05 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.8 }}
+                    src={currentPresetData.image[(currentMediaIndex) % currentPresetData.image.length]}
+                    alt="Friends planning together"
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
+                  />
+                </AnimatePresence>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none z-10"></div>
 
-      {/* Group Planning Section */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Plan Together, Achieve Together
-            </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Create group plans, track progress in real-time, and celebrate
-              wins together with friends and team members.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {[
-              {
-                step: "1",
-                icon: Users,
-                title: "Plan as a Group",
-                description:
-                  "Create a shared plan with team members or friends. Everyone contributes ideas and helps shape the perfect strategy.",
-                color: "text-emerald-500",
-                bgColor: "bg-emerald-100 dark:bg-emerald-900/30",
-              },
-              {
-                step: "2",
-                icon: TrendingUp,
-                title: "Track Progress Together",
-                description:
-                  "See real-time updates as group members complete tasks. Stay motivated with shared progress dashboards and achievements.",
-                color: "text-blue-500",
-                bgColor: "bg-blue-100 dark:bg-blue-900/30",
-              },
-              {
-                step: "3",
-                icon: Share2,
-                title: "Share & Celebrate",
-                description:
-                  "Share your group's success with permanent links. Invite others to join and build an even larger community around your goals.",
-                color: "text-purple-500",
-                bgColor: "bg-purple-100 dark:bg-purple-900/30",
-              },
-            ].map((item, index) => (
-              <motion.div
-                key={item.step}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.15 }}
-              >
-                <Card className="h-full hover-elevate">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4 mb-4">
-                      <div className="flex-shrink-0">
-                        <div
-                          className={`w-12 h-12 rounded-xl ${item.bgColor} flex items-center justify-center`}
-                        >
-                          <item.icon className={`w-6 h-6 ${item.color}`} />
-                        </div>
+                <div className="absolute bottom-8 left-8 right-8">
+                  <div className="bg-white/20 backdrop-blur-md rounded-2xl p-6 border border-white/30 text-white shadow-xl transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                    <p className="text-lg font-medium drop-shadow-sm">"Morning wellness check-in complete! We finally booked the trip!" 🎉</p>
+                    <div className="flex items-center gap-3 mt-4">
+                      <div className="flex -space-x-2">
+                        <img src="https://i.pravatar.cc/100?img=1" className="w-8 h-8 rounded-full border-2 border-white/50" />
+                        <img src="https://i.pravatar.cc/100?img=5" className="w-8 h-8 rounded-full border-2 border-white/50" />
+                        <img src="https://i.pravatar.cc/100?img=9" className="w-8 h-8 rounded-full border-2 border-white/50" />
                       </div>
-                      <div className="flex-1">
-                        <div className={`text-sm font-bold ${item.color} mb-1`}>
-                          Step {item.step}
-                        </div>
-                        <h3 className="text-lg font-semibold">{item.title}</h3>
-                      </div>
+                      <span className="text-sm font-semibold opacity-90 drop-shadow-sm">Sara & 2 others cheering</span>
                     </div>
-                    <p className="text-muted-foreground text-sm">
-                      {item.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Steps Right Side */}
+            <div className="w-full lg:w-1/2 flex flex-col gap-8">
+              {[
+                {
+                  step: "1",
+                  icon: Lightbulb,
+                  title: "Spark the idea",
+                  description: "Wherever you get the idea from—TikTok, Instagram, or the web—just paste the link or tell us your goal.",
+                  color: "text-purple-500",
+                  bgColor: "bg-purple-100 dark:bg-purple-900/40",
+                },
+                {
+                  step: "2",
+                  icon: Bot,
+                  title: "Let the AI guide you",
+                  description: "Our dedicated agent schedules tasks, follows up with you, and adapts your plan to real-time traffic and weather.",
+                  color: "text-emerald-500",
+                  bgColor: "bg-emerald-100 dark:bg-emerald-900/40",
+                },
+                {
+                  step: "3",
+                  icon: Users,
+                  title: "Plan with your circle",
+                  description: "Create plans for group trips or events, invite your people, and stay perfectly synced and informed on progress.",
+                  color: "text-amber-500",
+                  bgColor: "bg-amber-100 dark:bg-amber-900/40",
+                },
+                {
+                  step: "4",
+                  icon: Target,
+                  title: "Achieve together",
+                  description: "Let the app hold you and your group accountable. Check off milestones and find a way to achieve your goals.",
+                  color: "text-rose-500",
+                  bgColor: "bg-rose-100 dark:bg-rose-900/40",
+                }
+              ].map((item, index) => (
+                <motion.div
+                  key={item.step}
+                  initial={{ opacity: 0, x: 20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.15 }}
+                  className="flex gap-6 group cursor-pointer"
+                >
+                  <div className="shrink-0 relative">
+                    <div className={`w-14 h-14 rounded-2xl ${item.bgColor} flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-300`}>
+                      <item.icon className={`w-6 h-6 ${item.color}`} />
+                    </div>
+                    {/* Connecting line */}
+                    {index !== 3 && (
+                      <div className="absolute top-14 bottom-[-2rem] left-1/2 w-0.5 -translate-x-1/2 bg-border group-hover:bg-primary/50 transition-colors"></div>
+                    )}
+                  </div>
+                  <div>
+                    <div className={`text-sm font-bold ${item.color} mb-1`}>
+                      Step {item.step}
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors">{item.title}</h3>
+                    <p className="text-muted-foreground leading-relaxed">{item.description}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
 
           <motion.div
@@ -627,7 +818,7 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}
-            className="text-center mt-12"
+            className="text-center mt-16"
           >
             <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
               Share permanent links that never expire. Recipients can view your
@@ -636,11 +827,10 @@ export default function LandingPage() {
             <Link href="/login">
               <Button
                 size="lg"
-                variant="outline"
-                className="gap-2"
+                className="gap-2 rounded-full"
                 data-testid="button-start-group"
               >
-                <Users className="w-4 h-4" />
+                <Users className="w-5 h-5" />
                 Create Your First Group Plan
               </Button>
             </Link>
@@ -796,18 +986,7 @@ export default function LandingPage() {
                 </CardContent>
               </Card>
 
-              {/* Browser Extension */}
-              <Card className="hover-elevate border-2 border-emerald-200 dark:border-emerald-900">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto mb-4">
-                    <Puzzle className="w-6 h-6 text-emerald-500" />
-                  </div>
-                  <h4 className="font-semibold mb-2">Browser Extension</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Save plans with one click using our Chrome extension
-                  </p>
-                </CardContent>
-              </Card>
+
             </div>
           </motion.div>
         </div>

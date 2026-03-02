@@ -7,8 +7,8 @@ async function getCredentials() {
   const xReplitToken = process.env.REPL_IDENTITY
     ? 'repl ' + process.env.REPL_IDENTITY
     : process.env.WEB_REPL_RENEWAL
-    ? 'depl ' + process.env.WEB_REPL_RENEWAL
-    : null;
+      ? 'depl ' + process.env.WEB_REPL_RENEWAL
+      : null;
 
   if (!xReplitToken) {
     throw new Error('X_REPLIT_TOKEN not found for repl/depl');
@@ -54,7 +54,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
   const baseURL = getBaseURL();
   const logoURL = baseURL ? `${baseURL}/icons/email/email-logo-512.png` : 'https://resend-attachments.s3.amazonaws.com/nx67BKRdxXaeFoH';
   const appURL = baseURL || 'https://journalmate.ai';
-  
+
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" lang="en">
   <head>
@@ -116,6 +116,11 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 <tr>
                   <td style="padding:0 40px">
                     <h2 style="margin:0 0 16px;padding:0;font-size:24px;line-height:1.3;padding-top:0.389em;font-weight:700;color:#111827">Hey ${firstName}! 👋</h2>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="content-padding" style="padding:0 40px 20px; text-align:center;">
+                    <img src="${baseURL}/email-assets/friends_planning.png" alt="Friends planning together on JournalMate" style="width:100%; max-width:520px; border-radius:16px; margin-bottom:24px; box-shadow:0 12px 24px rgba(0,0,0,0.12); display:block; margin-left:auto; margin-right:auto;" />
                   </td>
                 </tr>
                 <tr>
@@ -291,7 +296,7 @@ export function getProWelcomeEmailHTML(firstName: string = 'there') {
   const baseURL = getBaseURL();
   const logoURL = baseURL ? `${baseURL}/icons/email/email-logo-512.png` : 'https://resend-attachments.s3.amazonaws.com/nx67BKRdxXaeFoH';
   const appURL = baseURL || 'https://journalmate.ai';
-  
+
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" lang="en">
   <head>
@@ -436,7 +441,7 @@ export function getProWelcomeEmailHTML(firstName: string = 'there') {
 export async function sendWelcomeEmail(email: string, firstName: string = 'there') {
   try {
     const { client, fromEmail } = await getUncachableResendClient();
-    
+
     const { data, error } = await client.emails.send({
       from: fromEmail,
       to: [email],
@@ -460,7 +465,7 @@ export async function sendWelcomeEmail(email: string, firstName: string = 'there
 export async function sendProWelcomeEmail(email: string, firstName: string = 'there') {
   try {
     const { client, fromEmail } = await getUncachableResendClient();
-    
+
     const { data, error } = await client.emails.send({
       from: fromEmail,
       to: [email],
