@@ -2798,7 +2798,7 @@ Respond with ONLY a JSON object in this format:
       : `Extract structured information from this web content about "${venueName}"${city ? ` in ${city}` : ''}.\n\nContent:\n${content.substring(0, 2500)}`;
 
     const response = await this.anthropic.messages.create({
-      model: 'claude-3-haiku-20240307',
+      model: 'claude-3-5-haiku-20241022',
       max_tokens: 800,
       messages: [{
         role: 'user',

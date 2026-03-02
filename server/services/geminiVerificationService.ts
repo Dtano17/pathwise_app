@@ -144,7 +144,7 @@ export interface VerificationInput {
 }
 
 class GeminiVerificationService {
-  private model = "gemini-2.0-flash-exp";
+  private model = "gemini-2.5-flash";
 
   isConfigured(): boolean {
     return !!GEMINI_API_KEY && !!genAI;

@@ -14050,7 +14050,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
         // Use AI-provided emoji from the generated plan, fallback to 📝 if not provided
         const activityEmoji = generatedPlan.emoji || "[TARGET_ICON]";
-        const activityUrl = `/app?activity=${activity.id}&tab=activities`;
+        const activityUrl = `/app?activity=${activity.id}&tab=tasks`;
 
         return res.json({
           message: formatActivitySuccessMessage(

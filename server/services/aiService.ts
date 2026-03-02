@@ -560,7 +560,7 @@ For probing questions, respond with: "I'm JournalMate's planning assistant! I'm 
         } catch (error) {
           console.error("Claude chat error, falling back to OpenAI:", error);
           const response = await openai.chat.completions.create({
-            model: "gpt-4-turbo-preview",
+            model: "gpt-4o-mini",
             messages: messages,
             temperature: 0.7,
             max_tokens: maxTokens,
@@ -571,7 +571,7 @@ For probing questions, respond with: "I'm JournalMate's planning assistant! I'm 
         }
       } else {
         const response = await openai.chat.completions.create({
-          model: "gpt-4-turbo-preview",
+          model: "gpt-4o-mini",
           messages: messages,
           temperature: 0.7,
           max_tokens: maxTokens,
@@ -796,7 +796,7 @@ ${userContext ? `## USER PROFILE & PREFERENCES:\n${userContext}\n` : ''}
           console.error("Claude curated questions failed, trying OpenAI:", error);
           if (process.env.OPENAI_API_KEY) {
             const response = await openai.chat.completions.create({
-              model: "gpt-4-turbo-preview",
+              model: "gpt-4o-mini",
               messages: [{ role: "user", content: prompt }],
               response_format: { type: "json_object" },
             });
@@ -805,7 +805,7 @@ ${userContext ? `## USER PROFILE & PREFERENCES:\n${userContext}\n` : ''}
         }
       } else if (process.env.OPENAI_API_KEY) {
         const response = await openai.chat.completions.create({
-          model: "gpt-4-turbo-preview",
+          model: "gpt-4o-mini",
           messages: [{ role: "user", content: prompt }],
           response_format: { type: "json_object" },
         });
@@ -1026,7 +1026,7 @@ NEVER skip any item. NEVER output fewer items than you counted.
           console.error("Claude plan generation failed, trying OpenAI:", error);
           if (process.env.OPENAI_API_KEY) {
             const response = await openai.chat.completions.create({
-              model: "gpt-4-turbo-preview",
+              model: "gpt-4o-mini",
               max_tokens: 8000,
               messages: [{ role: "user", content: prompt }],
               response_format: { type: "json_object" },
@@ -1036,7 +1036,7 @@ NEVER skip any item. NEVER output fewer items than you counted.
         }
       } else if (process.env.OPENAI_API_KEY) {
         const response = await openai.chat.completions.create({
-          model: "gpt-4-turbo-preview",
+          model: "gpt-4o-mini",
           max_tokens: 8000,
           messages: [{ role: "user", content: prompt }],
           response_format: { type: "json_object" },
@@ -1163,7 +1163,7 @@ Focus on:
 Create actionable tasks from these conversations that can help hold the user accountable.`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -1406,7 +1406,7 @@ For time-sensitive goals (like "today"), create immediate actionable steps.
 For longer goals (like "2 months"), create milestone-based progression with specific costs.`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -1952,7 +1952,7 @@ Make suggestions that:
 Examples: "Try a 10-minute morning meditation", "Take a walk after lunch", "Schedule a weekly phone call with a friend"`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -2857,7 +2857,7 @@ Generate a natural, flowing summary that sounds human and captures the essence o
           // Fallback to OpenAI
           if (process.env.OPENAI_API_KEY) {
             const response = await openai.chat.completions.create({
-              model: "gpt-4-turbo-preview",
+              model: "gpt-4o-mini",
               messages: [
                 {
                   role: "user",
@@ -2874,7 +2874,7 @@ Generate a natural, flowing summary that sounds human and captures the essence o
         }
       } else if (process.env.OPENAI_API_KEY) {
         const response = await openai.chat.completions.create({
-          model: "gpt-4-turbo-preview",
+          model: "gpt-4o-mini",
           messages: [
             {
               role: "user",

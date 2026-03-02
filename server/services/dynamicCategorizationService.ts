@@ -200,7 +200,7 @@ export async function extractContext(input: string): Promise<ExtractedContext> {
       result = response.choices[0].message.content || "{}";
     } else if (anthropic) {
       const message = await anthropic.messages.create({
-        model: "claude-3-haiku-20240307",
+        model: "claude-3-5-haiku-20241022",
         max_tokens: 1000,
         messages: [{ role: "user", content: prompt }],
         system: "You are a JSON-only entity extraction API. Return only valid JSON, no markdown."
