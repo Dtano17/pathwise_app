@@ -376,13 +376,13 @@ export default function LandingPage() {
     <div className="h-screen w-full overflow-y-auto overflow-x-hidden bg-background text-foreground touch-pan-y scroll-smooth">
       <SEO {...PAGE_SEO.home} />
       {/* Header - Welcome Bar (Pill) */}
-      <header className="fixed top-3 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl bg-background/80 backdrop-blur-md rounded-full shadow-lg border border-border/50 transition-all duration-300">
-        <div className="px-3 py-1.5 sm:px-6 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
+      <header className="fixed top-2 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[96vw] max-w-4xl bg-background/80 backdrop-blur-md rounded-full shadow-lg border border-border/50 transition-all duration-300">
+        <div className="px-2 py-1.5 sm:px-6 sm:py-3 flex items-center justify-between gap-1 sm:gap-4">
           <div className="flex items-center min-w-0 gap-1.5 sm:gap-2">
             <div className="flex-shrink-0">
-              <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate Icon" className="h-5 w-5 sm:h-8 sm:w-8 object-contain" />
+              <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate Icon" className="h-4 w-4 sm:h-8 sm:w-8 object-contain" />
             </div>
-            <span className="font-bold text-base sm:text-xl tracking-tight cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap">
+            <span className="font-bold text-sm sm:text-xl tracking-tight cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap">
               JournalMate
             </span>
           </div>
@@ -406,10 +406,10 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <ThemeToggle />
             <Link href="/login">
-              <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-4 sm:px-6 h-8 sm:h-9 text-xs sm:text-sm shadow-sm hover:shadow-md transition-shadow" data-testid="button-login-landing">
+              <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-3 sm:px-6 h-7 sm:h-9 text-[10px] sm:text-sm shadow-sm hover:shadow-md transition-shadow" data-testid="button-login-landing">
                 Sign In
               </Button>
             </Link>
@@ -431,7 +431,7 @@ export default function LandingPage() {
                 transition={{ duration: 1 }}
                 src={currentPresetData.image[currentMediaIndex % currentPresetData.image.length]}
                 alt="Ambient Background"
-                className="absolute inset-0 w-full h-full object-cover z-10"
+                className="absolute inset-0 w-full h-full object-cover lg:object-cover object-center z-10"
               />
             )}
             {currentPresetData.video && currentPresetData.video.length > 0 && (
@@ -445,7 +445,7 @@ export default function LandingPage() {
                 muted
                 playsInline
                 onEnded={handleVideoEnded}
-                className="absolute inset-0 w-full h-full object-cover z-10"
+                className="absolute inset-0 w-full h-full object-cover lg:object-cover object-center z-10"
               >
                 <source src={currentPresetData.video[currentMediaIndex % currentPresetData.video.length].src} type="video/mp4" />
               </motion.video>
@@ -462,13 +462,13 @@ export default function LandingPage() {
           <div className="flex flex-col items-center gap-1 sm:gap-2 mb-4 sm:mb-6 max-w-4xl w-full">
             <h1
               ref={el => { textRefs.current[0] = el; }}
-              className="text-5xl sm:text-7xl md:text-[6rem] lg:text-[7.5rem] font-bold tracking-tight text-white leading-[1.05] drop-shadow-md"
+              className="text-4xl sm:text-7xl md:text-[6rem] lg:text-[7.5rem] font-bold tracking-tight text-white leading-[1.05] drop-shadow-md"
             >
               {currentPresetData.verb}
             </h1>
             <span
               ref={el => { textRefs.current[1] = el; }}
-              className="text-[4.5rem] sm:text-7xl md:text-[6.5rem] lg:text-[7.5rem] font-drama italic text-primary leading-[1] ml-[-0.02em]"
+              className="text-[3.5rem] sm:text-7xl md:text-[6.5rem] lg:text-[7.5rem] font-drama italic text-primary leading-[1] ml-[-0.02em]"
               style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.3))" }}
             >
               {currentPresetData.noun}
@@ -627,7 +627,7 @@ export default function LandingPage() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className="relative shrink-0 w-[280px] sm:w-[320px] h-[400px] sm:h-[480px] rounded-[2rem] overflow-hidden snap-center group shadow-diffuse-primary border border-border/10 cursor-pointer hover:-translate-y-2 transition-transform duration-500"
+              className="relative shrink-0 w-[85vw] sm:w-[320px] h-[340px] sm:h-[480px] rounded-[2rem] overflow-hidden snap-center group shadow-diffuse-primary border border-border/10 cursor-pointer hover:-translate-y-2 transition-transform duration-500"
             >
               <img src={domain.img} alt={domain.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -720,7 +720,7 @@ export default function LandingPage() {
           <div className="flex flex-col lg:flex-row gap-12 items-center max-w-7xl mx-auto">
             {/* Dynamic Large Image Left Side */}
             <div className="w-full lg:w-1/2 relative lg:pr-8">
-              <div className="relative w-full aspect-[4/5] md:aspect-square lg:aspect-[4/5] rounded-[3rem] overflow-hidden shadow-2xl group border border-border/20">
+              <div className="relative w-full aspect-[4/3] sm:aspect-square lg:aspect-[4/5] rounded-[2rem] sm:rounded-[3rem] overflow-hidden shadow-2xl group border border-border/20">
                 <AnimatePresence mode="wait">
                   <motion.img
                     key={`journey-img-${currentMediaIndex}`}

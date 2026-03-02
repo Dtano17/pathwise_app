@@ -138,6 +138,10 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                     </div>
                     <h3 style="margin:0 0 16px;padding:0;font-size:26px;line-height:1.2;font-weight:700;color:#111827;text-align:center">🌍 Discover Trending Plans Near You</h3>
                     <p style="margin:0 0 32px;padding:0;font-size:16px;color:#374151;line-height:1.7;text-align:center;max-width:500px;margin-left:auto;margin-right:auto">See what's happening around you in real-time! From <strong style="color:#7C3AED">chasing the Aurora Borealis</strong> to <strong style="color:#14B8A6">weather alerts</strong> like incoming storms, JournalMate keeps you connected to what matters NOW.</p>
+        
+        <div style="text-align:center; padding: 0 40px 30px;">
+          <img src="${baseURL}/email-assets/map_trends.png" alt="Discover Trends Map" style="width:100%; max-width:520px; border-radius:16px; box-shadow:0 12px 24px rgba(0,0,0,0.12); display:block; margin-left:auto; margin-right:auto;" />
+        </div>
                     
                     <!-- Alert Cards with Gradient Borders -->
                     <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:24px">
@@ -194,7 +198,11 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 <!-- Getting Started CTA -->
                 <tr>
                   <td class="section-padding" style="padding:40px;background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)">
-                    <h3 style="margin:0 0 20px;padding:0;font-size:24px;line-height:1.08em;padding-top:0.389em;font-weight:700;color:#ffffff;text-align:center">🚀 The JournalMate Loop</h3>
+                    <div style="text-align:center; padding: 0 40px 30px;">
+          <img src="${baseURL}/email-assets/idea_to_plan.png" alt="Turn Ideas Into Plans" style="width:100%; max-width:520px; border-radius:16px; box-shadow:0 12px 24px rgba(0,0,0,0.12); display:block; margin-left:auto; margin-right:auto;" />
+        </div>
+
+        <h3 style="margin:0 0 20px;padding:0;font-size:24px;line-height:1.08em;padding-top:0.389em;font-weight:700;color:#ffffff;text-align:center">🚀 The JournalMate Loop</h3>
                     <ol style="margin:0;padding:0;padding-left:25px;color:#ffffff;font-size:15px;line-height:1.8">
                       <li style="margin:0 0 10px"><strong>Share Content</strong> → Paste a TikTok, Instagram, or YouTube link</li>
                       <li style="margin:0 0 10px"><strong>Auto-Journal</strong> → AI creates a journal entry with your interests</li>

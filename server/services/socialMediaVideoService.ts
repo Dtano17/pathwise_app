@@ -119,7 +119,7 @@ class SocialMediaVideoService {
     console.log(`[SOCIAL_MEDIA] Extracting content from ${platform}: ${url}`);
 
     try {
-      let downloadResult;
+      let downloadResult: any;
 
       if (platform === "instagram") {
         if (apifyService.isAvailable()) {
@@ -189,7 +189,7 @@ class SocialMediaVideoService {
         console.log(`[SOCIAL_MEDIA] Processing ${downloadResult.carouselFiles.length} carousel items in PARALLEL`);
 
         // Process ALL carousel items in parallel with error handling per-item
-        const processPromises = downloadResult.carouselFiles.map(async (file, idx) => {
+        const processPromises = downloadResult.carouselFiles.map(async (file: any, idx: number) => {
           try {
             const itemResult = await this.processMediaFile(file.path, file.type);
             return {

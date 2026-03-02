@@ -16,6 +16,7 @@ import { journalWebEnrichmentService } from "./services/journalWebEnrichmentServ
 import { tmdbService } from "./services/tmdbService";
 import { contactSyncService } from "./contactSync";
 import { getProvider } from "./services/llmProvider";
+import { adaptPlanToSeason } from "./utils/seasonAdaptor";
 import { socketService } from "./services/socketService";
 import {
   insertGoalSchema,
@@ -1253,7 +1254,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         const confirmationMessage = alreadyAskedConfirmation
           ? response.message
           : response.message +
-            "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)";
+          "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)";
 
         return res.json({
           message: planPreview + confirmationMessage,
@@ -1360,9 +1361,9 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       planReady: response.planReady || false,
       createdActivity: response.createdActivity
         ? {
-            id: response.createdActivity.id,
-            title: response.createdActivity.title,
-          }
+          id: response.createdActivity.id,
+          title: response.createdActivity.title,
+        }
         : undefined,
       progress: response.progress || 0,
       phase: response.phase || "gathering",
@@ -1381,8 +1382,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 // Initialize Stripe
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2024-11-20.acacia",
-    })
+    apiVersion: "2024-11-20.acacia",
+  })
   : null;
 
 // Helper function to check and increment plan usage
@@ -1542,15 +1543,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
                             http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
 ${allUrls
-  .map(
-    (page) => `  <url>
+          .map(
+            (page) => `  <url>
     <loc>${baseUrl}${page.url}</loc>
     <lastmod>${page.lastmod || today}</lastmod>
     <changefreq>${page.changefreq}</changefreq>
     <priority>${page.priority}</priority>
   </url>`,
-  )
-  .join("\n")}
+          )
+          .join("\n")}
 </urlset>`;
 
       res.header("Content-Type", "application/xml");
@@ -1726,12 +1727,12 @@ ${imageUrls.join("\n")}
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${sitemaps
-  .map(
-    (sitemap) => `  <sitemap>
+        .map(
+          (sitemap) => `  <sitemap>
     <loc>${sitemap.url}</loc>
   </sitemap>`,
-  )
-  .join("\n")}
+        )
+        .join("\n")}
 </sitemapindex>`;
 
     res.header("Content-Type", "application/xml");
@@ -4616,9 +4617,9 @@ ${sitemaps
       // If activityId is provided, load existing activity for context
       let existingActivity:
         | {
-            title: string;
-            tasks: Array<{ title: string; description?: string }>;
-          }
+          title: string;
+          tasks: Array<{ title: string; description?: string }>;
+        }
         | undefined;
       if (activityId) {
         try {
@@ -4738,10 +4739,10 @@ ${sitemaps
               // Store planContext for smarter journal enrichment
               enrichmentContext: result.planContext
                 ? {
-                    theme: result.planContext.theme,
-                    contentType: result.planContext.contentType,
-                    sourceDescription: result.planContext.sourceDescription,
-                  }
+                  theme: result.planContext.theme,
+                  contentType: result.planContext.contentType,
+                  sourceDescription: result.planContext.sourceDescription,
+                }
                 : undefined,
             });
 
@@ -4849,9 +4850,9 @@ ${sitemaps
       // Normalize planTitle to title for schema consistency
       const normalizedPlan = generatedPlan
         ? {
-            ...generatedPlan,
-            title: generatedPlan.title || generatedPlan.planTitle,
-          }
+          ...generatedPlan,
+          title: generatedPlan.title || generatedPlan.planTitle,
+        }
         : {};
 
       const session = await storage.createLifestylePlannerSession({
@@ -4928,9 +4929,9 @@ ${sitemaps
       // Normalize planTitle to title for consistency with schema
       const normalizedPlan = generatedPlan
         ? {
-            ...generatedPlan,
-            title: generatedPlan.title || generatedPlan.planTitle,
-          }
+          ...generatedPlan,
+          title: generatedPlan.title || generatedPlan.planTitle,
+        }
         : existingSession.generatedPlan;
 
       // Update session
@@ -6920,7 +6921,7 @@ ${sitemaps
       const user = await storage.getUser(userId);
       const userName = user
         ? user.username ||
-          `${user.firstName || ""} ${user.lastName || ""}`.trim()
+        `${user.firstName || ""} ${user.lastName || ""}`.trim()
         : "Someone";
 
       const feedItem = await storage.logGroupActivity({
@@ -9528,7 +9529,12 @@ ${emoji} ${progressLine}
         activityData.targetGroupId = activityGroupId;
       }
 
-      const copiedActivity = await storage.createActivity(activityData);
+      const adapted = adaptPlanToSeason({ ...activityData, tasks: originalTasks });
+      const activityDataToCreate = { ...adapted };
+      delete activityDataToCreate.tasks;
+      const adaptedOriginalTasks = adapted.tasks || originalTasks;
+
+      const copiedActivity = await storage.createActivity(activityDataToCreate);
       console.log("[COPY ACTIVITY] Activity copied successfully:", {
         newActivityId: copiedActivity.id,
         userId: userId,
@@ -9537,7 +9543,7 @@ ${emoji} ${progressLine}
       // Copy all tasks and preserve completion status where possible
       const copiedTasks = [];
       let taskOrder = 0;
-      for (const task of originalTasks) {
+      for (const task of adaptedOriginalTasks) {
         // Try to find matching task in old version using originalTaskId first, then title
         let matchingOldTask;
         if (task.originalTaskId || task.id) {
@@ -9981,12 +9987,17 @@ ${emoji} ${progressLine}
         }
       }
 
-      res.json({
-        activity: {
-          ...activity,
-          planSummary,
-        },
+      const adaptedSharedPlan = adaptPlanToSeason({
+        ...activity,
+        planSummary,
         tasks: activityTasks,
+      });
+      const adaptedTasks = adaptedSharedPlan.tasks;
+      delete adaptedSharedPlan.tasks;
+
+      res.json({
+        activity: adaptedSharedPlan,
+        tasks: adaptedTasks || activityTasks,
         requiresAuth,
         sharedBy,
         groupInfo,
@@ -10075,11 +10086,12 @@ ${emoji} ${progressLine}
           userHasLiked: false,
           likeCount: 0,
         };
-        return {
+        const planWithFeedback = {
           ...plan,
           userHasLiked: feedback.userHasLiked,
           likeCount: feedback.likeCount,
         };
+        return adaptPlanToSeason(planWithFeedback);
       });
 
       res.json(plansWithLikeStatus);
@@ -11311,8 +11323,8 @@ ${emoji} ${progressLine}
             for (const newTask of newTasks) {
               await storage
                 .removeTaskFromActivity(activityId, newTask.id)
-                .catch(() => {});
-              await storage.deleteTask(newTask.id, userId).catch(() => {});
+                .catch(() => { });
+              await storage.deleteTask(newTask.id, userId).catch(() => { });
             }
 
             // Restore original task links (tasks still exist because we haven't deleted them yet)
@@ -11495,7 +11507,7 @@ ${emoji} ${progressLine}
               : sourceUrl.includes("tiktok")
                 ? "TikTok"
                 : sourceUrl.includes("youtube") ||
-                    sourceUrl.includes("youtu.be")
+                  sourceUrl.includes("youtu.be")
                   ? "YouTube"
                   : sourceUrl.includes("twitter") || sourceUrl.includes("x.com")
                     ? "Twitter/X"
@@ -11604,11 +11616,11 @@ ${emoji} ${progressLine}
                   cachedContent?.metadata?.media,
                 )
                   ? cachedContent.metadata.media.filter(
-                      (m: any) =>
-                        m &&
-                        (m.type === "image" || m.type === "video") &&
-                        m.url,
-                    )
+                    (m: any) =>
+                      m &&
+                      (m.type === "image" || m.type === "video") &&
+                      m.url,
+                  )
                   : [];
                 const mediaItems =
                   cachedMedia.length > 0
@@ -12261,16 +12273,16 @@ ${emoji} ${progressLine}
       const entriesToEnrich = isDemoUser(userId)
         ? []
         : allEntries
-            .filter((entry: any) => {
-              if (typeof entry === "string") return false;
-              if (!entry.webEnrichment) return true;
-              if (!entry.webEnrichment.enrichedAt) return true;
-              const enrichedTime = new Date(
-                entry.webEnrichment.enrichedAt,
-              ).getTime();
-              return Date.now() - enrichedTime > FIVE_HOURS_MS;
-            })
-            .slice(0, 5); // Limit to 5 for faster response
+          .filter((entry: any) => {
+            if (typeof entry === "string") return false;
+            if (!entry.webEnrichment) return true;
+            if (!entry.webEnrichment.enrichedAt) return true;
+            const enrichedTime = new Date(
+              entry.webEnrichment.enrichedAt,
+            ).getTime();
+            return Date.now() - enrichedTime > FIVE_HOURS_MS;
+          })
+          .slice(0, 5); // Limit to 5 for faster response
 
       let enrichedEntries = allEntries;
 
@@ -13563,8 +13575,8 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
       // Check if all credentials are present
       const allCredentialsPresent = diagnostics.credentials.projectId &&
-                                     diagnostics.credentials.clientEmail &&
-                                     diagnostics.credentials.privateKey;
+        diagnostics.credentials.clientEmail &&
+        diagnostics.credentials.privateKey;
 
       // Try to initialize Firebase
       if (allCredentialsPresent) {
@@ -15017,7 +15029,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
               alreadyAskedConfirmation || shouldSkipAppend
                 ? response.message
                 : response.message +
-                  "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
+                "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
             planReady: false, // Don't show button yet
             sessionId: session.id,
             showCreatePlanButton: false, // Don't show button until confirmed
@@ -15035,9 +15047,9 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         planReady: response.planReady || false,
         createdActivity: response.createdActivity
           ? {
-              id: response.createdActivity.id,
-              title: response.createdActivity.title,
-            }
+            id: response.createdActivity.id,
+            title: response.createdActivity.title,
+          }
           : undefined,
         progress: response.progress || 0,
         phase: response.phase || "gathering",
@@ -15531,9 +15543,9 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           // Get updated session if activity was created
           const updatedSession = activityData
             ? await storage.getLifestylePlannerSession(
-                session?.id || "",
-                userId,
-              )
+              session?.id || "",
+              userId,
+            )
             : session;
 
           // Build the final message
@@ -15936,11 +15948,11 @@ You can find these tasks in your task list and start working on them right away!
       const dailyTheme = isClearing
         ? null
         : {
-            activityId,
-            activityTitle,
-            date: themeDate,
-            tasks: tasks || [],
-          };
+          activityId,
+          activityTitle,
+          date: themeDate,
+          tasks: tasks || [],
+        };
 
       // Get current preferences and update with new daily theme
       const currentPrefs = await storage.getUserPreferences(userId);
@@ -16297,8 +16309,8 @@ You can find these tasks in your task list and start working on them right away!
                       r.entryId &&
                       (entry.id === r.entryId ||
                         entry.text ===
-                          entriesToEnrich.find((e) => e.id === r.entryId)
-                            ?.text),
+                        entriesToEnrich.find((e) => e.id === r.entryId)
+                          ?.text),
                   );
                   if (webResult?.enrichedData) {
                     return { ...entry, webEnrichment: webResult.enrichedData };
@@ -16853,16 +16865,16 @@ You can find these tasks in your task list and start working on them right away!
       const categoriesToEnrich =
         categories?.length > 0
           ? categories.filter((c: string) =>
+            webEnrichableCategories.some(
+              (wc) => normalizeCategory(wc) === normalizeCategory(c),
+            ),
+          )
+          : allJournalCategories.filter(
+            (c) =>
               webEnrichableCategories.some(
                 (wc) => normalizeCategory(wc) === normalizeCategory(c),
-              ),
-            )
-          : allJournalCategories.filter(
-              (c) =>
-                webEnrichableCategories.some(
-                  (wc) => normalizeCategory(wc) === normalizeCategory(c),
-                ) && journalData[c]?.length > 0,
-            );
+              ) && journalData[c]?.length > 0,
+          );
 
       let totalEnriched = 0;
       let totalFailed = 0;
@@ -18372,17 +18384,15 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         : "Complete more tasks to discover your productivity pattern!";
 
       // Generate AI summary (simplified for now - can be enhanced with actual AI later)
-      const aiSummary = `This week you completed ${recentTasks.length} tasks across ${activities.length} activities. Your completion rate is ${completionRate}%, which is ${completionRate >= 70 ? "excellent" : completionRate >= 50 ? "good" : "developing"}. ${
-        mostLovedCategories[0]
+      const aiSummary = `This week you completed ${recentTasks.length} tasks across ${activities.length} activities. Your completion rate is ${completionRate}%, which is ${completionRate >= 70 ? "excellent" : completionRate >= 50 ? "good" : "developing"}. ${mostLovedCategories[0]
           ? `You showed the most enthusiasm for "${mostLovedCategories[0].category}" with ${mostLovedCategories[0].count} superliked tasks.`
           : ""
-      } ${
-        moodTrend === "improving"
+        } ${moodTrend === "improving"
           ? "Your mood has been trending positively - keep up the great work!"
           : moodTrend === "declining"
             ? "Take some time for self-care and activities that bring you joy."
             : "Your mood has been steady. Consider trying new experiences for variety."
-      }`;
+        }`;
 
       res.json({
         moodTrend,
@@ -20095,7 +20105,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
             startedAt: Date.now(),
             error: err.message,
           });
-        } catch {}
+        } catch { }
       }
     });
   });
@@ -20159,7 +20169,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       // Poll for updates every 500ms (max 2 minutes)
@@ -20259,7 +20269,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
               if (fs.existsSync(file.path)) {
                 fs.unlinkSync(file.path);
               }
-            } catch (e) {}
+            } catch (e) { }
           });
         }
       };
@@ -20655,10 +20665,10 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
                   // Store planContext for smarter journal enrichment
                   enrichmentContext: planContext
                     ? {
-                        theme: planContext.theme,
-                        contentType: planContext.contentType,
-                        sourceDescription: planContext.sourceDescription,
-                      }
+                      theme: planContext.theme,
+                      contentType: planContext.contentType,
+                      sourceDescription: planContext.sourceDescription,
+                    }
                     : undefined,
                 });
               }
