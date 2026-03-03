@@ -1446,44 +1446,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       const contentType = contentTypes[ext] || "application/octet-stream";
 
-      const rangeHeader = req.headers.range;
+      // Get the underlying GCS bucket and file for direct streaming with metadata
+      const bucket = await Promise.resolve(client.getBucket());
+      const file = bucket.file(objectKey);
 
-      // Check the object exists first
-      const { ok: existsOk, value: existsVal } = await client.exists(objectKey);
-      if (!existsOk || !existsVal) {
+      // Fetch metadata to get exact file size (required for Content-Length + seeking)
+      let fileSize: number;
+      try {
+        const [metadata] = await file.getMetadata();
+        fileSize = parseInt(metadata.size as string, 10);
+      } catch {
         console.error("[MEDIA] Not found in bucket:", objectKey);
         return res.status(404).json({ error: "Media not found" });
       }
 
+      const rangeHeader = req.headers.range;
+
       if (rangeHeader) {
-        // Range request (video seeking) — download bytes and slice
-        const { ok, value: bytes, error } = await client.downloadAsBytes(objectKey);
-        if (!ok || !bytes) {
-          console.error("[MEDIA] Download failed:", objectKey, error);
-          return res.status(500).json({ error: "Failed to download media" });
-        }
-        const buffer = Buffer.from(bytes);
-        const total = buffer.length;
+        // Range request — browser is seeking or buffering a specific chunk
         const parts = rangeHeader.replace(/bytes=/, "").split("-");
         const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : total - 1;
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
         const chunkSize = end - start + 1;
+
         res.status(206);
-        res.setHeader("Content-Range", `bytes ${start}-${end}/${total}`);
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
         res.setHeader("Accept-Ranges", "bytes");
         res.setHeader("Content-Length", chunkSize);
         res.setHeader("Content-Type", contentType);
         res.setHeader("Cache-Control", "public, max-age=86400");
-        return res.send(buffer.slice(start, end + 1));
+
+        const stream = file.createReadStream({ start, end });
+        stream.on("error", (err: Error) => {
+          console.error("[MEDIA] Range stream error:", err);
+          if (!res.headersSent) res.status(500).end();
+        });
+        stream.pipe(res);
       } else {
-        // Full stream — downloadAsStream returns the stream directly
-        const stream = client.downloadAsStream(objectKey);
+        // Full file request — stream with Content-Length so browser can buffer properly
+        res.status(200);
         res.setHeader("Content-Type", contentType);
+        res.setHeader("Content-Length", fileSize);
         res.setHeader("Accept-Ranges", "bytes");
         res.setHeader("Cache-Control", "public, max-age=86400");
+
+        const stream = file.createReadStream();
         stream.on("error", (err: Error) => {
           console.error("[MEDIA] Stream error:", err);
-          if (!res.headersSent) res.status(500).json({ error: "Stream error" });
+          if (!res.headersSent) res.status(500).end();
         });
         stream.pipe(res);
       }
