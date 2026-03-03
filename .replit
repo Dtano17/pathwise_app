@@ -61,3 +61,6 @@ integrations = ["javascript_websocket:1.0.0", "javascript_openai:1.0.0", "outloo
 
 [userenv.shared]
 BYPASS_CACHE = "true"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-da25a304-5912-42b9-b269-8baf2c5a6a69"
