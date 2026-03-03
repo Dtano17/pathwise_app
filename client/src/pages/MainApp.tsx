@@ -104,6 +104,7 @@ import {
   Loader2,
   Zap,
   Sparkles,
+  ChevronRight,
 } from "lucide-react";
 import DiscoverPlansView from "@/components/discover/DiscoverPlansView";
 import { Link } from "wouter";
@@ -2531,8 +2532,9 @@ export default function MainApp({
               className="w-full"
             >
               {/* Mobile Pill Navigation */}
-              <div className="sm:hidden mb-4 -mx-2 px-2 overflow-x-auto scrollbar-hide">
-                <div className="inline-flex items-center gap-1.5 py-1 w-max">
+              <div className="sm:hidden mb-4 -mx-2 relative">
+                <div className="px-2 overflow-x-auto scrollbar-hide">
+                <div className="inline-flex items-center gap-1.5 py-1 w-max pr-6">
                   {tabOptions.map((option) => {
                     const isActive = activeTab === option.value;
                     const IconComponent = option.icon;
@@ -2587,6 +2589,11 @@ export default function MainApp({
                       </button>
                     );
                   })}
+                </div>
+                </div>
+                {/* Scroll indicator with fade + animated chevron */}
+                <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background via-background/80 to-transparent pointer-events-none flex items-center justify-end pr-1">
+                  <ChevronRight className="w-4 h-4 text-muted-foreground animate-pulse" />
                 </div>
               </div>
 
@@ -4917,18 +4924,16 @@ export default function MainApp({
 
       <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
         <DialogContent
-          className="max-w-[95vw] sm:max-w-6xl h-[85vh] flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-primary/5 dark:to-primary/10 relative"
+          className="max-w-[100vw] sm:max-w-6xl h-[100dvh] sm:h-[85vh] top-0 sm:top-[50%] left-0 sm:left-[50%] translate-x-0 sm:translate-x-[-50%] translate-y-0 sm:translate-y-[-50%] rounded-none sm:rounded-lg flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-primary/5 dark:to-primary/10 p-3 sm:p-4"
           data-testid="modal-lifestyle-planner"
         >
-          {/* Decorative gradient orb */}
-          <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-          <DialogHeader className="pb-2 relative z-10" backLabel="Back to Home">
-            <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">Personal Journal</DialogTitle>
+          <DialogHeader className="pb-2" backLabel="Back to Home">
+            <DialogTitle className="text-xl sm:text-2xl font-bold">Personal Journal</DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Capture your unique interests, preferences, and personal notes
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto min-h-0 relative z-10">
+          <div className="flex-1 overflow-y-auto min-h-0">
             <PersonalJournal
               onClose={() => onShowLifestylePlanner(false)}
               onPlanWithSelected={(formattedText, mode) => {
