@@ -103,6 +103,7 @@ import {
   Link as LinkIcon,
   Loader2,
   Zap,
+  Sparkles,
 } from "lucide-react";
 import DiscoverPlansView from "@/components/discover/DiscoverPlansView";
 import { Link } from "wouter";
