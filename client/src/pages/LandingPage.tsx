@@ -62,8 +62,8 @@ import photoCelebrating from "../assets/photorealistic_celebrating.png";
 
 const allHeroVideos = [
   {
-    srcDesktop: "/hero-videos/landing_hero_web_video.mp4",
-    srcMobile: "/hero-videos/landing_hero_web_video.mp4",
+    srcDesktop: "/api/media/hero-videos/landing_hero_web_video.mp4",
+    srcMobile: "/api/media/hero-videos/landing_hero_web_video.mp4",
     caption: "The ultimate planning copilot. Turn inspiration into action."
   }
 ];

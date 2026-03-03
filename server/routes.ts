@@ -1429,6 +1429,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
 
+  // ========== APP STORAGE MEDIA PROXY ==========
+  // Serves videos and images from Replit App Storage bucket
+  // Works in both dev and production (bucket persists across deployments)
+  app.get("/api/media/*", async (req, res) => {
+    try {
+      const { Client } = await import("@replit/object-storage");
+      const client = new Client({ bucketId: "replit-objstore-da25a304-5912-42b9-b269-8baf2c5a6a69" });
+      const objectKey = (req.params as any)[0] as string;
+
+      const ext = objectKey.split(".").pop()?.toLowerCase() || "";
+      const contentTypes: Record<string, string> = {
+        mp4: "video/mp4", webm: "video/webm", ogg: "video/ogg",
+        png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+        gif: "image/gif", webp: "image/webp",
+      };
+      const contentType = contentTypes[ext] || "application/octet-stream";
+
+      const rangeHeader = req.headers.range;
+
+      // Check the object exists first
+      const { ok: existsOk, value: existsVal } = await client.exists(objectKey);
+      if (!existsOk || !existsVal) {
+        console.error("[MEDIA] Not found in bucket:", objectKey);
+        return res.status(404).json({ error: "Media not found" });
+      }
+
+      if (rangeHeader) {
+        // Range request (video seeking) — download bytes and slice
+        const { ok, value: bytes, error } = await client.downloadAsBytes(objectKey);
+        if (!ok || !bytes) {
+          console.error("[MEDIA] Download failed:", objectKey, error);
+          return res.status(500).json({ error: "Failed to download media" });
+        }
+        const buffer = Buffer.from(bytes);
+        const total = buffer.length;
+        const parts = rangeHeader.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : total - 1;
+        const chunkSize = end - start + 1;
+        res.status(206);
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${total}`);
+        res.setHeader("Accept-Ranges", "bytes");
+        res.setHeader("Content-Length", chunkSize);
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        return res.send(buffer.slice(start, end + 1));
+      } else {
+        // Full stream — downloadAsStream returns the stream directly
+        const stream = client.downloadAsStream(objectKey);
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Accept-Ranges", "bytes");
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        stream.on("error", (err: Error) => {
+          console.error("[MEDIA] Stream error:", err);
+          if (!res.headersSent) res.status(500).json({ error: "Stream error" });
+        });
+        stream.pipe(res);
+      }
+    } catch (err) {
+      console.error("[MEDIA] Error serving media:", err);
+      res.status(500).json({ error: "Failed to serve media" });
+    }
+  });
+
   // ========== ANDROID APP LINKS ==========
   // Digital Asset Links for Android App Links verification
   // Allows HTTPS links to journalmate.ai to open directly in the Android app
