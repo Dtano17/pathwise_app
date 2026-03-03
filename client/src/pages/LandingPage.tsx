@@ -43,6 +43,7 @@ import {
   Trophy,
   Heart,
   Leaf,
+  LogIn,
 } from "lucide-react";
 import { SiApple, SiGoogleplay, SiTiktok, SiYoutube } from "react-icons/si";
 import { motion, AnimatePresence } from "framer-motion";
@@ -60,18 +61,26 @@ import photoJournaling from "../assets/photorealistic_journaling.png";
 import photoCelebrating from "../assets/photorealistic_celebrating.png";
 
 const allHeroVideos = [
-  { src: "/hero-videos/golden.mp4", caption: "See an idea online, adapt it, and plan with your group to get things done." },
-  { src: "/hero-videos/soft.mp4", caption: "Grow together. Build your perfect routine and stay accountable." },
-  { src: "/hero-videos/soft_focus.mp4", caption: "Find inspiration, invite your circle, and achieve milestones." },
-  { src: "/hero-videos/terra.mp4", caption: "Plan with your group, hold each other accountable, and turn 'one day' into day one." },
-  { src: "/hero-videos/terra_earthy.mp4", caption: "Schedule constant breaks and meditation or make it the theme for the day." },
-  { src: "/hero-videos/terra_earthy_2.mp4", caption: "Stay in sync with your group. The ultimate planning copilot." },
-  { src: "/hero-videos/terra_earthy_3.mp4", caption: "Turn wellness into a shared journey. Plan and grow together." },
-  { src: "/hero-videos/plan_as_couple.mp4", caption: "Plan fun trips based on inspiration gotten online, just share with the app and start planning and add your team." },
-  { src: "/hero-videos/plan_trips_togther.mp4", caption: "Plan fun trips based on inspiration gotten online, just share with the app and start planning and add your team." }
+  {
+    srcDesktop: "/hero-videos/landing_hero_web_video.mp4",
+    srcMobile: "/hero-videos/landing_hero_web_video.mp4",
+    caption: "The ultimate planning copilot. Turn inspiration into action."
+  }
 ];
 
-const presetData: Record<string, { verb: string; noun: string; image: string[]; video?: { src: string; caption: string }[]; fonts: { heading: string; drama: string; data: string } }> = {
+const heroRotatingCaptions = [
+  "The ultimate planning copilot. Turn inspiration into action.",
+  "Never miss a spectacular moment again.",
+  "The best planning and accountability engine for your life.",
+  "Plan with family and friends, hold each other accountable.",
+  "See an idea online, adapt it, and plan with your group to get things done.",
+  "Grow together. Build your perfect routine and stay accountable.",
+  "Find inspiration, invite your circle, and achieve milestones.",
+  "Turn 'one day' into day one. Plan together, win together.",
+  "Turn wellness into a shared journey. Plan and grow together.",
+];
+
+const presetData: Record<string, { verb: string; noun: string; image: string[]; video?: { src?: string; srcDesktop?: string; srcMobile?: string; caption: string }[]; fonts: { heading: string; drama: string; data: string } }> = {
   "golden-hour": {
     verb: "Celebrate your",
     noun: "Moments.",
@@ -236,6 +245,15 @@ export default function LandingPage() {
   const textRefs = useRef<(HTMLElement | null)[]>([]);
   const imageRef = useRef<HTMLDivElement>(null); // This ref is now less critical for background, but kept for potential other animations
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0); // Combined index for images/videos
+  const [captionIndex, setCaptionIndex] = useState(0);
+
+  // Rotate hero captions every 6 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCaptionIndex((prev) => (prev + 1) % heroRotatingCaptions.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Reset media index when preset changes
   useEffect(() => {
@@ -327,7 +345,10 @@ export default function LandingPage() {
   } | null>(null);
 
   const handleImportSubmit = () => {
-    if (!importUrl.trim()) return;
+    if (!importUrl.trim()) {
+      navigate("/login");
+      return;
+    }
 
     // Validate URL
     if (!isValidUrl(importUrl)) {
@@ -375,44 +396,84 @@ export default function LandingPage() {
   return (
     <div className="h-screen w-full overflow-y-auto overflow-x-hidden bg-background text-foreground touch-pan-y scroll-smooth">
       <SEO {...PAGE_SEO.home} />
-      {/* Header - Welcome Bar (Pill) */}
-      <header className="fixed top-2 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[96vw] max-w-4xl bg-background/80 backdrop-blur-md rounded-full shadow-lg border border-border/50 transition-all duration-300">
-        <div className="px-2 py-1.5 sm:px-6 sm:py-3 flex items-center justify-between gap-1 sm:gap-4">
-          <div className="flex items-center min-w-0 gap-1.5 sm:gap-2">
-            <div className="flex-shrink-0">
-              <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate Icon" className="h-4 w-4 sm:h-8 sm:w-8 object-contain" />
+      {/* Header - Adaptive (Native Mobile vs Web Pill) */}
+      <header className="fixed top-0 sm:top-6 left-0 sm:left-1/2 sm:-translate-x-1/2 z-50 w-full sm:w-[95%] sm:max-w-4xl bg-background sm:bg-background/80 sm:backdrop-blur-md sm:rounded-full shadow-sm sm:shadow-lg border-b sm:border border-border/10 sm:border-border/50 transition-all duration-300">
+        <div className="flex flex-col sm:flex-row items-center justify-between w-full h-full">
+
+          {/* Top Row / Desktop Content */}
+          <div className="px-4 py-3 sm:px-6 sm:py-3 flex items-center justify-between w-full sm:h-16 relative">
+
+            {/* Logo container */}
+            <div className="flex items-center min-w-0 gap-2 z-10">
+              <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate Icon" className="h-7 w-7 sm:h-8 sm:w-8 object-contain shrink-0" />
+              <span className="font-bold text-[19px] sm:text-xl tracking-tight cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap text-foreground flex items-center pt-0.5">
+                JournalMate
+              </span>
             </div>
-            <span className="font-bold text-sm sm:text-xl tracking-tight cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap">
-              JournalMate
-            </span>
+
+            {/* Desktop Center Nav (Hidden on Mobile) */}
+            <div className="hidden sm:flex items-center gap-1 absolute left-1/2 -translate-x-1/2 w-max">
+              <Link href="/updates">
+                <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4" data-testid="link-updates">
+                  Updates
+                </Button>
+              </Link>
+              <Link href="/discover">
+                <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4" data-testid="link-discover">
+                  Discover
+                </Button>
+              </Link>
+              <Link href="/import-plan">
+                <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4" data-testid="link-import">
+                  Import
+                </Button>
+              </Link>
+            </div>
+
+            {/* Auth/Theme Menu */}
+            <div className="flex items-center gap-3 sm:gap-2 z-10">
+              <ThemeToggle />
+              <Link href="/login" className="flex items-center">
+                {/* Mobile Button - Outline slightly rounded */}
+                <Button size="sm" variant="outline" className="sm:hidden rounded-lg bg-transparent hover:bg-muted font-semibold px-4 h-8 text-[13px] border-border/50 text-foreground" data-testid="button-login-landing-mobile">
+                  Sign In
+                </Button>
+                {/* Desktop Button - Solid pill */}
+                <Button size="sm" className="hidden sm:flex rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6 h-9 text-sm shadow-sm hover:shadow-md transition-shadow" data-testid="button-login-landing-desktop">
+                  Sign In
+                </Button>
+              </Link>
+            </div>
           </div>
 
-          {/* Desktop Nav */}
-          <div className="hidden sm:flex items-center gap-1">
-            <Link href="/updates">
-              <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4 data-[active=true]:bg-muted" data-testid="link-updates">
-                Updates
-              </Button>
-            </Link>
-            <Link href="/discover">
-              <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4" data-testid="link-discover">
-                Discover
-              </Button>
-            </Link>
-            <Link href="/import-plan">
-              <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4" data-testid="link-import">
-                Import
-              </Button>
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <ThemeToggle />
-            <Link href="/login">
-              <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-3 sm:px-6 h-7 sm:h-9 text-[10px] sm:text-sm shadow-sm hover:shadow-md transition-shadow" data-testid="button-login-landing">
-                Sign In
-              </Button>
-            </Link>
+          {/* Mobile Bottom Row (Links) - Displayed below top-row */}
+          <div className="sm:hidden w-full">
+            {/* Inset elegant divider */}
+            <div className="mx-6 h-px bg-border/30"></div>
+            {/* Centered action buttons */}
+            <div className="flex items-center justify-center py-3 gap-2.5">
+              <Link href="/updates">
+                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40 font-medium text-[13px] shadow-sm flex items-center transition-colors" data-testid="link-updates-mobile">
+                  <Megaphone className="h-3.5 w-3.5 mr-1.5" />
+                  Updates
+                </Button>
+              </Link>
+              <Link href="/discover">
+                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800/50 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/40 font-medium text-[13px] shadow-sm flex items-center transition-colors" data-testid="link-discover-mobile">
+                  <Compass className="h-3.5 w-3.5 mr-1.5" />
+                  Discover
+                </Button>
+              </Link>
+              <Link href="/import-plan">
+                <Button variant="default" size="sm" className="h-8 px-3.5 rounded-full bg-violet-500 dark:bg-violet-600 hover:bg-violet-600 dark:hover:bg-violet-500 text-white font-medium text-[13px] shadow-sm flex items-center relative border border-transparent transition-colors" data-testid="link-import-mobile">
+                  <Upload className="h-3.5 w-3.5 mr-1.5" />
+                  Import
+                  <div className="absolute -top-1.5 -right-2 bg-emerald-500 border-2 border-background text-white text-[8px] font-bold px-1 py-px rounded-full tracking-wider shadow-sm uppercase">
+                    New
+                  </div>
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -431,25 +492,50 @@ export default function LandingPage() {
                 transition={{ duration: 1 }}
                 src={currentPresetData.image[currentMediaIndex % currentPresetData.image.length]}
                 alt="Ambient Background"
-                className="absolute inset-0 w-full h-full object-cover lg:object-cover object-center z-10"
+                className="absolute inset-0 w-full h-full object-cover object-center z-10"
               />
             )}
-            {currentPresetData.video && currentPresetData.video.length > 0 && (
-              <motion.video
-                key={`video-${preset}-${currentMediaIndex}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 1 }}
-                autoPlay
-                muted
-                playsInline
-                onEnded={handleVideoEnded}
-                className="absolute inset-0 w-full h-full object-cover lg:object-cover object-center z-10"
-              >
-                <source src={currentPresetData.video[currentMediaIndex % currentPresetData.video.length].src} type="video/mp4" />
-              </motion.video>
-            )}
+            {currentPresetData.video && currentPresetData.video.length > 0 && (() => {
+              const currentVideo = currentPresetData.video[currentMediaIndex % currentPresetData.video.length];
+              const isDesktopSource = !!currentVideo.srcDesktop;
+
+              return (
+                <>
+                  <motion.video
+                    key={`video-desktop-${preset}-${currentMediaIndex}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 1 }}
+                    autoPlay
+                    muted
+                    playsInline
+                    loop={currentPresetData.video.length === 1}
+                    onEnded={currentPresetData.video.length > 1 ? handleVideoEnded : undefined}
+                    className={`absolute inset-0 w-full h-full object-cover object-center z-10 ${isDesktopSource ? 'hidden md:block' : ''}`}
+                  >
+                    <source src={isDesktopSource ? currentVideo.srcDesktop : currentVideo.src} type="video/mp4" />
+                  </motion.video>
+                  {isDesktopSource && (
+                    <motion.video
+                      key={`video-mobile-${preset}-${currentMediaIndex}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 1 }}
+                      autoPlay
+                      muted
+                      playsInline
+                      loop={currentPresetData.video.length === 1}
+                      onEnded={currentPresetData.video.length > 1 ? handleVideoEnded : undefined}
+                      className="absolute inset-0 w-full h-full object-cover object-center z-10 block md:hidden"
+                    >
+                      <source src={currentVideo.srcMobile} type="video/mp4" />
+                    </motion.video>
+                  )}
+                </>
+              );
+            })()}
           </AnimatePresence>
 
           {/* Dark Overlay for Text Readability */}
@@ -507,17 +593,24 @@ export default function LandingPage() {
               <div className="pl-3 sm:pl-4 pr-1 sm:pr-2 text-primary">
                 <LinkIcon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
+              {/* Mobile input */}
               <input
                 type="url"
-                placeholder="Paste idea URL..."
-                className="flex-1 bg-transparent border-none focus:outline-none text-xs sm:text-sm data-[placeholder]:text-white/60 placeholder:text-white/60 w-full text-white sm:placeholder-shown:text-transparent"
+                placeholder="Paste any idea from social media..."
+                className="flex-1 bg-transparent border-none focus:outline-none text-xs placeholder:text-white/50 w-full text-white min-w-0 sm:hidden"
                 value={importUrl}
                 onChange={(e) => setImportUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleImportSubmit()}
               />
-              <span className="hidden sm:inline-block pointer-events-none absolute left-[44px] text-sm text-white/60 peer-focus:hidden opacity-100 transition-opacity">
-                {importUrl ? "" : "Paste any idea online from social media to journal or create plan..."}
-              </span>
+              {/* Desktop input */}
+              <input
+                type="url"
+                placeholder="Paste or copy any idea from social media or the web and start planning..."
+                className="flex-1 bg-transparent border-none focus:outline-none text-sm placeholder:text-white/50 w-full text-white min-w-0 hidden sm:block"
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleImportSubmit()}
+              />
               <Button
                 size="sm"
                 className="rounded-full bg-white text-black hover:bg-white/90 font-semibold px-4 sm:px-5 h-9 sm:h-10 ml-1 transition-transform hover:scale-105 border-0 shadow-lg shrink-0 text-xs sm:text-sm"
@@ -544,23 +637,21 @@ export default function LandingPage() {
             </span>
           </div>
 
-          {/* Dynamic Video Subscript */}
-          {currentPresetData.video && currentPresetData.video.length > 0 && (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`caption-${currentMediaIndex}`}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -5 }}
-                transition={{ duration: 0.8 }}
-                className="mt-6 sm:mt-8 px-4 sm:px-6 py-2 bg-black/20 backdrop-blur-sm rounded-full border border-white/5 shadow-diffuse-primary max-w-2xl"
-              >
-                <p className="text-xs sm:text-base text-white/80 font-medium italic tracking-wide max-w-[280px] sm:max-w-full mx-auto line-clamp-2 sm:line-clamp-none">
-                  "{currentPresetData.video[currentMediaIndex % currentPresetData.video.length].caption}"
-                </p>
-              </motion.div>
-            </AnimatePresence>
-          )}
+          {/* Rotating Hero Captions */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`caption-${captionIndex}`}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.8 }}
+              className="mt-6 sm:mt-8 px-4 sm:px-6 py-2 bg-black/20 backdrop-blur-sm rounded-full border border-white/5 shadow-diffuse-primary max-w-2xl"
+            >
+              <p className="text-xs sm:text-base text-white/80 font-medium italic tracking-wide max-w-[280px] sm:max-w-full mx-auto line-clamp-2 sm:line-clamp-none">
+                "{heroRotatingCaptions[captionIndex]}"
+              </p>
+            </motion.div>
+          </AnimatePresence>
 
         </div>
       </section>
@@ -720,7 +811,7 @@ export default function LandingPage() {
           <div className="flex flex-col lg:flex-row gap-12 items-center max-w-7xl mx-auto">
             {/* Dynamic Large Image Left Side */}
             <div className="w-full lg:w-1/2 relative lg:pr-8">
-              <div className="relative w-full aspect-[4/3] sm:aspect-square lg:aspect-[4/5] rounded-[2rem] sm:rounded-[3rem] overflow-hidden shadow-2xl group border border-border/20">
+              <div className="relative w-full aspect-[3/4] sm:aspect-square lg:aspect-[4/5] rounded-[2rem] sm:rounded-[3rem] overflow-hidden shadow-2xl group border border-border/20">
                 <AnimatePresence mode="wait">
                   <motion.img
                     key={`journey-img-${currentMediaIndex}`}
@@ -735,9 +826,9 @@ export default function LandingPage() {
                 </AnimatePresence>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none z-10"></div>
 
-                <div className="absolute bottom-8 left-8 right-8">
-                  <div className="bg-white/20 backdrop-blur-md rounded-2xl p-6 border border-white/30 text-white shadow-xl transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
-                    <p className="text-lg font-medium drop-shadow-sm">"Morning wellness check-in complete! We finally booked the trip!" 🎉</p>
+                <div className="absolute bottom-5 left-5 right-5 sm:bottom-8 sm:left-8 sm:right-8 z-20">
+                  <div className="bg-white/20 backdrop-blur-md rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/30 text-white shadow-xl transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                    <p className="text-base sm:text-lg font-medium drop-shadow-sm">"Morning wellness check-in complete! We finally booked the trip!" 🎉</p>
                     <div className="flex items-center gap-3 mt-4">
                       <div className="flex -space-x-2">
                         <img src="https://i.pravatar.cc/100?img=1" className="w-8 h-8 rounded-full border-2 border-white/50" />

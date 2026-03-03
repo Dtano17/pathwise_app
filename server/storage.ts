@@ -3060,10 +3060,44 @@ export class DatabaseStorage implements IStorage {
       userHasPinned: pinnedActivityIds.has(activity.id)
     }));
 
-    // Sort by userHasPinned first, then by trendingScore descending
+    // Seasonal relevance scoring
+    const month = new Date().getMonth();
+    let currentSeason = 'winter';
+    if (month >= 2 && month <= 4) currentSeason = 'spring';
+    else if (month >= 5 && month <= 7) currentSeason = 'summer';
+    else if (month >= 8 && month <= 10) currentSeason = 'fall';
+
+    const seasonKeywords: Record<string, string[]> = {
+      spring: ["spring", "easter", "garden", "hiking", "brunch", "cherry-blossom", "picnic"],
+      summer: ["summer", "beach", "bbq", "4th-of-july", "pool", "camping", "waterpark", "road-trip"],
+      fall: ["fall", "autumn", "thanksgiving", "halloween", "harvest", "football", "pumpkin"],
+      winter: ["winter", "christmas", "holiday", "ski", "new-year", "cozy", "snow"],
+    };
+
+    const getSeasonalScore = (activity: Activity): number => {
+      const text = `${activity.title ?? ''} ${activity.description ?? ''} ${(activity.tags ?? []).join(' ')}`.toLowerCase();
+      const currentKeywords = seasonKeywords[currentSeason] || [];
+      const otherKeywords = Object.entries(seasonKeywords)
+        .filter(([s]) => s !== currentSeason)
+        .flatMap(([, kw]) => kw);
+
+      const matchesCurrent = currentKeywords.some(kw => text.includes(kw));
+      const matchesOther = otherKeywords.some(kw => text.includes(kw));
+
+      if (matchesCurrent) return 1;   // Boost: current season
+      if (matchesOther) return -1;     // Demote: off-season
+      return 0;                        // Neutral: year-round
+    };
+
+    // Sort by: pinned first → seasonal relevance → trendingScore descending
     resultsWithPins.sort((a, b) => {
       if (a.userHasPinned !== b.userHasPinned) {
         return a.userHasPinned ? -1 : 1;
+      }
+      const seasonA = getSeasonalScore(a);
+      const seasonB = getSeasonalScore(b);
+      if (seasonA !== seasonB) {
+        return seasonB - seasonA; // Higher score first
       }
       return (b.trendingScore ?? 0) - (a.trendingScore ?? 0);
     });

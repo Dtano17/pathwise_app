@@ -1285,7 +1285,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
           </div>
         </Card>
       ) : (
-        <div ref={containerRef} className="columns-1 sm:columns-2 lg:columns-3 gap-6 sm:gap-8 pb-10">
+        <div ref={containerRef} className="columns-1 sm:columns-2 lg:columns-3 gap-3 sm:gap-4 pb-10">
           {plans.map((plan) => {
             const stockImage = getStockImage(plan.backdrop);
             const planTypeBadge = getPlanTypeBadge(plan.planType, plan.trendingScore);
@@ -1306,11 +1306,11 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
             const isSelected = selectedForRemix.has(plan.id);
 
             return (
-              <div key={plan.id} className="break-inside-avoid inline-block w-full mb-6 sm:mb-8">
+              <div key={plan.id} className="break-inside-avoid inline-block w-full mb-4 sm:mb-6">
                 <HoverCard openDelay={300} closeDelay={200}>
                   <HoverCardTrigger asChild>
                     <Card
-                      className={`plan-card-animate flex flex-col group hover-squish cursor-pointer relative overflow-hidden bg-card border-0 rounded-[2rem] ${remixMode && isSelected ? 'ring-2 ring-primary ring-offset-2' : 'shadow-md hover:shadow-xl transition-all duration-500'}`}
+                      className={`plan-card-animate flex flex-col group cursor-pointer relative overflow-hidden bg-card border border-border/5 rounded-2xl ${remixMode && isSelected ? 'ring-2 ring-primary ring-offset-2' : 'shadow-sm hover:shadow-lg transition-all duration-300'}`}
                       onClick={() => {
                         if (remixMode) {
                           toggleRemixSelection(plan.id);
@@ -1321,24 +1321,24 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                       data-testid={`card-plan-${plan.id}`}
                     >
 
-
-                      {/* HERO IMAGE takes precedence in Masonry */}
+                      {/* HERO IMAGE */}
                       {stockImage ? (
-                        <div className="relative w-full bg-muted overflow-hidden rounded-t-[2rem]">
+                        <div className="relative w-full bg-muted overflow-hidden">
                           <img
                             src={stockImage}
                             alt={plan.title}
-                            className="w-full h-auto object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                            className="w-full h-auto object-cover object-center transition-transform duration-500 group-hover:scale-[1.03]"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             data-testid={`img-plan-backdrop-${plan.id}`}
                           />
-                          {/* Overlay Gradient for readability of badges on top edge */}
-                          <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />
+                          {/* Subtle top gradient for badge readability */}
+                          <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/40 to-transparent pointer-events-none" />
 
-                          {/* Tags on Image Top */}
-                          <div className="absolute top-4 left-4 flex flex-col gap-2">
+                          {/* Badges */}
+                          <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                             {plan.category && (
                               <Badge
-                                className={`w-fit ${getCategoryColor(plan.category)} text-white border-0 shadow-lg px-2.5 py-0.5 bg-opacity-90 backdrop-blur-md`}
+                                className={`w-fit ${getCategoryColor(plan.category)} text-white border-0 shadow-md px-2 py-0.5 text-[10px] backdrop-blur-sm`}
                                 data-testid={`badge-category-${plan.id}`}
                               >
                                 {plan.category}
@@ -1346,7 +1346,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                             )}
                             {planTypeBadge.type !== 'community' && (
                               <div
-                                className="w-fit px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-white border flex items-center gap-1 shadow-lg backdrop-blur-md"
+                                className="w-fit px-2 py-0.5 rounded-full text-[10px] font-semibold text-white border flex items-center gap-1 shadow-md backdrop-blur-sm"
                                 style={{ backgroundColor: planTypeBadge.bgColor, borderColor: planTypeBadge.borderColor }}
                                 data-testid={`badge-plan-type-${plan.id}`}
                                 aria-label={planTypeBadge.ariaLabel}
@@ -1360,77 +1360,68 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                           </div>
                         </div>
                       ) : (
-                        <div className="p-5 pb-0">
+                        <div className="px-4 pt-4 pb-0">
                           <div className="flex items-center gap-2">
                             {plan.category && (
-                              <Badge className={`${getCategoryColor(plan.category)} text-white border-0`}>{plan.category}</Badge>
+                              <Badge className={`${getCategoryColor(plan.category)} text-white border-0 text-[10px]`}>{plan.category}</Badge>
                             )}
                           </div>
                         </div>
                       )}
 
-                      {/* Masonry Card Content */}
-                      <CardContent className="p-4 pt-3 pb-2 flex-grow flex flex-col gap-2">
-                        {/* Title & Description */}
-                        <div className="space-y-1">
-                          <h3 className="font-bold text-base leading-snug line-clamp-2" data-testid={`text-plan-title-${plan.id}`}>
-                            {plan.title}
-                          </h3>
-                          {plan.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2" data-testid={`text-plan-description-${plan.id}`}>
-                              {plan.description}
-                            </p>
-                          )}
-                        </div>
+                      {/* Card Content */}
+                      <CardContent className="px-3.5 pt-3 pb-1.5 flex-grow flex flex-col gap-1.5">
+                        <h3 className="font-semibold text-sm leading-snug line-clamp-2" data-testid={`text-plan-title-${plan.id}`}>
+                          {plan.title}
+                        </h3>
+                        {plan.description && (
+                          <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2" data-testid={`text-plan-description-${plan.id}`}>
+                            {plan.description}
+                          </p>
+                        )}
 
-                        {/* Social Footer: Creator and Meta */}
-                        <div className="flex items-center justify-between mt-auto pt-2">
-                          {/* Creator Info */}
-                          <div className="flex items-center gap-2">
-                            <Avatar className="w-6 h-6 border border-primary/10">
-                              <AvatarImage src={plan.creatorAvatar || undefined} />
-                              <AvatarFallback className="bg-primary/5 text-[10px] text-primary">{getInitials(plan.creatorName || "User")}</AvatarFallback>
-                            </Avatar>
-                            <span className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline cursor-pointer">{plan.creatorName || "Community Member"}</span>
-                          </div>
+                        {/* Creator row */}
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Avatar className="w-5 h-5 shrink-0">
+                            <AvatarImage src={plan.creatorAvatar || undefined} />
+                            <AvatarFallback className="bg-primary/10 text-[8px] font-semibold text-primary">{getInitials(plan.creatorName || "User")}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-[11px] text-muted-foreground truncate">{plan.creatorName || "Community Member"}</span>
                         </div>
                       </CardContent>
 
-                      {/* Interaction Bar (Like, Bookmark, Views) */}
-                      <div className="flex items-center justify-between px-4 pb-4 pt-0 bg-transparent">
-                        <div className="flex items-center gap-1">
+                      {/* Interaction Bar */}
+                      <div className="flex items-center justify-between px-3.5 pb-3 pt-1.5">
+                        <div className="flex items-center gap-0.5">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleToggleLike(plan.id, plan.userHasLiked || false);
                             }}
-                            className="p-1.5 -ml-1.5 rounded-full hover:bg-primary/10 transition-colors flex items-center gap-1"
+                            className="p-1 rounded-full hover:bg-primary/10 transition-colors flex items-center gap-0.5"
                             data-testid={`button-like-${plan.id}`}
                           >
-                            <Heart className={`w-4 h-4 ${plan.userHasLiked ? "fill-red-500 text-red-500" : "text-foreground"}`} />
-                            <span className="text-xs font-medium text-muted-foreground">{plan.likeCount || 0}</span>
+                            <Heart className={`w-3.5 h-3.5 ${plan.userHasLiked ? "fill-red-500 text-red-500" : "text-muted-foreground"}`} />
+                            <span className="text-[11px] text-muted-foreground">{plan.likeCount || 0}</span>
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleToggleBookmark(plan.id, plan.userHasBookmarked || false);
                             }}
-                            className="p-1.5 rounded-full hover:bg-primary/10 transition-colors flex items-center gap-1"
+                            className="p-1 rounded-full hover:bg-primary/10 transition-colors flex items-center gap-0.5"
                             data-testid={`button-bookmark-${plan.id}`}
                           >
-                            <Bookmark className={`w-4 h-4 ${plan.userHasBookmarked ? "fill-primary text-primary" : "text-foreground"}`} />
-                            <span className="text-xs font-medium text-muted-foreground">{plan.bookmarkCount || 0}</span>
+                            <Bookmark className={`w-3.5 h-3.5 ${plan.userHasBookmarked ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                            <span className="text-[11px] text-muted-foreground">{plan.bookmarkCount || 0}</span>
                           </button>
                         </div>
 
-                        {/* Stats Summary */}
-                        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                          {plan.budget && plan.budget > 0 && (
-                            <span className="flex items-center gap-1 font-semibold text-primary">
-                              {formatBudget(plan.budget)}
-                            </span>
-                          )}
-                        </div>
+                        {plan.budget && plan.budget > 0 && (
+                          <span className="text-[11px] font-semibold text-primary">
+                            {formatBudget(plan.budget)}
+                          </span>
+                        )}
                       </div>
                     </Card>
                   </HoverCardTrigger>

@@ -1590,40 +1590,46 @@ export default function PersonalJournal({ onClose, onPlanWithSelected }: Persona
   }, []);
 
   return (
-    <div className="h-full flex flex-col p-2 sm:p-4">
+    <div className="h-full flex flex-col p-2 sm:p-4 relative">
+      {/* Decorative background orbs */}
+      <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-48 h-48 bg-accent/5 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4 pointer-events-none" />
+
       {/* Feature Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <div className="flex items-center gap-2 mb-4">
-          <TabsList className="flex-1 flex-wrap h-auto gap-1 p-1">
-            <TabsTrigger value="journal" className="flex-1 gap-2 min-h-[44px]" data-testid="tab-journal">
-              <BookOpen className="w-4 h-4" />
-              <span className="hidden sm:inline">Journal</span>
-            </TabsTrigger>
-            <TabsTrigger value="prompts" className="flex-1 gap-2 min-h-[44px]" data-testid="tab-prompts">
-              <Wand2 className="w-4 h-4" />
-              <span className="hidden sm:inline">AI Prompts</span>
-            </TabsTrigger>
-            <TabsTrigger value="packs" className="flex-1 gap-2 min-h-[44px]" data-testid="tab-packs">
-              <Package className="w-4 h-4" />
-              <span className="hidden sm:inline">Packs</span>
-            </TabsTrigger>
-            <TabsTrigger value="templates" className="flex-1 gap-2 min-h-[44px]" data-testid="tab-templates">
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">Templates</span>
-            </TabsTrigger>
-            <TabsTrigger value="insights" className="flex-1 gap-2 min-h-[44px]" data-testid="tab-insights">
-              <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">Insights</span>
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex items-center gap-1.5 mb-4">
+          <div className="flex-1 overflow-x-auto scrollbar-hide -mx-1 px-1">
+            <TabsList className="inline-flex w-max gap-0.5 p-0.5 h-auto bg-muted/40 backdrop-blur-sm rounded-xl border border-border/30">
+              <TabsTrigger value="journal" className="gap-1 px-2.5 sm:px-4 py-2 rounded-lg whitespace-nowrap text-[11px] sm:text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200" data-testid="tab-journal">
+                <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span>Log</span>
+              </TabsTrigger>
+              <TabsTrigger value="prompts" className="gap-1 px-2.5 sm:px-4 py-2 rounded-lg whitespace-nowrap text-[11px] sm:text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200" data-testid="tab-prompts">
+                <Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span>Prompts</span>
+              </TabsTrigger>
+              <TabsTrigger value="packs" className="gap-1 px-2.5 sm:px-4 py-2 rounded-lg whitespace-nowrap text-[11px] sm:text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200" data-testid="tab-packs">
+                <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span>Packs</span>
+              </TabsTrigger>
+              <TabsTrigger value="templates" className="gap-1 px-2.5 sm:px-4 py-2 rounded-lg whitespace-nowrap text-[11px] sm:text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200" data-testid="tab-templates">
+                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span>Custom</span>
+              </TabsTrigger>
+              <TabsTrigger value="insights" className="gap-1 px-2.5 sm:px-4 py-2 rounded-lg whitespace-nowrap text-[11px] sm:text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200" data-testid="tab-insights">
+                <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span>Stats</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setShowSettingsDialog(true)}
-            className="flex-shrink-0 min-h-[44px] min-w-[44px]"
+            className="flex-shrink-0 h-8 w-8 rounded-lg hover:bg-muted/60"
             data-testid="button-journal-settings"
           >
-            <Settings className="w-5 h-5" />
+            <Settings className="w-3.5 h-3.5" />
           </Button>
         </div>
 
@@ -1632,11 +1638,13 @@ export default function PersonalJournal({ onClose, onPlanWithSelected }: Persona
           <div className="h-full flex flex-col lg:flex-row gap-4">
             {/* Sidebar - Categories */}
             <div className="w-full lg:w-64 flex-shrink-0">
-              <Card className="border-none shadow-sm bg-card/50 backdrop-blur">
+              <Card className="border border-border/30 shadow-md bg-card/60 backdrop-blur-sm rounded-xl">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                      <BookOpen className="w-5 h-5 text-primary" />
+                    <CardTitle className="text-base sm:text-lg flex items-center gap-2 font-bold">
+                      <div className="p-1.5 rounded-lg bg-primary/10">
+                        <BookOpen className="w-4 h-4 text-primary" />
+                      </div>
                       My Journal
                     </CardTitle>
                     <Button
@@ -1674,11 +1682,11 @@ export default function PersonalJournal({ onClose, onPlanWithSelected }: Persona
                     <div key={category.id} className="relative group">
                       <Button
                         variant={isActive ? "secondary" : "ghost"}
-                        className={`w-full justify-start gap-3 h-auto py-3 px-3 min-h-[44px] ${isActive ? 'bg-primary/10' : ''} ${showCategoryActions ? 'pr-16' : ''}`}
+                        className={`w-full justify-start gap-3 h-auto py-3 px-3 min-h-[44px] rounded-xl transition-all duration-200 ${isActive ? 'bg-primary/10 shadow-sm border border-primary/20' : 'hover:bg-muted/60'} ${showCategoryActions ? 'pr-16' : ''}`}
                         onClick={() => setActiveCategory(category.id)}
                         data-testid={`category-${category.id}`}
                       >
-                        <div className={`p-2 rounded-lg bg-gradient-to-br ${category.color} text-white flex-shrink-0`}>
+                        <div className={`p-2 rounded-lg bg-gradient-to-br ${category.color} text-white flex-shrink-0 shadow-sm`}>
                           <Icon className="w-4 h-4" />
                         </div>
                         <div className="flex-1 text-left">

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'wouter';
-import { 
-  ArrowLeft, 
-  Sparkles, 
-  Check, 
-  X, 
-  Loader2, 
+import { useLocation, Link } from 'wouter';
+import {
+  ArrowLeft,
+  Sparkles,
+  Check,
+  X,
+  Loader2,
   ClipboardPaste,
   Trash2,
   Plus,
@@ -15,10 +15,18 @@ import {
   GripVertical,
   BookOpen,
   FileText,
-  Link,
+  Link2,
   Image,
   Video,
-  LogIn
+  LogIn,
+  Megaphone,
+  Compass,
+  Upload,
+  Wand2,
+  Zap,
+  Globe,
+  ArrowRight,
+  Smartphone,
 } from 'lucide-react';
 import { SiInstagram, SiTiktok, SiYoutube, SiX, SiFacebook, SiReddit, SiOpenai, SiAnthropic, SiGooglegemini } from 'react-icons/si';
 import { Button } from '@/components/ui/button';
@@ -34,15 +42,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue 
+  SelectValue
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useAIPlanImport, useClipboardImport, type ParsedTask } from '@/hooks/useAIPlanImport';
+import { useAIPlanImport, type ParsedTask } from '@/hooks/useAIPlanImport';
 import { useAuth } from '@/hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SocialMediaShareDialog } from '@/components/SocialMediaShareDialog';
@@ -58,13 +66,16 @@ function GlassCard({ children, className = '' }: { children: React.ReactNode; cl
   );
 }
 
-
 function SourcePill({ icon: Icon, label, color, tooltip }: { icon: any; label: string; color: string; tooltip?: string }) {
   const pill = (
-    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium ${color} ${tooltip ? 'cursor-help' : ''}`}>
-      <Icon className="w-3.5 h-3.5" />
+    <motion.div
+      whileHover={{ scale: 1.05, y: -1 }}
+      whileTap={{ scale: 0.97 }}
+      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium ${color} ${tooltip ? 'cursor-help' : 'cursor-default'} transition-shadow hover:shadow-md border border-transparent hover:border-white/30 dark:hover:border-white/10`}
+    >
+      <Icon className="w-4 h-4" />
       <span>{label}</span>
-    </div>
+    </motion.div>
   );
 
   if (tooltip) {
@@ -108,180 +119,325 @@ function LoadingState({ message }: { message?: string }) {
 }
 
 function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isLoading?: boolean }) {
+  const sourceCategories = [
+    {
+      title: 'Social Media',
+      icon: Globe,
+      sources: [
+        { icon: SiInstagram, label: 'Instagram', color: 'bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30 text-pink-600 dark:text-pink-400', tooltip: 'Paste URL like instagram.com/p/ABC123 or use share sheet' },
+        { icon: SiTiktok, label: 'TikTok', color: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300', tooltip: 'Paste video URL or share from TikTok app' },
+        { icon: SiYoutube, label: 'YouTube', color: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400', tooltip: 'Paste video URL - we\'ll transcribe it' },
+        { icon: SiX, label: 'Twitter/X', color: 'bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400', tooltip: 'Paste tweet URL' },
+        { icon: SiFacebook, label: 'Facebook', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400', tooltip: 'Paste post URL' },
+        { icon: SiReddit, label: 'Reddit', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400', tooltip: 'Paste thread or comment URL' },
+      ]
+    },
+    {
+      title: 'AI Chats',
+      icon: Sparkles,
+      sources: [
+        { icon: SiOpenai, label: 'ChatGPT', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400', tooltip: 'Copy conversation or paste share URL' },
+        { icon: SiAnthropic, label: 'Claude', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400', tooltip: 'Copy conversation or paste share URL' },
+        { icon: SiGooglegemini, label: 'Gemini', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400', tooltip: 'Copy conversation or paste share URL' },
+      ]
+    },
+    {
+      title: 'Files & Links',
+      icon: FileText,
+      sources: [
+        { icon: Link2, label: 'Articles', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400', tooltip: 'Paste article URL' },
+        { icon: FileText, label: 'Docs', color: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400', tooltip: 'Upload Word, PDF, or text files' },
+        { icon: Image, label: 'Images', color: 'bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400', tooltip: 'Upload images with text/plans' },
+        { icon: FileText, label: 'PDFs', color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400', tooltip: 'Upload PDF documents' },
+        { icon: Video, label: 'Videos', color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400', tooltip: 'Upload or paste video URLs' },
+      ]
+    }
+  ];
+
+  const steps = [
+    { icon: ClipboardPaste, title: 'Paste or Share', description: 'Copy a link or content from any app' },
+    { icon: Wand2, title: 'AI Extracts', description: 'We pull out the key info automatically' },
+    { icon: Zap, title: 'Get Your Plan', description: 'Actionable tasks added to your journal' },
+  ];
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center justify-center py-8 px-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex flex-col items-center"
     >
-      
-      <div className="mt-6 mb-4 text-center">
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
-          Import Content to Plan
-        </h2>
-        <p className="text-slate-500 dark:text-slate-400 max-w-sm">
-          Share or paste content from anywhere. We'll extract it, create an actionable plan, and add it to your journal.
-        </p>
+      {/* Hero Section */}
+      <div className="relative w-full overflow-hidden rounded-t-2xl">
+        {/* Animated gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 dark:from-violet-900 dark:via-purple-900 dark:to-indigo-950" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-400/20 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-cyan-400/15 via-transparent to-transparent" />
+
+        {/* Floating orbs */}
+        <motion.div
+          animate={{ y: [0, -15, 0], x: [0, 8, 0] }}
+          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute top-8 right-12 w-32 h-32 bg-white/10 rounded-full blur-2xl"
+        />
+        <motion.div
+          animate={{ y: [0, 12, 0], x: [0, -6, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+          className="absolute bottom-4 left-8 w-24 h-24 bg-pink-300/15 rounded-full blur-2xl"
+        />
+        <motion.div
+          animate={{ scale: [1, 1.15, 1] }}
+          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-violet-300/10 rounded-full blur-3xl"
+        />
+
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+
+        <div className="relative z-10 px-6 pt-10 pb-8 sm:px-10 sm:pt-14 sm:pb-10 text-center">
+          {/* Icon badge */}
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
+            className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 mb-5 shadow-2xl"
+          >
+            <Upload className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+          </motion.div>
+
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-2xl sm:text-3xl font-extrabold text-white mb-3 tracking-tight drop-shadow-md"
+          >
+            Import Content to Plan
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-white/75 max-w-md mx-auto text-sm sm:text-base leading-relaxed"
+          >
+            Paste a link, share from any app, or copy your AI chat. We'll turn it into an actionable plan.
+          </motion.p>
+
+          {/* CTA Button in hero */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45 }}
+            className="mt-7"
+          >
+            <div className="relative inline-flex group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-pink-400 via-white/50 to-cyan-400 rounded-full blur opacity-30 group-hover:opacity-60 transition duration-700" />
+              <Button
+                onClick={onPasteClick}
+                disabled={isLoading}
+                size="lg"
+                className="relative bg-white text-purple-700 hover:bg-white/95 hover:scale-[1.03] font-bold px-8 sm:px-10 rounded-full shadow-xl transition-all duration-200 text-base"
+                data-testid="button-paste-plan"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <ClipboardPaste className="w-5 h-5 mr-2" />
+                    Paste from Clipboard
+                  </>
+                )}
+              </Button>
+            </div>
+          </motion.div>
+        </div>
       </div>
 
-      <TooltipProvider>
-        <div className="w-full max-w-2xl mb-6">
-          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 text-center">
-            Supported Sources
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Social Media</div>
-              <div className="flex flex-wrap gap-1.5">
-                <SourcePill icon={SiInstagram} label="Instagram" color="bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30 text-pink-600 dark:text-pink-400" tooltip="Paste URL like instagram.com/p/ABC123 or use share sheet" />
-                <SourcePill icon={SiTiktok} label="TikTok" color="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300" tooltip="Paste video URL or share from TikTok app" />
-                <SourcePill icon={SiYoutube} label="YouTube" color="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" tooltip="Paste video URL - we'll transcribe it" />
-                <SourcePill icon={SiX} label="Twitter/X" color="bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400" tooltip="Paste tweet URL" />
-                <SourcePill icon={SiFacebook} label="Facebook" color="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" tooltip="Paste post URL" />
-                <SourcePill icon={SiReddit} label="Reddit" color="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400" tooltip="Paste thread or comment URL" />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">AI & Files</div>
-              <div className="flex flex-wrap gap-1.5">
-                <SourcePill icon={SiOpenai} label="ChatGPT" color="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" tooltip="Copy conversation or paste share URL" />
-                <SourcePill icon={SiAnthropic} label="Claude" color="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" tooltip="Copy conversation or paste share URL" />
-                <SourcePill icon={SiGooglegemini} label="Gemini" color="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" tooltip="Copy conversation or paste share URL" />
-                <SourcePill icon={Link} label="Articles" color="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" tooltip="Paste article URL" />
-                <SourcePill icon={FileText} label="Docs" color="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400" tooltip="Upload Word, PDF, or text files" />
-                <SourcePill icon={Image} label="Images" color="bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" tooltip="Upload images with text/plans" />
-                <SourcePill icon={FileText} label="PDFs" color="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400" tooltip="Upload PDF documents" />
-                <SourcePill icon={Video} label="Videos" color="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400" tooltip="Upload or paste video URLs" />
-              </div>
-            </div>
-          </div>
-
-          {/* Collapsible Import Guide */}
-          <Accordion type="single" collapsible className="mb-4">
-            <AccordionItem value="import-guide" className="border rounded-lg px-4">
-              <AccordionTrigger className="text-sm font-medium hover:no-underline">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4" />
-                  <span>📘 How to Import from ChatGPT, Claude, Gemini & Social Media</span>
+      {/* How It Works Steps */}
+      <div className="w-full px-5 sm:px-8 -mt-1 relative z-10">
+        <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 dark:border-slate-700/50 p-5 shadow-lg">
+          <div className="grid grid-cols-3 gap-3 sm:gap-6">
+            {steps.map((step, i) => (
+              <motion.div
+                key={step.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 + i * 0.1 }}
+                className="flex flex-col items-center text-center"
+              >
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-2 ${
+                  i === 0 ? 'bg-violet-100 dark:bg-violet-900/40' :
+                  i === 1 ? 'bg-pink-100 dark:bg-pink-900/40' :
+                  'bg-emerald-100 dark:bg-emerald-900/40'
+                }`}>
+                  <step.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                    i === 0 ? 'text-violet-600 dark:text-violet-400' :
+                    i === 1 ? 'text-pink-600 dark:text-pink-400' :
+                    'text-emerald-600 dark:text-emerald-400'
+                  }`} />
                 </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <Tabs defaultValue="chatgpt" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="chatgpt" className="text-xs">ChatGPT</TabsTrigger>
-                    <TabsTrigger value="claude" className="text-xs">Claude</TabsTrigger>
-                    <TabsTrigger value="gemini" className="text-xs">Gemini</TabsTrigger>
-                    <TabsTrigger value="social" className="text-xs">Social</TabsTrigger>
-                  </TabsList>
+                <h4 className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-white">{step.title}</h4>
+                <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">{step.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
 
-                  <TabsContent value="chatgpt" className="mt-4 space-y-3 text-sm">
-                    <div>
-                      <p className="font-semibold mb-2">Method 1: Copy & Paste</p>
-                      <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
-                        <li>Go to your ChatGPT conversation</li>
-                        <li>Select all text (Ctrl+A / Cmd+A)</li>
-                        <li>Copy (Ctrl+C / Cmd+C)</li>
-                        <li>Click "Paste from Clipboard" below</li>
-                      </ol>
-                    </div>
-                    <div>
-                      <p className="font-semibold mb-2">Method 2: Share Link</p>
-                      <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
-                        <li>Click Share button in ChatGPT</li>
-                        <li>Copy the share URL</li>
-                        <li>Paste URL below and click Parse</li>
-                      </ol>
-                      <code className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded mt-2 block">
-                        https://chat.openai.com/share/abc-123
-                      </code>
-                    </div>
-                  </TabsContent>
+      {/* Supported Sources */}
+      <TooltipProvider>
+        <div className="w-full px-5 sm:px-8 mt-6 mb-2">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.7 }}
+          >
+            <h3 className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 text-center">
+              Supported Sources
+            </h3>
 
-                  <TabsContent value="claude" className="mt-4 space-y-3 text-sm">
-                    <div>
-                      <p className="font-semibold mb-2">Method 1: Copy & Paste</p>
-                      <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
-                        <li>Go to your Claude conversation</li>
-                        <li>Select all text (Ctrl+A / Cmd+A)</li>
-                        <li>Copy (Ctrl+C / Cmd+C)</li>
-                        <li>Click "Paste from Clipboard" below</li>
-                      </ol>
+            <div className="space-y-5">
+              {sourceCategories.map((cat, catIdx) => (
+                <motion.div
+                  key={cat.title}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.8 + catIdx * 0.1 }}
+                >
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <div className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                      <cat.icon className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                     </div>
-                    <div>
-                      <p className="font-semibold mb-2">Method 2: Share Link</p>
-                      <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
-                        <li>Click Share in Claude</li>
-                        <li>Copy the share URL</li>
-                        <li>Paste URL below and click Parse</li>
-                      </ol>
-                    </div>
-                  </TabsContent>
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{cat.title}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {cat.sources.map((source) => (
+                      <SourcePill key={source.label} icon={source.icon} label={source.label} color={source.color} tooltip={source.tooltip} />
+                    ))}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
 
-                  <TabsContent value="gemini" className="mt-4 space-y-3 text-sm">
-                    <div>
-                      <p className="font-semibold mb-2">Copy & Paste from Gemini</p>
-                      <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
-                        <li>Create your plan in Gemini (with images if needed)</li>
-                        <li>Copy the conversation text</li>
-                        <li>Click "Paste from Clipboard" below</li>
-                      </ol>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                        💡 Gemini's multimodal plans work great! We'll extract the action items.
-                      </p>
-                    </div>
-                  </TabsContent>
+          {/* Import Guide */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.1 }}
+            className="mt-6"
+          >
+            <Accordion type="single" collapsible>
+              <AccordionItem value="import-guide" className="border border-slate-200/60 dark:border-slate-700/50 rounded-xl px-4 bg-slate-50/50 dark:bg-slate-800/30">
+                <AccordionTrigger className="text-sm font-medium hover:no-underline py-3">
+                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                    <BookOpen className="w-4 h-4" />
+                    <span>How to Import from ChatGPT, Claude, Gemini & Social Media</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <Tabs defaultValue="chatgpt" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4 h-9">
+                      <TabsTrigger value="chatgpt" className="text-xs">ChatGPT</TabsTrigger>
+                      <TabsTrigger value="claude" className="text-xs">Claude</TabsTrigger>
+                      <TabsTrigger value="gemini" className="text-xs">Gemini</TabsTrigger>
+                      <TabsTrigger value="social" className="text-xs">Social</TabsTrigger>
+                    </TabsList>
 
-                  <TabsContent value="social" className="mt-4 space-y-3 text-sm">
-                    <div>
-                      <p className="font-semibold mb-2">Instagram / TikTok / YouTube</p>
-                      <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
-                        <li>Find the post/video you want to save</li>
-                        <li>Tap Share → Copy Link</li>
-                        <li>Paste the URL below</li>
-                        <li>We'll extract the recipe, workout, or tutorial</li>
-                      </ol>
-                    </div>
-                    <div className="bg-pink-50 dark:bg-pink-900/20 p-3 rounded-lg border border-pink-100 dark:border-pink-800">
-                      <p className="font-semibold text-xs mb-2">Example URLs:</p>
-                      <div className="space-y-1 text-xs font-mono">
-                        <div>instagram.com/p/ABC123</div>
-                        <div>tiktok.com/@user/video/123</div>
-                        <div>youtube.com/watch?v=ABC123</div>
+                    <TabsContent value="chatgpt" className="mt-4 space-y-3 text-sm">
+                      <div>
+                        <p className="font-semibold mb-2">Method 1: Copy & Paste</p>
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                          <li>Go to your ChatGPT conversation</li>
+                          <li>Select all text (Ctrl+A / Cmd+A)</li>
+                          <li>Copy (Ctrl+C / Cmd+C)</li>
+                          <li>Click "Paste from Clipboard" above</li>
+                        </ol>
                       </div>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+                      <div>
+                        <p className="font-semibold mb-2">Method 2: Share Link</p>
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                          <li>Click Share button in ChatGPT</li>
+                          <li>Copy the share URL</li>
+                          <li>Paste URL and click Parse</li>
+                        </ol>
+                        <code className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded mt-2 block">
+                          https://chat.openai.com/share/abc-123
+                        </code>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="claude" className="mt-4 space-y-3 text-sm">
+                      <div>
+                        <p className="font-semibold mb-2">Method 1: Copy & Paste</p>
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                          <li>Go to your Claude conversation</li>
+                          <li>Select all text (Ctrl+A / Cmd+A)</li>
+                          <li>Copy (Ctrl+C / Cmd+C)</li>
+                          <li>Click "Paste from Clipboard" above</li>
+                        </ol>
+                      </div>
+                      <div>
+                        <p className="font-semibold mb-2">Method 2: Share Link</p>
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                          <li>Click Share in Claude</li>
+                          <li>Copy the share URL</li>
+                          <li>Paste URL and click Parse</li>
+                        </ol>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="gemini" className="mt-4 space-y-3 text-sm">
+                      <div>
+                        <p className="font-semibold mb-2">Copy & Paste from Gemini</p>
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                          <li>Create your plan in Gemini (with images if needed)</li>
+                          <li>Copy the conversation text</li>
+                          <li>Click "Paste from Clipboard" above</li>
+                        </ol>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="social" className="mt-4 space-y-3 text-sm">
+                      <div>
+                        <p className="font-semibold mb-2">Instagram / TikTok / YouTube</p>
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                          <li>Find the post/video you want to save</li>
+                          <li>Tap Share &gt; Copy Link</li>
+                          <li>Paste the URL and click Parse</li>
+                          <li>We'll extract the recipe, workout, or tutorial</li>
+                        </ol>
+                      </div>
+                      <div className="bg-pink-50 dark:bg-pink-900/20 p-3 rounded-lg border border-pink-100 dark:border-pink-800">
+                        <p className="font-semibold text-xs mb-2">Example URLs:</p>
+                        <div className="space-y-1 text-xs font-mono text-slate-500 dark:text-slate-400">
+                          <div>instagram.com/p/ABC123</div>
+                          <div>tiktok.com/@user/video/123</div>
+                          <div>youtube.com/watch?v=ABC123</div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </motion.div>
         </div>
       </TooltipProvider>
 
-      <Button
-        onClick={onPasteClick}
-        disabled={isLoading}
-        className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg px-8"
-        size="lg"
-        data-testid="button-paste-plan"
+      {/* Mobile hint */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.2 }}
+        className="flex items-center gap-2 mt-5 mb-6 px-4 py-2.5 rounded-full bg-slate-100/80 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40"
       >
-        {isLoading ? (
-          <>
-            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-            Processing...
-          </>
-        ) : (
-          <>
-            <ClipboardPaste className="w-5 h-5 mr-2" />
-            Paste from Clipboard
-          </>
-        )}
-      </Button>
-      
-      <p className="text-xs text-slate-400 dark:text-slate-500 mt-4 text-center max-w-xs">
-        On mobile, use the share button in any app to send content directly to JournalMate
-      </p>
+        <Smartphone className="w-3.5 h-3.5 text-slate-400" />
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          On mobile, use the share button in any app to send content directly
+        </p>
+      </motion.div>
     </motion.div>
   );
 }
@@ -829,29 +985,83 @@ export default function ImportPlan() {
   const isProcessing = isLoading || extractingContent || generatePlanMutation.isPending;
 
   return (
-    <div className="h-screen overflow-auto bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-slate-900 dark:via-slate-900 dark:to-purple-950">
-      <div className="sticky top-0 z-50 backdrop-blur-lg bg-white/70 dark:bg-slate-900/70 border-b border-slate-200/50 dark:border-slate-700/50">
-        <div className="flex items-center justify-between px-4 h-14 max-w-2xl mx-auto">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleBack}
-            data-testid="button-back"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
+    <div className="h-screen overflow-auto bg-gradient-to-b from-slate-50 via-white to-purple-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950/30">
+      {/* Premium Header */}
+      <header className="fixed top-0 sm:top-4 left-0 sm:left-1/2 sm:-translate-x-1/2 z-50 w-full sm:w-[95%] sm:max-w-3xl bg-background sm:bg-background/80 sm:backdrop-blur-md sm:rounded-full shadow-sm sm:shadow-lg border-b sm:border border-border/10 sm:border-border/50 transition-all duration-300">
+        <div className="flex flex-col sm:flex-row items-center justify-between w-full">
+          {/* Top Row */}
+          <div className="px-4 py-3 sm:px-6 sm:py-3 flex items-center justify-between w-full sm:h-14 relative">
+            {/* Back + Logo */}
+            <div className="flex items-center gap-1 z-10">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={handleBack}
+                data-testid="button-back"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <img
+                src="/icons/web/android-chrome-192x192.png"
+                alt="JournalMate"
+                className="h-7 w-7 object-contain"
+              />
+              <span className="font-bold text-[17px] tracking-tight text-foreground hidden xs:inline">JournalMate</span>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <img 
-              src="/journalmate-logo-transparent.png" 
-              alt="JournalMate" 
-              className="h-12 w-auto"
-            />
+            {/* Desktop Center Nav */}
+            <div className="hidden sm:flex items-center gap-1 absolute left-1/2 -translate-x-1/2 w-max">
+              <Link href="/updates">
+                <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4">
+                  Updates
+                </Button>
+              </Link>
+              <Link href="/discover">
+                <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4">
+                  Discover
+                </Button>
+              </Link>
+              <Link href="/import-plan">
+                <Button variant="ghost" size="sm" className="rounded-full bg-primary/10 text-primary font-medium text-sm px-4">
+                  Import
+                </Button>
+              </Link>
+            </div>
+
+            {/* Theme toggle */}
+            <div className="flex items-center z-10">
+              <ThemeToggle />
+            </div>
           </div>
 
-          <ThemeToggle />
+          {/* Mobile Bottom Row (Nav Pills) */}
+          <div className="sm:hidden w-full">
+            <div className="mx-6 h-px bg-border/30" />
+            <div className="flex items-center justify-center py-2.5 gap-2.5">
+              <Link href="/updates">
+                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40 font-medium text-[13px] shadow-sm flex items-center transition-colors">
+                  <Megaphone className="h-3.5 w-3.5 mr-1.5" />
+                  Updates
+                </Button>
+              </Link>
+              <Link href="/discover">
+                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800/50 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/40 font-medium text-[13px] shadow-sm flex items-center transition-colors">
+                  <Compass className="h-3.5 w-3.5 mr-1.5" />
+                  Discover
+                </Button>
+              </Link>
+              <Button variant="default" size="sm" className="h-8 px-3.5 rounded-full bg-violet-500 dark:bg-violet-600 hover:bg-violet-600 dark:hover:bg-violet-500 text-white font-medium text-[13px] shadow-sm flex items-center border border-transparent transition-colors">
+                <Upload className="h-3.5 w-3.5 mr-1.5" />
+                Import
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
+      </header>
+
+      {/* Spacer for fixed header */}
+      <div className="h-[104px] sm:h-[88px]" />
 
       <div className="max-w-2xl mx-auto p-4 pb-24">
         {limits && limits.tier === 'free' && !showSignIn && (

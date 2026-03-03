@@ -16,7 +16,7 @@ import { journalWebEnrichmentService } from "./services/journalWebEnrichmentServ
 import { tmdbService } from "./services/tmdbService";
 import { contactSyncService } from "./contactSync";
 import { getProvider } from "./services/llmProvider";
-import { adaptPlanToSeason } from "./utils/seasonAdaptor";
+
 import { socketService } from "./services/socketService";
 import {
   insertGoalSchema,
@@ -9529,10 +9529,9 @@ ${emoji} ${progressLine}
         activityData.targetGroupId = activityGroupId;
       }
 
-      const adapted = adaptPlanToSeason({ ...activityData, tasks: originalTasks });
-      const activityDataToCreate = { ...adapted };
+      const activityDataToCreate = { ...activityData };
       delete activityDataToCreate.tasks;
-      const adaptedOriginalTasks = adapted.tasks || originalTasks;
+      const adaptedOriginalTasks = originalTasks;
 
       const copiedActivity = await storage.createActivity(activityDataToCreate);
       console.log("[COPY ACTIVITY] Activity copied successfully:", {
@@ -9987,17 +9986,9 @@ ${emoji} ${progressLine}
         }
       }
 
-      const adaptedSharedPlan = adaptPlanToSeason({
-        ...activity,
-        planSummary,
-        tasks: activityTasks,
-      });
-      const adaptedTasks = adaptedSharedPlan.tasks;
-      delete adaptedSharedPlan.tasks;
-
       res.json({
-        activity: adaptedSharedPlan,
-        tasks: adaptedTasks || activityTasks,
+        activity: { ...activity, planSummary },
+        tasks: activityTasks,
         requiresAuth,
         sharedBy,
         groupInfo,
@@ -10091,7 +10082,7 @@ ${emoji} ${progressLine}
           userHasLiked: feedback.userHasLiked,
           likeCount: feedback.likeCount,
         };
-        return adaptPlanToSeason(planWithFeedback);
+        return planWithFeedback;
       });
 
       res.json(plansWithLikeStatus);
