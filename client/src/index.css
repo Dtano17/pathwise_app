@@ -195,6 +195,16 @@ body.platform-android .mb-safe {
   --input: 270 20% 90%;
   --ring: 255 92% 76%;
 
+  /* Sidebar */
+  --sidebar: 270 100% 98%;
+  --sidebar-foreground: 215 25% 27%;
+  --sidebar-border: 270 20% 90%;
+  --sidebar-ring: 255 92% 76%;
+  --sidebar-primary: 255 92% 76%;
+  --sidebar-primary-foreground: 270 100% 98%;
+  --sidebar-accent: 270 20% 90%;
+  --sidebar-accent-foreground: 215 25% 27%;
+
   --radius: 2rem;
   /* Massive rounding for social feel */
   --button-outline: rgba(0, 0, 0, .05);
@@ -240,6 +250,16 @@ body.platform-android .mb-safe {
   --input: 215 20% 20%;
   --ring: 255 92% 76%;
 
+  /* Sidebar */
+  --sidebar: 215 25% 12%;
+  --sidebar-foreground: 270 100% 98%;
+  --sidebar-border: 215 20% 20%;
+  --sidebar-ring: 255 92% 76%;
+  --sidebar-primary: 255 92% 76%;
+  --sidebar-primary-foreground: 215 25% 10%;
+  --sidebar-accent: 215 20% 20%;
+  --sidebar-accent-foreground: 270 100% 98%;
+
   --button-outline: rgba(255, 255, 255, .10);
   --badge-outline: rgba(255, 255, 255, .05);
 
@@ -273,6 +293,14 @@ body.platform-android .mb-safe {
   --border: 48 30% 85%;
   --input: 48 30% 85%;
   --ring: 38 92% 50%;
+  --sidebar: 48 100% 96%;
+  --sidebar-foreground: 24 10% 10%;
+  --sidebar-border: 48 30% 85%;
+  --sidebar-ring: 38 92% 50%;
+  --sidebar-primary: 38 92% 50%;
+  --sidebar-primary-foreground: 48 100% 96%;
+  --sidebar-accent: 48 30% 90%;
+  --sidebar-accent-foreground: 24 10% 10%;
 }
 
 .dark .theme-golden-hour,
@@ -289,6 +317,14 @@ body.platform-android .mb-safe {
   --accent-foreground: 48 100% 96%;
   --border: 24 10% 20%;
   --input: 24 10% 20%;
+  --sidebar: 24 10% 12%;
+  --sidebar-foreground: 48 100% 96%;
+  --sidebar-border: 24 10% 20%;
+  --sidebar-ring: 38 92% 50%;
+  --sidebar-primary: 38 92% 50%;
+  --sidebar-primary-foreground: 24 10% 10%;
+  --sidebar-accent: 24 10% 20%;
+  --sidebar-accent-foreground: 48 100% 96%;
 }
 
 /* PRESET C: NEON PULSE */
@@ -310,6 +346,14 @@ body.platform-android .mb-safe {
   --border: 250 20% 85%;
   --input: 250 20% 85%;
   --ring: 262 83% 58%;
+  --sidebar: 250 100% 98%;
+  --sidebar-foreground: 244 47% 20%;
+  --sidebar-border: 250 20% 85%;
+  --sidebar-ring: 262 83% 58%;
+  --sidebar-primary: 262 83% 58%;
+  --sidebar-primary-foreground: 250 100% 98%;
+  --sidebar-accent: 250 20% 90%;
+  --sidebar-accent-foreground: 244 47% 20%;
 }
 
 .dark .theme-neon-pulse,
@@ -326,6 +370,14 @@ body.platform-android .mb-safe {
   --accent-foreground: 250 100% 98%;
   --border: 244 47% 20%;
   --input: 244 47% 20%;
+  --sidebar: 244 47% 12%;
+  --sidebar-foreground: 250 100% 98%;
+  --sidebar-border: 244 47% 20%;
+  --sidebar-ring: 262 83% 58%;
+  --sidebar-primary: 262 83% 58%;
+  --sidebar-primary-foreground: 250 100% 98%;
+  --sidebar-accent: 244 47% 20%;
+  --sidebar-accent-foreground: 250 100% 98%;
 }
 
 /* PRESET D: TERRA */
@@ -347,6 +399,14 @@ body.platform-android .mb-safe {
   --border: 55 20% 80%;
   --input: 55 20% 80%;
   --ring: 85 85% 35%;
+  --sidebar: 55 92% 95%;
+  --sidebar-foreground: 24 5% 15%;
+  --sidebar-border: 55 20% 80%;
+  --sidebar-ring: 85 85% 35%;
+  --sidebar-primary: 85 85% 35%;
+  --sidebar-primary-foreground: 55 92% 95%;
+  --sidebar-accent: 55 20% 85%;
+  --sidebar-accent-foreground: 24 5% 15%;
 }
 
 .dark .theme-terra,
@@ -363,6 +423,14 @@ body.platform-android .mb-safe {
   --accent-foreground: 55 92% 95%;
   --border: 24 5% 20%;
   --input: 24 5% 20%;
+  --sidebar: 24 5% 12%;
+  --sidebar-foreground: 55 92% 95%;
+  --sidebar-border: 24 5% 20%;
+  --sidebar-ring: 85 85% 45%;
+  --sidebar-primary: 85 85% 45%;
+  --sidebar-primary-foreground: 24 5% 10%;
+  --sidebar-accent: 24 5% 20%;
+  --sidebar-accent-foreground: 55 92% 95%;
 }
 
 @layer base {

@@ -4917,7 +4917,7 @@ export default function MainApp({
 
       <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
         <DialogContent
-          className="max-w-[95vw] sm:max-w-7xl h-[90vh] flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-primary/5 dark:to-primary/10 relative"
+          className="max-w-[95vw] sm:max-w-6xl h-[85vh] flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-primary/5 dark:to-primary/10 relative"
           data-testid="modal-lifestyle-planner"
         >
           {/* Decorative gradient orb */}
