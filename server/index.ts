@@ -285,57 +285,7 @@ async function initializeBackground() {
     // Background enrichment triggers automatically via GET /api/journal/entries
     console.log('[JOURNAL ENRICH] On-demand enrichment enabled (triggers when users load journal)');
 
-    // Pre-warm the disk cache for hero videos so production can serve them instantly.
-    // Runs immediately at boot in background (non-blocking). Uses a lock flag so that
-    // multiple server instances starting simultaneously don't race each other.
-    (async () => {
-      try {
-        const fs = await import("fs");
-        const path = await import("path");
-        const videoKey = "hero-videos/landing_hero_web_video.mp4";
-        const diskPath = path.join("/tmp/jm-media", videoKey);
-        const tmpPath = diskPath + ".tmp";
-
-        // Clean up stale .raw / .compressed artifacts from old attempts
-        for (const suffix of [".raw", ".compressed"]) {
-          try { fs.unlinkSync(diskPath + suffix); } catch {}
-        }
-
-        // Already cached — nothing to do
-        if (fs.existsSync(diskPath)) {
-          const stat = fs.statSync(diskPath);
-          console.log('[MEDIA-CACHE] Hero video already cached on disk:', `(${stat.size} bytes)`);
-          return;
-        }
-
-        // Another instance is already downloading — skip (the .tmp file acts as a lock)
-        if (fs.existsSync(tmpPath)) {
-          console.log('[MEDIA-CACHE] Hero video download already in progress (tmp file exists), skipping duplicate download');
-          return;
-        }
-
-        console.log('[MEDIA-CACHE] Downloading hero video from GCS...');
-        const { Client } = await import("@replit/object-storage");
-        const client = new Client({ bucketId: "replit-objstore-da25a304-5912-42b9-b269-8baf2c5a6a69" });
-        const bucket = await client.getBucket();
-        const file = bucket.file(videoKey);
-        fs.mkdirSync(path.dirname(diskPath), { recursive: true });
-        await new Promise<void>((resolve, reject) => {
-          const stream = file.createReadStream();
-          const writer = fs.createWriteStream(tmpPath);
-          stream.on("error", reject);
-          writer.on("error", reject);
-          writer.on("finish", () => {
-            try { fs.renameSync(tmpPath, diskPath); } catch {}
-            resolve();
-          });
-          stream.pipe(writer);
-        });
-        const stat = fs.statSync(diskPath);
-        console.log('[MEDIA-CACHE] Hero video cached to disk:', diskPath, `(${stat.size} bytes)`);
-      } catch (err: any) {
-        console.warn('[MEDIA-CACHE] Failed to pre-cache hero video:', err.message);
-      }
-    })();
+    // Hero video is now served locally from client/public/hero_video.mp4
+    // No GCS pre-caching needed.
   });
 })();
