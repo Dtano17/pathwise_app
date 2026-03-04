@@ -519,7 +519,7 @@ export default function LandingPage() {
                   </motion.video>
                   {isDesktopSource && (
                     <>
-                      {/* Mobile blurred backdrop — fills black letterbox areas */}
+                      {/* Mobile blurred backdrop — uses desktop (landscape) source so object-cover fills portrait screens top-to-bottom with no gaps */}
                       <video
                         key={`video-mobile-blur-${preset}-${currentMediaIndex}`}
                         autoPlay
@@ -528,7 +528,7 @@ export default function LandingPage() {
                         loop={currentPresetData.video.length === 1}
                         className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-90 z-10 block md:hidden"
                       >
-                        <source src={currentVideo.srcMobile} type="video/mp4" />
+                        <source src={currentVideo.srcDesktop} type="video/mp4" />
                       </video>
                       {/* Mobile main video — contained so full frame is visible */}
                       <motion.video
