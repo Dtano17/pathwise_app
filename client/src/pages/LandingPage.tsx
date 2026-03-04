@@ -528,7 +528,7 @@ export default function LandingPage() {
                       playsInline
                       loop={currentPresetData.video.length === 1}
                       onEnded={currentPresetData.video.length > 1 ? handleVideoEnded : undefined}
-                      className="absolute inset-0 w-full h-full object-cover object-center z-10 block md:hidden"
+                      className="absolute inset-0 w-full h-full object-contain object-center z-10 block md:hidden"
                     >
                       <source src={currentVideo.srcMobile} type="video/mp4" />
                     </motion.video>
