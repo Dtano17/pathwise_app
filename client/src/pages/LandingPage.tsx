@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,9 +62,9 @@ import photoCelebrating from "../assets/photorealistic_celebrating.png";
 
 const allHeroVideos = [
   {
-    src: "https://storage.googleapis.com/pathwise-media/public/landing_hero_web_video.mp4",
-    srcDesktop: "https://storage.googleapis.com/pathwise-media/public/landing_hero_web_video.mp4",
-    srcMobile: "https://storage.googleapis.com/pathwise-media/public/landing_hero_mobile_video.mp4",
+    src: "/api/media/hero-videos/landing_hero_web_video.mp4",
+    srcDesktop: "/api/media/hero-videos/landing_hero_web_video.mp4",
+    srcMobile: "/api/media/hero-videos/landing_hero_web_video.mp4",
     caption: "The ultimate planning copilot. Turn inspiration into action."
   }
 ];
@@ -247,6 +247,32 @@ export default function LandingPage() {
   const imageRef = useRef<HTMLDivElement>(null); // This ref is now less critical for background, but kept for potential other animations
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0); // Combined index for images/videos
   const [captionIndex, setCaptionIndex] = useState(0);
+
+  // Video retry state — handles the production startup window where disk cache isn't ready yet
+  const [videoRetryCount, setVideoRetryCount] = useState(0);
+  const [videoForcedFallback, setVideoForcedFallback] = useState(false);
+  const videoRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleVideoError = useCallback(() => {
+    setVideoRetryCount((prev) => {
+      if (prev >= 3) {
+        setVideoForcedFallback(true);
+        return prev;
+      }
+      // Schedule a remount in 10 seconds — the server's disk cache should be ready by then
+      if (videoRetryTimerRef.current) clearTimeout(videoRetryTimerRef.current);
+      videoRetryTimerRef.current = setTimeout(() => {
+        setVideoRetryCount((c) => c + 1);
+      }, 10000);
+      return prev;
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (videoRetryTimerRef.current) clearTimeout(videoRetryTimerRef.current);
+    };
+  }, []);
 
   // Rotate hero captions every 6 seconds
   useEffect(() => {
@@ -496,14 +522,14 @@ export default function LandingPage() {
                 className="absolute inset-0 w-full h-full object-cover object-center z-10"
               />
             )}
-            {currentPresetData.video && currentPresetData.video.length > 0 && (() => {
+            {currentPresetData.video && currentPresetData.video.length > 0 && !videoForcedFallback && (() => {
               const currentVideo = currentPresetData.video[currentMediaIndex % currentPresetData.video.length];
               const isDesktopSource = !!currentVideo.srcDesktop;
 
               return (
                 <>
                   <motion.video
-                    key={`video-desktop-${preset}-${currentMediaIndex}`}
+                    key={`video-desktop-${preset}-${currentMediaIndex}-r${videoRetryCount}`}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -513,26 +539,28 @@ export default function LandingPage() {
                     playsInline
                     loop={currentPresetData.video.length === 1}
                     onEnded={currentPresetData.video.length > 1 ? handleVideoEnded : undefined}
+                    onError={handleVideoError}
                     className={`absolute inset-0 w-full h-full object-cover object-center z-10 ${isDesktopSource ? 'hidden md:block' : ''}`}
                   >
                     <source src={isDesktopSource ? currentVideo.srcDesktop : currentVideo.src} type="video/mp4" />
                   </motion.video>
                   {isDesktopSource && (
                     <>
-                      {/* Mobile blurred backdrop — uses desktop (landscape) source so object-cover fills portrait screens top-to-bottom with no gaps */}
+                      {/* Mobile blurred backdrop — fills black letterbox areas */}
                       <video
-                        key={`video-mobile-blur-${preset}-${currentMediaIndex}`}
+                        key={`video-mobile-blur-${preset}-${currentMediaIndex}-r${videoRetryCount}`}
                         autoPlay
                         muted
                         playsInline
                         loop={currentPresetData.video.length === 1}
+                        onError={handleVideoError}
                         className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-90 z-10 block md:hidden"
                       >
-                        <source src={currentVideo.srcDesktop} type="video/mp4" />
+                        <source src={currentVideo.srcMobile} type="video/mp4" />
                       </video>
                       {/* Mobile main video — contained so full frame is visible */}
                       <motion.video
-                        key={`video-mobile-${preset}-${currentMediaIndex}`}
+                        key={`video-mobile-${preset}-${currentMediaIndex}-r${videoRetryCount}`}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -542,6 +570,7 @@ export default function LandingPage() {
                         playsInline
                         loop={currentPresetData.video.length === 1}
                         onEnded={currentPresetData.video.length > 1 ? handleVideoEnded : undefined}
+                        onError={handleVideoError}
                         className="absolute inset-0 w-full h-full object-contain object-center z-[11] block md:hidden"
                       >
                         <source src={currentVideo.srcMobile} type="video/mp4" />

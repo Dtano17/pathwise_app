@@ -1429,6 +1429,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
 
+  // ========== APP STORAGE MEDIA PROXY ==========
+  // Serves videos and images from Replit App Storage bucket
+  // Works in both dev and production — disk-cache-first with GCS fallback
+  app.get("/api/media/*", async (req, res) => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const objectKey = (req.params as any)[0] as string;
+    console.log("[MEDIA-HIT]", objectKey);
+
+    const ext = objectKey.split(".").pop()?.toLowerCase() || "";
+    const contentTypes: Record<string, string> = {
+      mp4: "video/mp4", webm: "video/webm", ogg: "video/ogg",
+      png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+      gif: "image/gif", webp: "image/webp",
+    };
+    const contentType = contentTypes[ext] || "application/octet-stream";
+
+    const diskPath = path.join("/tmp/jm-media", objectKey);
+
+    // Helper: serve a file from disk with range support
+    const serveFromDisk = (filePath: string) => {
+      const stat = fs.statSync(filePath);
+      const fileSize = stat.size;
+      const rangeHeader = req.headers.range;
+
+      if (rangeHeader) {
+        const parts = rangeHeader.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = end - start + 1;
+        res.status(206);
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
+        res.setHeader("Accept-Ranges", "bytes");
+        res.setHeader("Content-Length", chunkSize);
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", "no-store, no-transform");
+        res.setHeader("Content-Encoding", "identity");
+        fs.createReadStream(filePath, { start, end }).pipe(res);
+      } else {
+        res.status(200);
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Content-Length", fileSize);
+        res.setHeader("Accept-Ranges", "bytes");
+        res.setHeader("Cache-Control", "no-store, no-transform");
+        res.setHeader("Content-Encoding", "identity");
+        fs.createReadStream(filePath).pipe(res);
+      }
+    };
+
+    // 1. Serve from disk if already cached
+    if (fs.existsSync(diskPath)) {
+      console.log("[MEDIA] Serving from disk cache:", diskPath);
+      return serveFromDisk(diskPath);
+    }
+
+    // 2. If a download is already in progress (tmp file exists), tell client to retry soon
+    //    This prevents multiple GCS streams from racing and throttling each other
+    const tmpPath = diskPath + ".tmp";
+    if (fs.existsSync(tmpPath)) {
+      console.log("[MEDIA] Download in progress, returning 503 Retry-After");
+      res.setHeader("Retry-After", "10");
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(503).end();
+    }
+
+    // 3. Fall back to GCS, stream to client AND write to disk simultaneously
+    try {
+      const { Client } = await import("@replit/object-storage");
+      const client = new Client({ bucketId: "replit-objstore-da25a304-5912-42b9-b269-8baf2c5a6a69" });
+      const bucket = await client.getBucket();
+      const file = bucket.file(objectKey);
+
+      let fileSize: number;
+      try {
+        const [metadata] = await file.getMetadata();
+        fileSize = parseInt(metadata.size as string, 10);
+      } catch {
+        console.error("[MEDIA] Not found in bucket:", objectKey);
+        return res.status(404).json({ error: "Media not found" });
+      }
+
+      // Ensure the disk directory exists
+      fs.mkdirSync(path.dirname(diskPath), { recursive: true });
+
+      const rangeHeader = req.headers.range;
+
+      if (rangeHeader) {
+        // Range request — serve from GCS directly (don't try to cache partial reads)
+        const parts = rangeHeader.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = end - start + 1;
+        res.status(206);
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
+        res.setHeader("Accept-Ranges", "bytes");
+        res.setHeader("Content-Length", chunkSize);
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", "no-store, no-transform");
+        res.setHeader("Content-Encoding", "identity");
+        const stream = file.createReadStream({ start, end });
+        stream.on("error", (err: Error) => {
+          console.error("[MEDIA] GCS range stream error:", err);
+          if (!res.headersSent) {
+            res.setHeader("Retry-After", "10");
+            res.status(503).end();
+          }
+        });
+        stream.pipe(res);
+      } else {
+        // Full request — stream to client and cache to disk at the same time
+        console.log("[MEDIA] Caching to disk:", diskPath);
+        res.status(200);
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Content-Length", fileSize);
+        res.setHeader("Accept-Ranges", "bytes");
+        res.setHeader("Cache-Control", "no-store, no-transform");
+        res.setHeader("Content-Encoding", "identity");
+
+        const gcsStream = file.createReadStream();
+        const diskWrite = fs.createWriteStream(tmpPath);
+
+        gcsStream.on("error", (err: Error) => {
+          console.error("[MEDIA] GCS stream error:", err);
+          diskWrite.destroy();
+          try { fs.unlinkSync(tmpPath); } catch {}
+          if (!res.headersSent) {
+            res.setHeader("Retry-After", "10");
+            res.status(503).end();
+          }
+        });
+
+        diskWrite.on("finish", () => {
+          try { fs.renameSync(tmpPath, diskPath); } catch {}
+          const stat = fs.statSync(diskPath);
+          console.log("[MEDIA] Disk cache written:", diskPath, `(${stat.size} bytes)`);
+        });
+
+        diskWrite.on("error", (err: Error) => {
+          console.error("[MEDIA] Disk write error:", err);
+        });
+
+        gcsStream.pipe(diskWrite);
+        gcsStream.pipe(res);
+      }
+    } catch (err) {
+      console.error("[MEDIA] Error serving media:", err);
+      if (!res.headersSent) {
+        res.setHeader("Retry-After", "10");
+        res.status(503).json({ error: "Media temporarily unavailable" });
+      }
+    }
+  });
+
   // ========== ANDROID APP LINKS ==========
   // Digital Asset Links for Android App Links verification
   // Allows HTTPS links to journalmate.ai to open directly in the Android app
