@@ -1464,14 +1464,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.setHeader("Accept-Ranges", "bytes");
         res.setHeader("Content-Length", chunkSize);
         res.setHeader("Content-Type", contentType);
-        res.setHeader("Cache-Control", "public, max-age=3600");
+        res.setHeader("Cache-Control", "no-store, no-transform");
+        res.setHeader("Content-Encoding", "identity");
         fs.createReadStream(filePath, { start, end }).pipe(res);
       } else {
         res.status(200);
         res.setHeader("Content-Type", contentType);
         res.setHeader("Content-Length", fileSize);
         res.setHeader("Accept-Ranges", "bytes");
-        res.setHeader("Cache-Control", "public, max-age=3600");
+        res.setHeader("Cache-Control", "no-store, no-transform");
+        res.setHeader("Content-Encoding", "identity");
         fs.createReadStream(filePath).pipe(res);
       }
     };
@@ -1482,17 +1484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return serveFromDisk(diskPath);
     }
 
-    // 2. If a download is already in progress (tmp file exists), tell client to retry soon
-    //    This prevents multiple GCS streams from racing and throttling each other
-    const tmpPath = diskPath + ".tmp";
-    if (fs.existsSync(tmpPath)) {
-      console.log("[MEDIA] Download in progress, returning 503 Retry-After");
-      res.setHeader("Retry-After", "10");
-      res.setHeader("Cache-Control", "no-store");
-      return res.status(503).end();
-    }
-
-    // 3. Fall back to GCS, stream to client AND write to disk simultaneously
+    // 2. Fall back to GCS, stream to client AND write to disk simultaneously
     try {
       const { Client } = await import("@replit/object-storage");
       const client = new Client({ bucketId: "replit-objstore-da25a304-5912-42b9-b269-8baf2c5a6a69" });
@@ -1524,14 +1516,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.setHeader("Accept-Ranges", "bytes");
         res.setHeader("Content-Length", chunkSize);
         res.setHeader("Content-Type", contentType);
-        res.setHeader("Cache-Control", "public, max-age=3600");
+        res.setHeader("Cache-Control", "public, max-age=86400");
         const stream = file.createReadStream({ start, end });
         stream.on("error", (err: Error) => {
           console.error("[MEDIA] GCS range stream error:", err);
-          if (!res.headersSent) {
-            res.setHeader("Retry-After", "10");
-            res.status(503).end();
-          }
+          if (!res.headersSent) res.status(500).end();
         });
         stream.pipe(res);
       } else {
@@ -1541,23 +1530,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.setHeader("Content-Type", contentType);
         res.setHeader("Content-Length", fileSize);
         res.setHeader("Accept-Ranges", "bytes");
-        res.setHeader("Cache-Control", "public, max-age=3600");
+        res.setHeader("Cache-Control", "public, max-age=86400");
 
         const gcsStream = file.createReadStream();
-        const diskWrite = fs.createWriteStream(tmpPath);
+        const diskWrite = fs.createWriteStream(diskPath + ".tmp");
 
         gcsStream.on("error", (err: Error) => {
           console.error("[MEDIA] GCS stream error:", err);
           diskWrite.destroy();
-          try { fs.unlinkSync(tmpPath); } catch {}
-          if (!res.headersSent) {
-            res.setHeader("Retry-After", "10");
-            res.status(503).end();
-          }
+          try { fs.unlinkSync(diskPath + ".tmp"); } catch {}
+          if (!res.headersSent) res.status(500).end();
         });
 
         diskWrite.on("finish", () => {
-          try { fs.renameSync(tmpPath, diskPath); } catch {}
+          try { fs.renameSync(diskPath + ".tmp", diskPath); } catch {}
           const stat = fs.statSync(diskPath);
           console.log("[MEDIA] Disk cache written:", diskPath, `(${stat.size} bytes)`);
         });
@@ -1571,10 +1557,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (err) {
       console.error("[MEDIA] Error serving media:", err);
-      if (!res.headersSent) {
-        res.setHeader("Retry-After", "10");
-        res.status(503).json({ error: "Media temporarily unavailable" });
-      }
+      if (!res.headersSent) res.status(500).json({ error: "Failed to serve media" });
     }
   });
 

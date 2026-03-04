@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,9 +62,9 @@ import photoCelebrating from "../assets/photorealistic_celebrating.png";
 
 const allHeroVideos = [
   {
-    src: "https://storage.googleapis.com/pathwise-media/public/landing_hero_web_video.mp4",
-    srcDesktop: "https://storage.googleapis.com/pathwise-media/public/landing_hero_web_video.mp4",
-    srcMobile: "https://storage.googleapis.com/pathwise-media/public/landing_hero_mobile_video.mp4",
+    src: "/api/media/hero-videos/landing_hero_web_video.mp4",
+    srcDesktop: "/api/media/hero-videos/landing_hero_web_video.mp4",
+    srcMobile: "/api/media/hero-videos/landing_hero_web_video.mp4",
     caption: "The ultimate planning copilot. Turn inspiration into action."
   }
 ];
@@ -513,24 +513,24 @@ export default function LandingPage() {
                     playsInline
                     loop={currentPresetData.video.length === 1}
                     onEnded={currentPresetData.video.length > 1 ? handleVideoEnded : undefined}
-                    className="absolute inset-0 w-full h-full object-cover object-center z-10"
+                    className={`absolute inset-0 w-full h-full object-cover object-center z-10 ${isDesktopSource ? 'hidden md:block' : ''}`}
                   >
                     <source src={isDesktopSource ? currentVideo.srcDesktop : currentVideo.src} type="video/mp4" />
                   </motion.video>
                   {isDesktopSource && (
-                    <div className="absolute inset-0 z-[11] block md:hidden">
-                      {/* Mobile blurred backdrop — fills the entire screen area */}
+                    <>
+                      {/* Mobile blurred backdrop — fills black letterbox areas */}
                       <video
                         key={`video-mobile-blur-${preset}-${currentMediaIndex}`}
                         autoPlay
                         muted
                         playsInline
                         loop={currentPresetData.video.length === 1}
-                        className="absolute inset-0 w-full h-full object-cover scale-150 blur-[60px] opacity-70"
+                        className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-90 z-10 block md:hidden"
                       >
                         <source src={currentVideo.srcMobile} type="video/mp4" />
                       </video>
-                      {/* Mobile main video — sits centered on top of the blurred version */}
+                      {/* Mobile main video — contained so full frame is visible */}
                       <motion.video
                         key={`video-mobile-${preset}-${currentMediaIndex}`}
                         initial={{ opacity: 0 }}
@@ -542,11 +542,11 @@ export default function LandingPage() {
                         playsInline
                         loop={currentPresetData.video.length === 1}
                         onEnded={currentPresetData.video.length > 1 ? handleVideoEnded : undefined}
-                        className="absolute inset-0 w-full h-full object-contain object-center z-20"
+                        className="absolute inset-0 w-full h-full object-contain object-center z-[11] block md:hidden"
                       >
                         <source src={currentVideo.srcMobile} type="video/mp4" />
                       </motion.video>
-                    </div>
+                    </>
                   )}
                 </>
               );
