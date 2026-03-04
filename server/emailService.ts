@@ -101,7 +101,9 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 <!-- Header -->
                 <tr>
                   <td class="header-padding" align="center" style="padding:40px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%);text-align:center;border-radius:20px 20px 0 0">
-                    <img alt="JournalMate Logo" height="80" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:8px;margin:0 auto 15px" width="80" />
+                    <div style="display:inline-block; background-color:rgba(255,255,255,0.95); padding:16px; border-radius:32px; box-shadow:0 8px 32px rgba(0,0,0,0.15); margin:0 auto 24px;">
+                      <img alt="JournalMate Logo" height="120" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:16px;" width="120" />
+                    </div>
                     <h1 style="margin:0;padding:0;font-size:28px;line-height:1.44em;padding-top:0.389em;font-weight:700;color:#ffffff;letter-spacing:0.5px">Welcome to JournalMate</h1>
                     <p style="margin:8px 0 0;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:rgba(255,255,255,0.95);line-height:1.4">Plan Together. Discover Together. Grow Together.</p>
                   </td>
@@ -116,17 +118,14 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 <tr>
                   <td style="padding:0 40px">
                     <h2 style="margin:0 0 16px;padding:0;font-size:24px;line-height:1.3;padding-top:0.389em;font-weight:700;color:#111827">Hey ${firstName}! 👋</h2>
+                    <p style="margin:0 0 32px;padding:0;font-size:16px;color:#374151;line-height:1.6">Welcome to JournalMate—your journal-first AI planning companion. You're now part of a community that turns social content into life experiences. Here is a quick tour of what you can do:</p>
                   </td>
                 </tr>
                 <tr>
-                  <td class="content-padding" style="padding:0 40px 20px; text-align:center;">
-                    <img src="${baseURL}/email-assets/friends_planning.png" alt="Friends planning together on JournalMate" style="width:100%; max-width:520px; border-radius:16px; margin-bottom:24px; box-shadow:0 12px 24px rgba(0,0,0,0.12); display:block; margin-left:auto; margin-right:auto;" />
-                  </td>
-                </tr>
-                <tr>
-                  <td class="content-padding" style="padding:0 40px 20px">
-                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6"><strong>You're now part of a community that turns social content into life experiences.</strong></p>
-                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6">Welcome to JournalMate—your journal-first planning companion. Share TikTok videos, Instagram Reels, posts, stories, and content from anywhere you get inspiration. We'll journal it for you so you can plan with it and track your progress. Get smart reminders with weather context, and celebrate your completed experiences.</p>
+                  <td class="content-padding" style="padding:0 40px 30px">
+                    <h3 style="margin:0 0 20px;padding:0;font-size:22px;font-weight:700;color:#111827;text-align:center">👥 Plan & Share Together</h3>
+                    <img src="${baseURL}/email-assets/friends_planning.png" alt="Friends planning together on JournalMate" style="width:100%; max-width:520px; border-radius:16px; margin-bottom:20px; box-shadow:0 12px 24px rgba(0,0,0,0.12); display:block; margin-left:auto; margin-right:auto;" />
+                    <p style="margin:0;padding:0;font-size:16px;color:#374151;line-height:1.6;text-align:center"><strong>Feature: Group Collaboration</strong><br/>Create groups with friends, family, or communities. JournalMate makes it easy to coordinate schedules, copy community plans, and track collective progress directly from the app.</p>
                   </td>
                 </tr>
 
@@ -137,11 +136,12 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                       <span style="background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%);color:#ffffff;padding:8px 20px;border-radius:24px;font-size:13px;font-weight:700;letter-spacing:0.8px;box-shadow:0 4px 12px rgba(124,58,237,0.25)">✨ NEW FEATURES</span>
                     </div>
                     <h3 style="margin:0 0 16px;padding:0;font-size:26px;line-height:1.2;font-weight:700;color:#111827;text-align:center">🌍 Discover Trending Plans Near You</h3>
-                    <p style="margin:0 0 32px;padding:0;font-size:16px;color:#374151;line-height:1.7;text-align:center;max-width:500px;margin-left:auto;margin-right:auto">See what's happening around you in real-time! From <strong style="color:#7C3AED">chasing the Aurora Borealis</strong> to <strong style="color:#14B8A6">weather alerts</strong> like incoming storms, JournalMate keeps you connected to what matters NOW.</p>
+                    <p style="margin:0 0 32px;padding:0;font-size:16px;color:#374151;line-height:1.7;text-align:center;max-width:500px;margin-left:auto;margin-right:auto"><strong>Feature: Live Location-Based Discovery</strong><br/>See what's happening around you in real-time! From <strong style="color:#7C3AED">chasing the Aurora Borealis</strong> to <strong style="color:#14B8A6">weather alerts</strong> like incoming storms, JournalMate keeps you connected to what matters NOW.</p>
         
-        <div style="text-align:center; padding: 0 40px 30px;">
-          <img src="${baseURL}/email-assets/map_trends.png" alt="Discover Trends Map" style="width:100%; max-width:520px; border-radius:16px; box-shadow:0 12px 24px rgba(0,0,0,0.12); display:block; margin-left:auto; margin-right:auto;" />
-        </div>
+        <div style="background-color: #ffffff; border-radius: 20px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); margin-bottom: 30px; border: 1px solid rgba(20,184,166,0.15); max-width: 520px; margin-left: auto; margin-right: auto;">
+          <div style="text-align:center; margin-bottom: 24px;">
+            <img src="${baseURL}/email-assets/map_trends.png" alt="Discover Trends Map" style="width:100%; border-radius:12px; display:block; margin:0 auto;" />
+          </div>
                     
                     <!-- Alert Cards with Gradient Borders -->
                     <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:24px">
@@ -185,6 +185,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                         </tr>
                       </tbody>
                     </table>
+        </div>
 
                     <!-- Prominent Discover Button -->
                     <div style="text-align:center;margin-bottom:16px">
@@ -198,11 +199,14 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 <!-- Getting Started CTA -->
                 <tr>
                   <td class="section-padding" style="padding:40px;background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)">
-                    <div style="text-align:center; padding: 0 40px 30px;">
-          <img src="${baseURL}/email-assets/idea_to_plan.png" alt="Turn Ideas Into Plans" style="width:100%; max-width:520px; border-radius:16px; box-shadow:0 12px 24px rgba(0,0,0,0.12); display:block; margin-left:auto; margin-right:auto;" />
-        </div>
+                    <h3 style="margin:0 0 24px;padding:0;font-size:24px;font-weight:700;color:#ffffff;text-align:center">🚀 Turn Inspiration Into Action</h3>
+                    
+                    <div style="background-color: rgba(255,255,255,0.1); border-radius: 20px; padding: 24px; border: 1px solid rgba(255,255,255,0.2); max-width: 520px; margin-left: auto; margin-right: auto; margin-bottom: 30px;">
+                      <img src="${baseURL}/email-assets/idea_to_plan.png" alt="Turn Ideas Into Plans" style="width:100%; border-radius:12px; display:block; margin:0 auto 20px; box-shadow:0 8px 24px rgba(0,0,0,0.2);" />
+                      <p style="margin:0;padding:0;font-size:16px;color:#ffffff;line-height:1.6;text-align:center"><strong>Feature: The Auto-Journaling Loop</strong><br/>Paste a TikTok or Instagram link, and AI automatically builds a personalized, actionable plan for you. Complete activities, and your journal writes itself!</p>
+                    </div>
 
-        <h3 style="margin:0 0 20px;padding:0;font-size:24px;line-height:1.08em;padding-top:0.389em;font-weight:700;color:#ffffff;text-align:center">🚀 The JournalMate Loop</h3>
+                    <h4 style="margin:0 0 16px;padding:0;font-size:18px;font-weight:700;color:#ffffff;">How the loop works:</h4>
                     <ol style="margin:0;padding:0;padding-left:25px;color:#ffffff;font-size:15px;line-height:1.8">
                       <li style="margin:0 0 10px"><strong>Share Content</strong> → Paste a TikTok, Instagram, or YouTube link</li>
                       <li style="margin:0 0 10px"><strong>Auto-Journal</strong> → AI creates a journal entry with your interests</li>
@@ -334,7 +338,9 @@ export function getProWelcomeEmailHTML(firstName: string = 'there') {
                 <!-- Header with Pro Badge -->
                 <tr>
                   <td class="header-padding" align="center" style="padding:40px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%);text-align:center;border-radius:20px 20px 0 0">
-                    <img alt="JournalMate Logo" height="80" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:8px;margin:0 auto 15px" width="80" />
+                    <div style="display:inline-block; background-color:rgba(255,255,255,0.95); padding:16px; border-radius:32px; box-shadow:0 8px 32px rgba(0,0,0,0.15); margin:0 auto 24px;">
+                      <img alt="JournalMate Logo" height="120" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:16px;" width="120" />
+                    </div>
                     <div style="margin-bottom:15px">
                       <span style="background:rgba(255,255,255,0.25);color:#ffffff;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:0.8px;border:1px solid rgba(255,255,255,0.4)">PRO MEMBER</span>
                     </div>
