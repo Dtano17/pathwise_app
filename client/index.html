@@ -138,6 +138,11 @@
       fjs.parentNode.insertBefore(js, fjs);
     }(document, 'script', 'facebook-jssdk'));
   </script>
+  <style>
+    /* Prevent white flash before React hydrates — matches dark theme background */
+    #root { min-height: 100vh; min-height: 100dvh; background: #1a1a2e; }
+    #root:not(:empty) { background: transparent; }
+  </style>
 </head>
 
 <body>

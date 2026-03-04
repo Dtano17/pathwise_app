@@ -17,6 +17,7 @@ import { initializeMobileFeatures } from "@/lib/mobile";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useDailyTheme, type ThemeId } from "@/hooks/useDailyTheme";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import LandingPageWrapper from "@/pages/LandingPageWrapper";
 
 // Lazy load pages for code-splitting
 const MainApp = lazy(() => import("@/pages/MainApp"));
@@ -31,7 +32,6 @@ const Updates = lazy(() => import("@/pages/Updates"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const Terms = lazy(() => import("@/pages/Terms"));
 const Support = lazy(() => import("@/pages/Support"));
-const LandingPageWrapper = lazy(() => import("@/pages/LandingPageWrapper"));
 const ChatGPTPlanTracker = lazy(() => import("@/pages/ChatGPTPlanTracker"));
 const PerplexityPlans = lazy(() => import("@/pages/PerplexityPlans"));
 const WeekendPlans = lazy(() => import("@/pages/WeekendPlans"));
@@ -43,7 +43,7 @@ const VerifyLogin = lazy(() => import("@/pages/VerifyLogin"));
 
 // Loading fallback component
 const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-screen">
+  <div className="flex items-center justify-center min-h-screen bg-background">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
   </div>
 );
@@ -157,7 +157,7 @@ function AppContent() {
           <Route path="/app">
             <ProtectedRoute>
               <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
-                <div className="flex h-screen w-full overflow-auto">
+                <div className="flex h-screen w-full overflow-auto safe-top safe-bottom">
                   <AppSidebar
                     selectedTheme={selectedTheme}
                     onThemeSelect={handleThemeSelect}

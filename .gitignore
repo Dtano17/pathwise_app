@@ -13,6 +13,9 @@ vite.config.ts.*
 # Exclude development workspace assets from deployment
 attached_assets/
 
+# Hero videos sourced from GCS bucket — no need to track in git
+client/public/hero-videos/*.mp4
+
 # Intellectual Property Documentation (Keep Private)
 IP_DOCUMENTATION/
 *.patent
