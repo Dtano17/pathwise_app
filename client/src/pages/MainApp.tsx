@@ -4924,7 +4924,7 @@ export default function MainApp({
 
       <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
         <DialogContent
-          className="max-w-[100vw] sm:max-w-6xl h-[100dvh] sm:h-[85vh] top-0 sm:top-[50%] left-0 sm:left-[50%] translate-x-0 sm:translate-x-[-50%] translate-y-0 sm:translate-y-[-50%] rounded-none sm:rounded-lg flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-primary/5 dark:to-primary/10 p-3 sm:p-4"
+          className="max-w-[100vw] sm:max-w-6xl h-[100dvh] sm:h-[85vh] top-0 sm:top-[50%] left-0 sm:left-[50%] translate-x-0 sm:translate-x-[-50%] translate-y-0 sm:translate-y-[-50%] rounded-none sm:rounded-lg flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-primary/5 dark:to-primary/10 p-3 sm:p-4 safe-top"
           data-testid="modal-lifestyle-planner"
         >
           <DialogHeader className="pb-2" backLabel="Back to Home">
