@@ -1431,26 +1431,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ========== APP STORAGE MEDIA PROXY ==========
   // Serves videos and images from Replit App Storage bucket
-  // Works in both dev and production (bucket persists across deployments)
+  // Works in both dev and production — disk-cache-first with GCS fallback
   app.get("/api/media/*", async (req, res) => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const objectKey = (req.params as any)[0] as string;
+    console.log("[MEDIA-HIT]", objectKey);
+
+    const ext = objectKey.split(".").pop()?.toLowerCase() || "";
+    const contentTypes: Record<string, string> = {
+      mp4: "video/mp4", webm: "video/webm", ogg: "video/ogg",
+      png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+      gif: "image/gif", webp: "image/webp",
+    };
+    const contentType = contentTypes[ext] || "application/octet-stream";
+
+    const diskPath = path.join("/tmp/jm-media", objectKey);
+
+    // Helper: serve a file from disk with range support
+    const serveFromDisk = (filePath: string) => {
+      const stat = fs.statSync(filePath);
+      const fileSize = stat.size;
+      const rangeHeader = req.headers.range;
+
+      if (rangeHeader) {
+        const parts = rangeHeader.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = end - start + 1;
+        res.status(206);
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
+        res.setHeader("Accept-Ranges", "bytes");
+        res.setHeader("Content-Length", chunkSize);
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        fs.createReadStream(filePath, { start, end }).pipe(res);
+      } else {
+        res.status(200);
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Content-Length", fileSize);
+        res.setHeader("Accept-Ranges", "bytes");
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        fs.createReadStream(filePath).pipe(res);
+      }
+    };
+
+    // 1. Serve from disk if already cached
+    if (fs.existsSync(diskPath)) {
+      console.log("[MEDIA] Serving from disk cache:", diskPath);
+      return serveFromDisk(diskPath);
+    }
+
+    // 2. Fall back to GCS, stream to client AND write to disk simultaneously
     try {
       const { Client } = await import("@replit/object-storage");
       const client = new Client({ bucketId: "replit-objstore-da25a304-5912-42b9-b269-8baf2c5a6a69" });
-      const objectKey = (req.params as any)[0] as string;
-
-      const ext = objectKey.split(".").pop()?.toLowerCase() || "";
-      const contentTypes: Record<string, string> = {
-        mp4: "video/mp4", webm: "video/webm", ogg: "video/ogg",
-        png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
-        gif: "image/gif", webp: "image/webp",
-      };
-      const contentType = contentTypes[ext] || "application/octet-stream";
-
-      // Get the underlying GCS bucket and file for direct streaming with metadata
-      const bucket = await Promise.resolve(client.getBucket());
+      const bucket = await client.getBucket();
       const file = bucket.file(objectKey);
 
-      // Fetch metadata to get exact file size (required for Content-Length + seeking)
       let fileSize: number;
       try {
         const [metadata] = await file.getMetadata();
@@ -1460,46 +1498,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Media not found" });
       }
 
+      // Ensure the disk directory exists
+      fs.mkdirSync(path.dirname(diskPath), { recursive: true });
+
       const rangeHeader = req.headers.range;
 
       if (rangeHeader) {
-        // Range request — browser is seeking or buffering a specific chunk
+        // Range request — serve from GCS directly (don't try to cache partial reads)
         const parts = rangeHeader.replace(/bytes=/, "").split("-");
         const start = parseInt(parts[0], 10);
         const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
         const chunkSize = end - start + 1;
-
         res.status(206);
         res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
         res.setHeader("Accept-Ranges", "bytes");
         res.setHeader("Content-Length", chunkSize);
         res.setHeader("Content-Type", contentType);
         res.setHeader("Cache-Control", "public, max-age=86400");
-
         const stream = file.createReadStream({ start, end });
         stream.on("error", (err: Error) => {
-          console.error("[MEDIA] Range stream error:", err);
+          console.error("[MEDIA] GCS range stream error:", err);
           if (!res.headersSent) res.status(500).end();
         });
         stream.pipe(res);
       } else {
-        // Full file request — stream with Content-Length so browser can buffer properly
+        // Full request — stream to client and cache to disk at the same time
+        console.log("[MEDIA] Caching to disk:", diskPath);
         res.status(200);
         res.setHeader("Content-Type", contentType);
         res.setHeader("Content-Length", fileSize);
         res.setHeader("Accept-Ranges", "bytes");
         res.setHeader("Cache-Control", "public, max-age=86400");
 
-        const stream = file.createReadStream();
-        stream.on("error", (err: Error) => {
-          console.error("[MEDIA] Stream error:", err);
+        const gcsStream = file.createReadStream();
+        const diskWrite = fs.createWriteStream(diskPath + ".tmp");
+
+        gcsStream.on("error", (err: Error) => {
+          console.error("[MEDIA] GCS stream error:", err);
+          diskWrite.destroy();
+          try { fs.unlinkSync(diskPath + ".tmp"); } catch {}
           if (!res.headersSent) res.status(500).end();
         });
-        stream.pipe(res);
+
+        diskWrite.on("finish", () => {
+          try { fs.renameSync(diskPath + ".tmp", diskPath); } catch {}
+          console.log("[MEDIA] Disk cache written:", diskPath);
+        });
+
+        diskWrite.on("error", (err: Error) => {
+          console.error("[MEDIA] Disk write error:", err);
+        });
+
+        gcsStream.pipe(diskWrite);
+        gcsStream.pipe(res);
       }
     } catch (err) {
       console.error("[MEDIA] Error serving media:", err);
-      res.status(500).json({ error: "Failed to serve media" });
+      if (!res.headersSent) res.status(500).json({ error: "Failed to serve media" });
     }
   });
 

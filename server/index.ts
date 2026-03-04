@@ -284,5 +284,44 @@ async function initializeBackground() {
     // Journal enrichment runs on-demand when users fetch their entries
     // Background enrichment triggers automatically via GET /api/journal/entries
     console.log('[JOURNAL ENRICH] On-demand enrichment enabled (triggers when users load journal)');
+
+    // Pre-warm the disk cache for hero videos so production can serve them instantly
+    // This runs in background after server starts and downloads from GCS → /tmp/jm-media/
+    setTimeout(() => {
+      (async () => {
+        try {
+          const fs = await import("fs");
+          const path = await import("path");
+          const videoKey = "hero-videos/landing_hero_web_video.mp4";
+          const diskPath = path.join("/tmp/jm-media", videoKey);
+          if (fs.existsSync(diskPath)) {
+            console.log('[MEDIA-CACHE] Hero video already cached on disk');
+            return;
+          }
+          console.log('[MEDIA-CACHE] Downloading hero video to disk cache...');
+          const { Client } = await import("@replit/object-storage");
+          const client = new Client({ bucketId: "replit-objstore-da25a304-5912-42b9-b269-8baf2c5a6a69" });
+          const bucket = await client.getBucket();
+          const file = bucket.file(videoKey);
+          fs.mkdirSync(path.dirname(diskPath), { recursive: true });
+          const tmpPath = diskPath + ".tmp";
+          await new Promise<void>((resolve, reject) => {
+            const stream = file.createReadStream();
+            const writer = fs.createWriteStream(tmpPath);
+            stream.on("error", reject);
+            writer.on("error", reject);
+            writer.on("finish", () => {
+              try { fs.renameSync(tmpPath, diskPath); } catch {}
+              resolve();
+            });
+            stream.pipe(writer);
+          });
+          const stat = fs.statSync(diskPath);
+          console.log('[MEDIA-CACHE] Hero video cached to disk:', diskPath, `(${stat.size} bytes)`);
+        } catch (err: any) {
+          console.warn('[MEDIA-CACHE] Failed to pre-cache hero video:', err.message);
+        }
+      })();
+    }, 5000); // delay 5s after server starts to not block initial boot
   });
 })();
