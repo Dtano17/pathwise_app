@@ -1541,8 +1541,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         diskWrite.on("finish", () => {
-          try { fs.renameSync(diskPath + ".tmp", diskPath); } catch {}
-          console.log("[MEDIA] Disk cache written:", diskPath);
+          const rawOnDisk = diskPath + ".tmp";
+          try { fs.renameSync(rawOnDisk, diskPath + ".raw"); } catch {}
+          console.log("[MEDIA] Disk cache written raw, compressing with ffmpeg...");
+          // Compress asynchronously — next request serves from compressed file
+          (async () => {
+            try {
+              const { spawn } = await import("child_process");
+              const compressedPath = diskPath + ".compressed";
+              await new Promise<void>((resolve, reject) => {
+                const ff = spawn("ffmpeg", [
+                  "-i", diskPath + ".raw",
+                  "-vcodec", "libx264",
+                  "-crf", "28",
+                  "-preset", "fast",
+                  "-vf", "scale=1920:-2",
+                  "-acodec", "aac",
+                  "-movflags", "+faststart",
+                  "-y",
+                  compressedPath,
+                ]);
+                ff.on("close", (code: number) => code === 0 ? resolve() : reject(new Error(`ffmpeg code ${code}`)));
+                ff.on("error", reject);
+              });
+              try { fs.unlinkSync(diskPath + ".raw"); } catch {}
+              fs.renameSync(compressedPath, diskPath);
+              const stat = fs.statSync(diskPath);
+              console.log("[MEDIA] Compressed and cached:", diskPath, `(${stat.size} bytes)`);
+            } catch (e: any) {
+              console.warn("[MEDIA] ffmpeg compression failed, keeping raw:", e.message);
+              try { fs.renameSync(diskPath + ".raw", diskPath); } catch {}
+            }
+          })();
         });
 
         diskWrite.on("error", (err: Error) => {
