@@ -1464,14 +1464,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.setHeader("Accept-Ranges", "bytes");
         res.setHeader("Content-Length", chunkSize);
         res.setHeader("Content-Type", contentType);
-        res.setHeader("Cache-Control", "public, max-age=86400");
+        res.setHeader("Cache-Control", "no-store, no-transform");
+        res.setHeader("Content-Encoding", "identity");
         fs.createReadStream(filePath, { start, end }).pipe(res);
       } else {
         res.status(200);
         res.setHeader("Content-Type", contentType);
         res.setHeader("Content-Length", fileSize);
         res.setHeader("Accept-Ranges", "bytes");
-        res.setHeader("Cache-Control", "public, max-age=86400");
+        res.setHeader("Cache-Control", "no-store, no-transform");
+        res.setHeader("Content-Encoding", "identity");
         fs.createReadStream(filePath).pipe(res);
       }
     };
