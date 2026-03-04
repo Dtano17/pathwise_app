@@ -62,6 +62,7 @@ import photoCelebrating from "../assets/photorealistic_celebrating.png";
 
 const allHeroVideos = [
   {
+    src: "/api/media/hero-videos/landing_hero_web_video.mp4",
     srcDesktop: "/api/media/hero-videos/landing_hero_web_video.mp4",
     srcMobile: "/api/media/hero-videos/landing_hero_web_video.mp4",
     caption: "The ultimate planning copilot. Turn inspiration into action."
@@ -397,7 +398,7 @@ export default function LandingPage() {
     <div className="h-screen w-full overflow-y-auto overflow-x-hidden bg-background text-foreground touch-pan-y scroll-smooth">
       <SEO {...PAGE_SEO.home} />
       {/* Header - Adaptive (Native Mobile vs Web Pill) */}
-      <header className="fixed top-0 sm:top-6 left-0 sm:left-1/2 sm:-translate-x-1/2 z-50 w-full sm:w-[95%] sm:max-w-4xl bg-background sm:bg-background/80 sm:backdrop-blur-md sm:rounded-full shadow-sm sm:shadow-lg border-b sm:border border-border/10 sm:border-border/50 transition-all duration-300">
+      <header className="fixed top-0 sm:top-6 left-0 sm:left-1/2 sm:-translate-x-1/2 z-50 w-full sm:w-[95%] sm:max-w-4xl bg-background sm:bg-background/80 sm:backdrop-blur-md sm:rounded-full shadow-sm sm:shadow-lg border-b sm:border border-border/10 sm:border-border/50 transition-all duration-300 pt-[env(safe-area-inset-top)] sm:pt-0">
         <div className="flex flex-col sm:flex-row items-center justify-between w-full h-full">
 
           {/* Top Row / Desktop Content */}
@@ -558,7 +559,7 @@ export default function LandingPage() {
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background to-transparent z-20" />
         </div>
 
-        <div className="container mx-auto px-4 relative z-10 flex flex-col items-center justify-center text-center pt-24 pb-8 sm:pb-16 mt-0 sm:mt-12">
+        <div className="container mx-auto px-4 relative z-10 flex flex-col items-center justify-center text-center pt-32 sm:pt-24 pb-8 sm:pb-16 mt-0 sm:mt-12">
           <div className="flex flex-col items-center gap-1 sm:gap-2 mb-4 sm:mb-6 max-w-4xl w-full">
             <h1
               ref={el => { textRefs.current[0] = el; }}
