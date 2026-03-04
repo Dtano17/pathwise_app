@@ -110,11 +110,11 @@ export default function Login() {
                 <img 
                   src={journalMateLogo} 
                   alt="JournalMate" 
-                  className="w-16 h-16 sm:w-20 sm:h-20 relative z-10 drop-shadow-sm"
+                  className="w-24 h-24 sm:w-28 sm:h-28 relative z-10 drop-shadow-sm"
                 />
               </div>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white mb-2">
+            <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white mb-2">
               JournalMate
             </h1>
             <p className="text-muted-foreground text-sm font-medium">
@@ -128,13 +128,6 @@ export default function Login() {
               title="Welcome back"
               description="Sign in to continue your journey"
             />
-            
-            <p className="text-center text-[11px] text-muted-foreground/60 px-4 leading-relaxed">
-              By continuing, you agree to our{' '}
-              <Link href="/terms" className="underline hover:text-primary transition-colors">Terms of Service</Link>
-              {' '}and{' '}
-              <Link href="/privacy" className="underline hover:text-primary transition-colors">Privacy Policy</Link>.
-            </p>
           </div>
         </div>
       </div>
