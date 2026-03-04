@@ -517,21 +517,35 @@ export default function LandingPage() {
                     <source src={isDesktopSource ? currentVideo.srcDesktop : currentVideo.src} type="video/mp4" />
                   </motion.video>
                   {isDesktopSource && (
-                    <motion.video
-                      key={`video-mobile-${preset}-${currentMediaIndex}`}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 1 }}
-                      autoPlay
-                      muted
-                      playsInline
-                      loop={currentPresetData.video.length === 1}
-                      onEnded={currentPresetData.video.length > 1 ? handleVideoEnded : undefined}
-                      className="absolute inset-0 w-full h-full object-contain object-center z-10 block md:hidden"
-                    >
-                      <source src={currentVideo.srcMobile} type="video/mp4" />
-                    </motion.video>
+                    <>
+                      {/* Mobile blurred backdrop — fills black letterbox areas */}
+                      <video
+                        key={`video-mobile-blur-${preset}-${currentMediaIndex}`}
+                        autoPlay
+                        muted
+                        playsInline
+                        loop={currentPresetData.video.length === 1}
+                        className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-90 z-10 block md:hidden"
+                      >
+                        <source src={currentVideo.srcMobile} type="video/mp4" />
+                      </video>
+                      {/* Mobile main video — contained so full frame is visible */}
+                      <motion.video
+                        key={`video-mobile-${preset}-${currentMediaIndex}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 1 }}
+                        autoPlay
+                        muted
+                        playsInline
+                        loop={currentPresetData.video.length === 1}
+                        onEnded={currentPresetData.video.length > 1 ? handleVideoEnded : undefined}
+                        className="absolute inset-0 w-full h-full object-contain object-center z-[11] block md:hidden"
+                      >
+                        <source src={currentVideo.srcMobile} type="video/mp4" />
+                      </motion.video>
+                    </>
                   )}
                 </>
               );
