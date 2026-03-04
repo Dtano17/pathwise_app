@@ -510,7 +510,7 @@ export default function LandingPage() {
         {/* Ambient Full-Screen Background */}
         <div className="absolute inset-0 z-0 bg-black">
           <AnimatePresence mode="wait">
-            {(!currentPresetData.video || currentPresetData.video.length === 0) && (
+            {(!currentPresetData.video || currentPresetData.video.length === 0 || videoForcedFallback) && (
               <motion.img
                 key={`img-${currentMediaIndex}`}
                 initial={{ opacity: 0 }}
