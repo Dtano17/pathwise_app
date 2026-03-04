@@ -513,12 +513,12 @@ export default function LandingPage() {
                     playsInline
                     loop={currentPresetData.video.length === 1}
                     onEnded={currentPresetData.video.length > 1 ? handleVideoEnded : undefined}
-                    className={`absolute inset-0 w-full h-full object-cover object-center z-10 ${isDesktopSource ? 'hidden md:block' : ''}`}
+                    className="absolute inset-0 w-full h-full object-cover object-center z-10"
                   >
                     <source src={isDesktopSource ? currentVideo.srcDesktop : currentVideo.src} type="video/mp4" />
                   </motion.video>
                   {isDesktopSource && (
-                    <>
+                    <div className="absolute inset-0 z-[11] block md:hidden">
                       {/* Mobile blurred backdrop — uses the wide web video to fill all edges on portrait screens */}
                       <video
                         key={`video-mobile-blur-${preset}-${currentMediaIndex}`}
@@ -526,11 +526,11 @@ export default function LandingPage() {
                         muted
                         playsInline
                         loop={currentPresetData.video.length === 1}
-                        className="absolute inset-0 w-full h-full object-cover scale-125 blur-3xl opacity-80 z-10 block md:hidden"
+                        className="absolute inset-0 w-full h-full object-cover scale-150 blur-3xl opacity-60"
                       >
                         <source src={currentVideo.srcDesktop} type="video/mp4" />
                       </video>
-                      {/* Mobile main video — covers the screen fully, showing as much of the video as possible */}
+                      {/* Mobile main video — contained so full frame is visible, but sits on top of blurred background */}
                       <motion.video
                         key={`video-mobile-${preset}-${currentMediaIndex}`}
                         initial={{ opacity: 0 }}
@@ -542,11 +542,11 @@ export default function LandingPage() {
                         playsInline
                         loop={currentPresetData.video.length === 1}
                         onEnded={currentPresetData.video.length > 1 ? handleVideoEnded : undefined}
-                        className="absolute inset-0 w-full h-full object-cover object-center z-[11] block md:hidden"
+                        className="absolute inset-0 w-full h-full object-contain object-center"
                       >
                         <source src={currentVideo.srcMobile} type="video/mp4" />
                       </motion.video>
-                    </>
+                    </div>
                   )}
                 </>
               );
