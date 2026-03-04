@@ -16,6 +16,30 @@ import { processStreakReminders } from './streakService';
 import { processAccountabilityCheckins } from './accountabilityService';
 import { generateNotificationMessage } from './notificationTemplates';
 
+/**
+ * Get a user's current local time based on their timezone.
+ * Returns a Date object representing the user's local time.
+ */
+function getUserLocalTime(userTimezone: string): Date {
+  try {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: userTimezone }));
+  } catch {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'UTC' }));
+  }
+}
+
+/**
+ * Get a user's timezone from their profile, with UTC fallback.
+ */
+async function getUserTimezone(storage: IStorage, userId: string): Promise<string> {
+  try {
+    const user = await storage.getUser(userId);
+    return user?.timezone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
 // Reminder timing configuration (in milliseconds before event)
 const REMINDER_INTERVALS = {
   ONE_WEEK: 7 * 24 * 60 * 60 * 1000,
@@ -399,14 +423,16 @@ async function dispatchPendingReminders(storage: IStorage): Promise<void> {
       try {
         // Check user's notification preferences and quiet hours
         const preferences = await storage.getNotificationPreferences(reminder.userId);
-        
+
         if (preferences) {
-          // Check quiet hours
+          // Check quiet hours using user's local time
           if (preferences.quietHoursStart && preferences.quietHoursEnd) {
-            const currentHour = now.getHours();
+            const userTz = await getUserTimezone(storage, reminder.userId);
+            const userLocal = getUserLocalTime(userTz);
+            const currentHour = userLocal.getHours();
             const quietStart = parseInt(preferences.quietHoursStart.split(':')[0]);
             const quietEnd = parseInt(preferences.quietHoursEnd.split(':')[0]);
-            
+
             if (isInQuietHours(currentHour, quietStart, quietEnd)) {
               console.log(`[REMINDER] Skipping reminder ${reminder.id} - user in quiet hours`);
               continue;
@@ -479,9 +505,11 @@ async function dispatchPendingTaskReminders(storage: IStorage): Promise<void> {
         const preferences = await storage.getNotificationPreferences(reminder.userId);
 
         if (preferences) {
-          // Check quiet hours
+          // Check quiet hours using user's local time
           if (preferences.quietHoursStart && preferences.quietHoursEnd) {
-            const currentHour = now.getHours();
+            const userTz = await getUserTimezone(storage, reminder.userId);
+            const userLocal = getUserLocalTime(userTz);
+            const currentHour = userLocal.getHours();
             const quietStart = parseInt(preferences.quietHoursStart.split(':')[0]);
             const quietEnd = parseInt(preferences.quietHoursEnd.split(':')[0]);
 
@@ -603,16 +631,18 @@ async function processAutoScheduling(storage: IStorage): Promise<void> {
       return;
     }
 
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTimeInMinutes = currentHour * 60 + currentMinute;
-    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
-
     console.log(`[SCHEDULER] Checking ${usersWithDailyPlanning.length} users for auto-scheduling`);
 
     for (const { userId, dailyPlanningTime } of usersWithDailyPlanning) {
       try {
+        // Use user's local time for scheduling
+        const userTz = await getUserTimezone(storage, userId);
+        const userLocal = getUserLocalTime(userTz);
+        const currentHour = userLocal.getHours();
+        const currentMinute = userLocal.getMinutes();
+        const currentTimeInMinutes = currentHour * 60 + currentMinute;
+        const today = `${userLocal.getFullYear()}-${String(userLocal.getMonth() + 1).padStart(2, '0')}-${String(userLocal.getDate()).padStart(2, '0')}`;
+
         // Parse the daily planning time (default to 09:00 if not set)
         const planningTime = dailyPlanningTime || '09:00';
         const [planHour, planMinute] = planningTime.split(':').map(Number);
@@ -796,27 +826,33 @@ async function processUserAccountabilityCheckins(storage: IStorage): Promise<voi
 }
 
 /**
- * Send daily journal prompt to users who haven't journaled today
- * Runs at ~7pm (checked via the 5-min processing cycle)
+ * Send daily journal prompt to users who haven't journaled today.
+ * Sends at 8:30 PM in each user's local timezone — a natural wind-down
+ * time before bed to reflect on the day.
+ *
+ * Runs every 5-min cycle and checks each user's local hour individually.
  */
 async function processDailyJournalPrompts(storage: IStorage): Promise<void> {
   try {
-    const now = new Date();
-    const currentHour = now.getHours();
-
-    // Only run between 19:00-19:04 (one 5-min cycle window)
-    if (currentHour !== 19 || now.getMinutes() >= 5) return;
-
     const users = await storage.getUsersWithAccountabilityEnabled();
-    const today = now.toISOString().split('T')[0];
     let prompted = 0;
 
     for (const { userId } of users) {
       try {
-        // Check if user already has a journal entry for today
+        // Get user's local time
+        const userTz = await getUserTimezone(storage, userId);
+        const userNow = getUserLocalTime(userTz);
+        const userHour = userNow.getHours();
+        const userMinute = userNow.getMinutes();
+
+        // Only send during the 8:30 PM window (20:30–20:34) in the user's local time
+        if (userHour !== 20 || userMinute < 30 || userMinute >= 35) continue;
+
+        // Check if user already has a journal entry for today (in their local date)
+        const userToday = `${userNow.getFullYear()}-${String(userNow.getMonth() + 1).padStart(2, '0')}-${String(userNow.getDate()).padStart(2, '0')}`;
         const entries = await storage.getUserJournalEntries(userId, 1);
         const hasJournaledToday = entries.length > 0 &&
-          entries[0].createdAt && new Date(entries[0].createdAt).toISOString().split('T')[0] === today;
+          entries[0].createdAt && new Date(entries[0].createdAt).toISOString().split('T')[0] === userToday;
 
         if (hasJournaledToday) continue;
 
@@ -852,15 +888,11 @@ async function processDailyJournalPrompts(storage: IStorage): Promise<void> {
 }
 
 /**
- * Send re-engagement nudge to users who've been idle 3+ days
- * Runs at ~11am, once per idle period (deduped)
+ * Send re-engagement nudge to users who've been idle 3+ days.
+ * Runs at ~11 AM in each user's local timezone.
  */
 async function processIdleUserNudges(storage: IStorage): Promise<void> {
   try {
-    const now = new Date();
-    // Only run between 11:00-11:04
-    if (now.getHours() !== 11 || now.getMinutes() >= 5) return;
-
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
     const threeDaysAgoStr = threeDaysAgo.toISOString().split('T')[0];
@@ -871,6 +903,11 @@ async function processIdleUserNudges(storage: IStorage): Promise<void> {
     for (const streak of usersWithStreaks) {
       if (!streak.lastActivityDate) continue;
       if (streak.lastActivityDate >= threeDaysAgoStr) continue; // Active recently
+
+      // Check if it's 11:00 AM in the user's local timezone
+      const userTz = await getUserTimezone(storage, streak.userId);
+      const userLocal = getUserLocalTime(userTz);
+      if (userLocal.getHours() !== 11 || userLocal.getMinutes() >= 5) continue;
 
       // Check preferences
       const prefs = await storage.getNotificationPreferences(streak.userId);
@@ -906,33 +943,34 @@ async function processIdleUserNudges(storage: IStorage): Promise<void> {
 
 /**
  * Send end-of-day review prompt to users at 9 PM in their local timezone.
- * Timezone-aware: checks each user's timezone to determine if it's 9 PM locally.
+ * Uses the user's timezone from their profile (users.timezone).
  */
 async function processEndOfDayReviewPrompts(storage: IStorage): Promise<void> {
   try {
-    const now = new Date();
     const users = await storage.getUsersWithAccountabilityEnabled();
-    const today = now.toISOString().split('T')[0];
     let prompted = 0;
 
     for (const { userId } of users) {
       try {
-        // Get user's timezone preference
+        // Check accountability preference
         const prefs = await storage.getNotificationPreferences(userId);
         if (prefs?.enableAccountabilityReminders === false) continue;
 
-        const timezone = prefs?.timezone || 'UTC';
+        // Get user's local time
+        const userTz = await getUserTimezone(storage, userId);
+        const userNow = getUserLocalTime(userTz);
+        const localHour = userNow.getHours();
+        const localMinute = userNow.getMinutes();
 
-        // Check if it's 21:00-21:04 in the user's local timezone
-        const userLocalTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
-        const localHour = userLocalTime.getHours();
-        const localMinute = userLocalTime.getMinutes();
-
+        // Only send during 9:00 PM window (21:00–21:04) in user's local time
         if (localHour !== 21 || localMinute >= 5) continue;
+
+        // Use user's local date for dedup (not UTC date)
+        const userToday = `${userNow.getFullYear()}-${String(userNow.getMonth() + 1).padStart(2, '0')}-${String(userNow.getDate()).padStart(2, '0')}`;
 
         // Dedup: check if already sent today for this user
         const recentlySent = await storage.findRecentlySentSmartNotification(
-          userId, 'accountability', `eod_review_${today}_${userId}`, 'end_of_day_review', 12
+          userId, 'accountability', `eod_review_${userToday}_${userId}`, 'end_of_day_review', 12
         );
         if (recentlySent) continue;
 
@@ -940,7 +978,7 @@ async function processEndOfDayReviewPrompts(storage: IStorage): Promise<void> {
         const tasks = await storage.getUserTasks(userId);
         const todayCompletedTasks = tasks.filter(t =>
           t.completed && t.completedAt &&
-          new Date(t.completedAt).toISOString().split('T')[0] === today
+          new Date(t.completedAt).toISOString().split('T')[0] === userToday
         ).length;
 
         const message = generateNotificationMessage('end_of_day_review', {
@@ -956,7 +994,7 @@ async function processEndOfDayReviewPrompts(storage: IStorage): Promise<void> {
             haptic: 'light',
             channel: message.channel,
             sourceType: 'accountability',
-            sourceId: `eod_review_${today}_${userId}`,
+            sourceId: `eod_review_${userToday}_${userId}`,
           });
           prompted++;
         }

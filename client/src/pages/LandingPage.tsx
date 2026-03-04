@@ -62,9 +62,9 @@ import photoCelebrating from "../assets/photorealistic_celebrating.png";
 
 const allHeroVideos = [
   {
-    src: "/hero_video.mp4",
-    srcDesktop: "/hero_video.mp4",
-    srcMobile: "/hero_video.mp4",
+    src: "https://storage.googleapis.com/pathwise-media/public/hero_video.mp4",
+    srcDesktop: "https://storage.googleapis.com/pathwise-media/public/hero_video.mp4",
+    srcMobile: "https://storage.googleapis.com/pathwise-media/public/hero_video.mp4",
     caption: "The ultimate planning copilot. Turn inspiration into action."
   }
 ];
@@ -555,7 +555,7 @@ export default function LandingPage() {
                         playsInline
                         loop={currentPresetData.video.length === 1}
                         onError={handleVideoError}
-                        className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-90 z-10 block md:hidden"
+                        className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-90 z-10 block md:hidden"
                       >
                         <source src={currentVideo.srcMobile} type="video/mp4" />
                       </video>
