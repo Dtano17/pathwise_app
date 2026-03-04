@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, Link } from 'wouter';
 import { SocialLogin } from '@/components/SocialLogin';
 import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 // Using transparent logo for light/dark mode compatibility
 const journalMateLogo = '/journalmate-logo-transparent.png';
 
@@ -82,30 +84,59 @@ export default function Login() {
   }, [isAuthenticated, setLocation, copyingActivity]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-emerald-50 to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo and Branding */}
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="flex items-center justify-center mb-3 sm:mb-4">
-            <img 
-              src={journalMateLogo} 
-              alt="JournalMate" 
-              className="w-16 h-16 sm:w-20 sm:h-20"
-            />
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent mb-2">
-            JournalMate
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Your AI-powered life planning companion
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-gray-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-200/30 dark:bg-purple-900/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-200/30 dark:bg-emerald-900/10 rounded-full blur-[120px] pointer-events-none" />
 
-        {/* Social Login Component */}
-        <SocialLogin 
-          title="Welcome back"
-          description="Sign in to continue your journey"
-        />
+      <div className="w-full max-w-md relative z-10">
+        <Link href="/">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="absolute -top-12 left-0 text-muted-foreground hover:text-foreground transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" />
+            Back to Home
+          </Button>
+        </Link>
+
+        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-white/5 rounded-3xl shadow-2xl p-8 sm:p-10">
+          {/* Logo and Branding */}
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center mb-6">
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full scale-150" />
+                <img 
+                  src={journalMateLogo} 
+                  alt="JournalMate" 
+                  className="w-16 h-16 sm:w-20 sm:h-20 relative z-10 drop-shadow-sm"
+                />
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white mb-2">
+              JournalMate
+            </h1>
+            <p className="text-muted-foreground text-sm font-medium">
+              Your AI-powered life planning companion
+            </p>
+          </div>
+
+          {/* Social Login Component */}
+          <div className="space-y-6">
+            <SocialLogin 
+              title="Welcome back"
+              description="Sign in to continue your journey"
+            />
+            
+            <p className="text-center text-[11px] text-muted-foreground/60 px-4 leading-relaxed">
+              By continuing, you agree to our{' '}
+              <Link href="/terms" className="underline hover:text-primary transition-colors">Terms of Service</Link>
+              {' '}and{' '}
+              <Link href="/privacy" className="underline hover:text-primary transition-colors">Privacy Policy</Link>.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
