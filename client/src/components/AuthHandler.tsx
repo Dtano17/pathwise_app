@@ -72,8 +72,9 @@ export function AuthHandler() {
 
     // Handle mobile deep link token exchange (journalmate://auth?token=xxx)
     // This handles the case where the token is in the URL params (web redirect)
+    // Skip on /reset-password — that token is a password reset token, not an auth token
     const token = params.get('token');
-    if (token) {
+    if (token && window.location.pathname !== '/reset-password') {
       exchangeTokenForSession(token);
       return;
     }
