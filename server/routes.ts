@@ -3122,8 +3122,11 @@ ${sitemaps
         expiresAt,
       });
 
-      // Build reset link using helper to ensure correct protocol (https)
-      const baseURL = getBaseURL();
+      const baseURL = process.env.REPLIT_DEPLOYMENT === '1'
+        ? `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`
+        : process.env.REPLIT_DEV_DOMAIN
+          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+          : `${req.get('x-forwarded-proto') || req.protocol}://${req.get('host')}`;
       const resetLink = `${baseURL}/reset-password?token=${token}`;
 
       await sendPasswordResetEmail(
