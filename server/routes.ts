@@ -3122,11 +3122,8 @@ ${sitemaps
         expiresAt,
       });
 
-      const baseURL = process.env.REPLIT_DEPLOYMENT === '1'
-        ? `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`
-        : process.env.REPLIT_DEV_DOMAIN
-          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-          : `${req.get('x-forwarded-proto') || req.protocol}://${req.get('host')}`;
+      const baseURL = `${req.get('x-forwarded-proto') || req.protocol}://${req.get('host')}`;
+      console.log("[AUTH] Generated baseURL for reset link:", baseURL);
       const resetLink = `${baseURL}/reset-password?token=${token}`;
 
       await sendPasswordResetEmail(
