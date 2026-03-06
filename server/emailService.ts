@@ -506,3 +506,64 @@ export async function sendProWelcomeEmail(email: string, firstName: string = 'th
     return { success: false, error };
   }
 }
+
+export function getPasswordResetEmailHTML(firstName: string = 'there', resetLink: string): string {
+  const baseURL = getBaseURL();
+  const logoURL = baseURL ? `${baseURL}/icon-512.png` : 'https://resend-attachments.s3.amazonaws.com/nx67BKRdxXaeFoH';
+
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html dir="ltr" lang="en">
+<head><meta content="text/html; charset=UTF-8" http-equiv="Content-Type" /><meta name="x-apple-disable-message-reformatting" /></head>
+<body style="background-color:#f6f9fc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Ubuntu,sans-serif">
+<table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;margin:0 auto;padding:20px 0 48px">
+<tbody><tr><td>
+  <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:24px;">
+    <tr><td align="center">
+      <img alt="JournalMate Logo" height="80" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;border-radius:50%;" width="80" />
+    </td></tr>
+  </table>
+  <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border-radius:12px;padding:40px;">
+  <tbody><tr><td>
+    <h1 style="color:#1d1c1d;font-size:24px;font-weight:700;margin:0 0 16px;text-align:center;">Reset Your Password</h1>
+    <p style="font-size:16px;line-height:26px;color:#484848;margin:0 0 16px;">Hi ${firstName},</p>
+    <p style="font-size:16px;line-height:26px;color:#484848;margin:0 0 24px;">We received a request to reset your JournalMate password. Click the button below to choose a new password:</p>
+    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 24px;">
+      <tr><td align="center">
+        <a href="${resetLink}" style="background-color:#7c3aed;border-radius:8px;color:#fff;display:inline-block;font-size:16px;font-weight:600;padding:14px 32px;text-decoration:none;text-align:center;">Reset Password</a>
+      </td></tr>
+    </table>
+    <p style="font-size:14px;line-height:22px;color:#888;margin:0 0 8px;">This link will expire in 1 hour.</p>
+    <p style="font-size:14px;line-height:22px;color:#888;margin:0 0 16px;">If you didn't request this, you can safely ignore this email. Your password will remain unchanged.</p>
+    <hr style="border:none;border-top:1px solid #eaeaea;margin:24px 0;" />
+    <p style="font-size:12px;line-height:18px;color:#aaa;margin:0;text-align:center;">JournalMate &mdash; Your AI Planning Companion</p>
+  </td></tr></tbody>
+  </table>
+</td></tr></tbody>
+</table>
+</body>
+</html>`;
+}
+
+export async function sendPasswordResetEmail(email: string, firstName: string = 'there', resetLink: string) {
+  try {
+    const { client, fromEmail } = await getUncachableResendClient();
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: [email],
+      subject: 'Reset Your JournalMate Password',
+      html: getPasswordResetEmailHTML(firstName, resetLink),
+    });
+
+    if (error) {
+      console.error('[EMAIL] Failed to send password reset email:', error);
+      return { success: false, error };
+    }
+
+    console.log('[EMAIL] Password reset email sent successfully:', { email, emailId: data?.id });
+    return { success: true, emailId: data?.id };
+  } catch (error) {
+    console.error('[EMAIL] Error sending password reset email:', error);
+    return { success: false, error };
+  }
+}

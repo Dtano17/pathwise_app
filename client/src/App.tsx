@@ -40,6 +40,7 @@ const MobileAuthCallback = lazy(() => import("@/pages/MobileAuthCallback"));
 const VerifyPage = lazy(() => import("@/pages/VerifyPage"));
 const VerifyLandingPage = lazy(() => import("@/pages/VerifyLandingPage"));
 const VerifyLogin = lazy(() => import("@/pages/VerifyLogin"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -104,6 +105,7 @@ function AppContent() {
 
           {/* Login Page (no sidebar) */}
           <Route path="/login" component={Login} />
+          <Route path="/reset-password" component={ResetPassword} />
           
           {/* Shared Activity Page (no sidebar) */}
           <Route path="/share/:token" component={SharedActivity} />

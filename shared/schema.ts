@@ -2501,5 +2501,23 @@ export const insertPendingShareSchema = createInsertSchema(pendingShares).omit({
 export type PendingShare = typeof pendingShares.$inferSelect;
 export type InsertPendingShare = z.infer<typeof insertPendingShareSchema>;
 
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  token: varchar("token").unique().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tokenIndex: index("password_reset_tokens_token_idx").on(table.token),
+}));
+
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+
 export type Verification = typeof verifications.$inferSelect;
 export type InsertVerification = z.infer<typeof insertVerificationSchema>;

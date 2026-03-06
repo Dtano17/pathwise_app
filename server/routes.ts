@@ -56,12 +56,13 @@ import {
   type ProfileCompletion,
   type LifestylePlannerSession,
   type User,
+  passwordResetTokens,
 } from "@shared/schema";
 import { eq, and, or, isNull, isNotNull, ne, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import crypto from "crypto";
-import { sendWelcomeEmail } from "./emailService";
+import { sendWelcomeEmail, sendPasswordResetEmail } from "./emailService";
 import { generateContentHash } from "./utils/contentHash";
 import multer from "multer";
 import path from "path";
@@ -3086,6 +3087,114 @@ ${sitemaps
       });
     } catch (error) {
       console.error("Manual login error:", error);
+      res.status(500).json({ success: false, error: "Internal server error" });
+    }
+  });
+
+  // Forgot password - send reset link
+  app.post("/api/auth/forgot-password", async (req: any, res) => {
+    try {
+      const schema = z.object({
+        email: z.string().email("Invalid email address"),
+      });
+      const { email } = schema.parse(req.body);
+
+      const user = await storage.getUserByEmail(email);
+
+      // Always return success to prevent email enumeration
+      if (!user || user.authenticationType === "oauth") {
+        return res.json({ success: true });
+      }
+
+      // Generate token and expiry (1 hour)
+      const token = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+      // Delete any existing tokens for this user
+      await db
+        .delete(passwordResetTokens)
+        .where(eq(passwordResetTokens.userId, user.id));
+
+      // Insert new token
+      await db.insert(passwordResetTokens).values({
+        userId: user.id,
+        token,
+        expiresAt,
+      });
+
+      // Build reset link
+      const baseURL = `${req.protocol}://${req.get("host")}`;
+      const resetLink = `${baseURL}/reset-password?token=${token}`;
+
+      await sendPasswordResetEmail(
+        email,
+        user.firstName || user.username || "there",
+        resetLink
+      );
+
+      console.log("[AUTH] Password reset email sent:", { email, userId: user.id });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[AUTH] Forgot password error:", error);
+      res.status(500).json({ success: false, error: "Internal server error" });
+    }
+  });
+
+  // Reset password - validate token and set new password
+  app.post("/api/auth/reset-password", async (req: any, res) => {
+    try {
+      const schema = z.object({
+        token: z.string().min(1),
+        newPassword: z
+          .string()
+          .min(8, "Password must be at least 8 characters")
+          .regex(/[a-zA-Z]/, "Password must contain at least one letter")
+          .regex(/[0-9]/, "Password must contain at least one number")
+          .regex(/[^a-zA-Z0-9]/, "Password must contain at least one special character"),
+      });
+      const { token, newPassword } = schema.parse(req.body);
+
+      // Find token
+      const [resetToken] = await db
+        .select()
+        .from(passwordResetTokens)
+        .where(eq(passwordResetTokens.token, token))
+        .limit(1);
+
+      if (!resetToken) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid or expired reset link. Please request a new one.",
+        });
+      }
+
+      // Check expiry
+      if (new Date() > resetToken.expiresAt) {
+        await db
+          .delete(passwordResetTokens)
+          .where(eq(passwordResetTokens.id, resetToken.id));
+        return res.status(400).json({
+          success: false,
+          error: "This reset link has expired. Please request a new one.",
+        });
+      }
+
+      // Hash new password and update user
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await db
+        .update(users)
+        .set({ password: hashedPassword })
+        .where(eq(users.id, resetToken.userId));
+
+      // Delete the used token
+      await db
+        .delete(passwordResetTokens)
+        .where(eq(passwordResetTokens.userId, resetToken.userId));
+
+      console.log("[AUTH] Password reset successful:", { userId: resetToken.userId });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[AUTH] Reset password error:", error);
       res.status(500).json({ success: false, error: "Internal server error" });
     }
   });
