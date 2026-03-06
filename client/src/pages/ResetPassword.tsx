@@ -69,8 +69,11 @@ export default function ResetPassword() {
       <div className="flex items-center justify-center min-h-screen bg-background p-4">
         <div className="w-full max-w-md text-center space-y-4">
           <h1 className="text-2xl font-bold">Invalid Reset Link</h1>
-          <p className="text-muted-foreground">This password reset link is invalid or has expired.</p>
-          <Button onClick={() => setLocation('/login')}>Go to Login</Button>
+          <p className="text-muted-foreground">This password reset link is missing its security token.</p>
+          <div className="flex flex-col gap-2">
+            <Button onClick={() => setLocation('/login')}>Go to Login</Button>
+            <Button variant="outline" onClick={() => setLocation('/login?tab=forgot')}>Request New Link</Button>
+          </div>
         </div>
       </div>
     );

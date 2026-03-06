@@ -3155,6 +3155,7 @@ ${sitemaps
       const { token, newPassword } = schema.parse(req.body);
 
       // Find token
+      console.log("[AUTH] Attempting password reset with token:", token);
       const [resetToken] = await db
         .select()
         .from(passwordResetTokens)
@@ -3162,14 +3163,17 @@ ${sitemaps
         .limit(1);
 
       if (!resetToken) {
+        console.warn("[AUTH] Password reset token not found in DB:", token);
         return res.status(400).json({
           success: false,
-          error: "Invalid or expired reset link. Please request a new one.",
+          error: "Invalid reset link. This link may have already been used or a newer one was requested.",
         });
       }
 
       // Check expiry
-      if (new Date() > resetToken.expiresAt) {
+      const now = new Date();
+      if (now > resetToken.expiresAt) {
+        console.warn("[AUTH] Password reset token expired:", { token, expiresAt: resetToken.expiresAt, now });
         await db
           .delete(passwordResetTokens)
           .where(eq(passwordResetTokens.id, resetToken.id));
