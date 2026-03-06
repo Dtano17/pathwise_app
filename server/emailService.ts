@@ -52,7 +52,7 @@ function getBaseURL(): string {
 // Welcome email template - Elegant HTML with Community Discovery
 export function getWelcomeEmailHTML(firstName: string = 'there') {
   const baseURL = getBaseURL();
-  const logoURL = baseURL ? `${baseURL}/icons/email/email-logo-512.png` : 'https://resend-attachments.s3.amazonaws.com/nx67BKRdxXaeFoH';
+  const logoURL = baseURL ? `${baseURL}/icon-512.png` : 'https://resend-attachments.s3.amazonaws.com/nx67BKRdxXaeFoH';
   const appURL = baseURL || 'https://journalmate.ai';
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -101,9 +101,11 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 <!-- Header -->
                 <tr>
                   <td class="header-padding" align="center" style="padding:40px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%);text-align:center;border-radius:20px 20px 0 0">
-                    <div style="margin:0 auto 24px;">
-                      <img alt="JournalMate Logo" height="240" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;" width="240" />
-                    </div>
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:24px;">
+                        <tr><td align="center">
+                          <img alt="JournalMate Logo" height="140" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;border-radius:50%;" width="140" />
+                        </td></tr>
+                      </table>
                     <h1 style="margin:0;padding:0;font-size:28px;line-height:1.44em;padding-top:0.389em;font-weight:700;color:#ffffff;letter-spacing:0.5px">Welcome to JournalMate</h1>
                     <p style="margin:8px 0 0;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:rgba(255,255,255,0.95);line-height:1.4">Plan Together. Discover Together. Grow Together.</p>
                   </td>
@@ -143,43 +145,46 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
             <img src="${baseURL}/email-assets/map_trends.png" alt="Discover Trends Map" style="width:100%; border-radius:12px; display:block; margin:0 auto;" />
           </div>
                     
-                    <!-- Alert Cards with Gradient Borders -->
+                    <!-- Alert Cards - Compact 2x2 Grid -->
                     <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:24px">
                       <tbody>
                         <tr>
-                          <td class="trending-card" style="padding:2px;width:48%;display:inline-block;vertical-align:top;margin-right:4%;border-radius:14px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%)">
-                            <div style="padding:20px;background-color:#ffffff;border-radius:12px;height:100%">
-                              <div style="font-size:36px;margin-bottom:10px;text-align:center">🌌</div>
-                              <h4 style="margin:0 0 8px;padding:0;color:#111827;font-size:17px;font-weight:700;text-align:center">Aurora Alert</h4>
-                              <p style="margin:0;padding:0;font-size:14px;color:#6b7280;line-height:1.5;text-align:center">Northern Lights visible tonight in Iceland &amp; Alaska</p>
+                          <td width="50%" style="padding:4px" valign="top">
+                            <div style="padding:2px;border-radius:12px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%)">
+                              <div style="padding:12px 10px;background-color:#ffffff;border-radius:10px;text-align:center">
+                                <div style="font-size:24px;margin-bottom:6px">🌌</div>
+                                <div style="color:#111827;font-size:14px;font-weight:700;margin-bottom:4px">Aurora Alert</div>
+                                <div style="font-size:12px;color:#6b7280;line-height:1.4">Northern Lights visible tonight in Iceland &amp; Alaska</div>
+                              </div>
                             </div>
                           </td>
-                          <td class="trending-card" style="padding:2px;width:48%;display:inline-block;vertical-align:top;border-radius:14px;background:linear-gradient(135deg,#14B8A6 0%,#7C3AED 100%)">
-                            <div style="padding:20px;background-color:#ffffff;border-radius:12px;height:100%">
-                              <div style="font-size:36px;margin-bottom:10px;text-align:center">⚠️</div>
-                              <h4 style="margin:0 0 8px;padding:0;color:#111827;font-size:17px;font-weight:700;text-align:center">Storm Warning</h4>
-                              <p style="margin:0;padding:0;font-size:14px;color:#6b7280;line-height:1.5;text-align:center">Ice storm expected in Northeast - plan indoor activities</p>
+                          <td width="50%" style="padding:4px" valign="top">
+                            <div style="padding:2px;border-radius:12px;background:linear-gradient(135deg,#14B8A6 0%,#7C3AED 100%)">
+                              <div style="padding:12px 10px;background-color:#ffffff;border-radius:10px;text-align:center">
+                                <div style="font-size:24px;margin-bottom:6px">⚠️</div>
+                                <div style="color:#111827;font-size:14px;font-weight:700;margin-bottom:4px">Storm Warning</div>
+                                <div style="font-size:12px;color:#6b7280;line-height:1.4">Ice storm expected in Northeast - plan indoor activities</div>
+                              </div>
                             </div>
                           </td>
                         </tr>
-                      </tbody>
-                    </table>
-
-                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:30px">
-                      <tbody>
                         <tr>
-                          <td class="trending-card" style="padding:2px;width:48%;display:inline-block;vertical-align:top;margin-right:4%;border-radius:14px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%)">
-                            <div style="padding:20px;background-color:#ffffff;border-radius:12px;height:100%">
-                              <div style="font-size:36px;margin-bottom:10px;text-align:center">🎪</div>
-                              <h4 style="margin:0 0 8px;padding:0;color:#111827;font-size:17px;font-weight:700;text-align:center">Festival Alert</h4>
-                              <p style="margin:0;padding:0;font-size:14px;color:#6b7280;line-height:1.5;text-align:center">Coachella tickets on sale this Friday</p>
+                          <td width="50%" style="padding:4px" valign="top">
+                            <div style="padding:2px;border-radius:12px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%)">
+                              <div style="padding:12px 10px;background-color:#ffffff;border-radius:10px;text-align:center">
+                                <div style="font-size:24px;margin-bottom:6px">🎪</div>
+                                <div style="color:#111827;font-size:14px;font-weight:700;margin-bottom:4px">Local Events</div>
+                                <div style="font-size:12px;color:#6b7280;line-height:1.4">Music festival this weekend - join 500+ planners</div>
+                              </div>
                             </div>
                           </td>
-                          <td class="trending-card" style="padding:2px;width:48%;display:inline-block;vertical-align:top;border-radius:14px;background:linear-gradient(135deg,#14B8A6 0%,#7C3AED 100%)">
-                            <div style="padding:20px;background-color:#ffffff;border-radius:12px;height:100%">
-                              <div style="font-size:36px;margin-bottom:10px;text-align:center">🎉</div>
-                              <h4 style="margin:0 0 8px;padding:0;color:#111827;font-size:17px;font-weight:700;text-align:center">Local Event</h4>
-                              <p style="margin:0;padding:0;font-size:14px;color:#6b7280;line-height:1.5;text-align:center">Saturday farmers market - fresh produce &amp; live music</p>
+                          <td width="50%" style="padding:4px" valign="top">
+                            <div style="padding:2px;border-radius:12px;background:linear-gradient(135deg,#14B8A6 0%,#7C3AED 100%)">
+                              <div style="padding:12px 10px;background-color:#ffffff;border-radius:10px;text-align:center">
+                                <div style="font-size:24px;margin-bottom:6px">🏃</div>
+                                <div style="color:#111827;font-size:14px;font-weight:700;margin-bottom:4px">Popular Now</div>
+                                <div style="font-size:12px;color:#6b7280;line-height:1.4">Marathon training plans - 2.3K people planning</div>
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -306,7 +311,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
 // Pro subscription welcome email with benefits glossary
 export function getProWelcomeEmailHTML(firstName: string = 'there') {
   const baseURL = getBaseURL();
-  const logoURL = baseURL ? `${baseURL}/icons/email/email-logo-512.png` : 'https://resend-attachments.s3.amazonaws.com/nx67BKRdxXaeFoH';
+  const logoURL = baseURL ? `${baseURL}/icon-512.png` : 'https://resend-attachments.s3.amazonaws.com/nx67BKRdxXaeFoH';
   const appURL = baseURL || 'https://journalmate.ai';
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -338,9 +343,11 @@ export function getProWelcomeEmailHTML(firstName: string = 'there') {
                 <!-- Header with Pro Badge -->
                 <tr>
                   <td class="header-padding" align="center" style="padding:40px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%);text-align:center;border-radius:20px 20px 0 0">
-                    <div style="margin:0 auto 24px;">
-                      <img alt="JournalMate Logo" height="240" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;" width="240" />
-                    </div>
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:24px;">
+                        <tr><td align="center">
+                          <img alt="JournalMate Logo" height="140" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;border-radius:50%;" width="140" />
+                        </td></tr>
+                      </table>
                     <div style="margin-bottom:15px">
                       <span style="background:rgba(255,255,255,0.25);color:#ffffff;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:0.8px;border:1px solid rgba(255,255,255,0.4)">PRO MEMBER</span>
                     </div>
