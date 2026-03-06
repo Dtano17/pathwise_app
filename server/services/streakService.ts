@@ -229,8 +229,10 @@ export async function processStreakReminders(storage: IStorage): Promise<void> {
         continue;
       }
 
-      // Check and schedule at-risk reminder
-      await checkStreakAtRisk(storage, streak.userId, prefs?.timezone || 'UTC');
+      // Get timezone from user profile (not prefs, which has no timezone column)
+      const user = await storage.getUser(streak.userId);
+      const userTimezone = user?.timezone || 'UTC';
+      await checkStreakAtRisk(storage, streak.userId, userTimezone);
     }
   } catch (error) {
     console.error('Error processing streak reminders:', error);

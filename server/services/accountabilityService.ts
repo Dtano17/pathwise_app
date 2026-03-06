@@ -14,6 +14,30 @@ import { scheduleSmartNotification, cancelNotificationsForSource } from './smart
 import { generateNotificationMessage } from './notificationTemplates';
 
 /**
+ * Get a user's timezone from their profile (users.timezone), with UTC fallback.
+ * The notificationPreferences table does NOT have a timezone column.
+ */
+async function getAccountabilityUserTimezone(storage: IStorage, userId: string): Promise<string> {
+  try {
+    const user = await storage.getUser(userId);
+    return user?.timezone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+/**
+ * Get a user's current local time based on their timezone.
+ */
+function getAccountabilityLocalTime(userTimezone: string): Date {
+  try {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: userTimezone }));
+  } catch {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'UTC' }));
+  }
+}
+
+/**
  * Schedule weekly check-in for a user
  */
 export async function scheduleWeeklyCheckin(
@@ -30,7 +54,7 @@ export async function scheduleWeeklyCheckin(
 
     const checkinDay = prefs?.weeklyCheckinDay || 'sunday';
     const checkinTime = prefs?.weeklyCheckinTime || '10:00';
-    const timezone = prefs?.timezone || 'UTC';
+    const timezone = await getAccountabilityUserTimezone(storage, userId);
 
     // Calculate next Sunday (or configured day) at the configured time
     const scheduledAt = getNextCheckinDate(checkinDay, checkinTime);
@@ -85,7 +109,7 @@ export async function scheduleMonthlyReview(
       return;
     }
 
-    const timezone = prefs?.timezone || 'UTC';
+    const timezone = await getAccountabilityUserTimezone(storage, userId);
 
     // Calculate 1st of next month at 10 AM in user's timezone
     const scheduledAt = getFirstOfNextMonth(timezone);
@@ -144,7 +168,7 @@ export async function scheduleQuarterlyReview(
       return;
     }
 
-    const timezone = prefs?.timezone || 'UTC';
+    const timezone = await getAccountabilityUserTimezone(storage, userId);
 
     // Calculate start of next quarter at 10 AM in user's timezone
     const scheduledAt = getStartOfNextQuarter(timezone);
@@ -195,46 +219,39 @@ export async function scheduleQuarterlyReview(
  */
 export async function processAccountabilityCheckins(storage: IStorage): Promise<void> {
   try {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const users = await storage.getUsersWithAccountabilityEnabled();
 
-    // Only run in the 09:00-09:04 window (one 5-min cycle per day)
-    // This prevents duplicate scheduling when called every 5 minutes
-    if (currentHour !== 9 || currentMinute >= 5) return;
+    for (const { userId } of users) {
+      try {
+        // Use each user's local time, not server UTC
+        const userTz = await getAccountabilityUserTimezone(storage, userId);
+        const userNow = getAccountabilityLocalTime(userTz);
+        const userHour = userNow.getHours();
+        const userMinute = userNow.getMinutes();
 
-    const dayOfWeek = now.getDay(); // 0 = Sunday
-    const dayOfMonth = now.getDate();
-    const month = now.getMonth();
+        // Only run in the 09:00-09:04 window in user's local time
+        if (userHour !== 9 || userMinute >= 5) continue;
 
-    // Sunday - schedule weekly check-ins
-    if (dayOfWeek === 0) {
-      console.log('[ACCOUNTABILITY] Sunday - processing weekly check-ins');
-      // Get all users with accountability reminders enabled
-      const users = await storage.getUsersWithAccountabilityEnabled();
+        const dayOfWeek = userNow.getDay(); // 0 = Sunday
+        const dayOfMonth = userNow.getDate();
+        const month = userNow.getMonth();
 
-      for (const user of users) {
-        await scheduleWeeklyCheckin(storage, user.userId);
-      }
-    }
+        // Sunday - schedule weekly check-ins
+        if (dayOfWeek === 0) {
+          await scheduleWeeklyCheckin(storage, userId);
+        }
 
-    // 1st of month - schedule monthly reviews
-    if (dayOfMonth === 1) {
-      console.log('[ACCOUNTABILITY] 1st of month - processing monthly reviews');
-      const users = await storage.getUsersWithAccountabilityEnabled();
+        // 1st of month - schedule monthly reviews
+        if (dayOfMonth === 1) {
+          await scheduleMonthlyReview(storage, userId);
+        }
 
-      for (const user of users) {
-        await scheduleMonthlyReview(storage, user.userId);
-      }
-    }
-
-    // Start of quarter (Jan 1, Apr 1, Jul 1, Oct 1)
-    if (dayOfMonth === 1 && [0, 3, 6, 9].includes(month)) {
-      console.log('[ACCOUNTABILITY] Start of quarter - processing quarterly reviews');
-      const users = await storage.getUsersWithAccountabilityEnabled();
-
-      for (const user of users) {
-        await scheduleQuarterlyReview(storage, user.userId);
+        // Start of quarter (Jan 1, Apr 1, Jul 1, Oct 1)
+        if (dayOfMonth === 1 && [0, 3, 6, 9].includes(month)) {
+          await scheduleQuarterlyReview(storage, userId);
+        }
+      } catch (err) {
+        // Skip individual user errors
       }
     }
   } catch (error) {
