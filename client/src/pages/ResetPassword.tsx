@@ -30,6 +30,7 @@ export default function ResetPassword() {
     if (!passwordValid || !passwordsMatch || !token) return;
 
     setIsLoading(true);
+    console.log("[DEBUG] Submitting reset for token:", token);
     try {
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
