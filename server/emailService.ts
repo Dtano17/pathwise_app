@@ -102,7 +102,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 <tr>
                   <td class="header-padding" align="center" style="padding:40px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%);text-align:center;border-radius:20px 20px 0 0">
                     <div style="display:inline-block; background-color:rgba(255,255,255,0.95); padding:16px; border-radius:32px; box-shadow:0 8px 32px rgba(0,0,0,0.15); margin:0 auto 24px;">
-                      <img alt="JournalMate Logo" height="120" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:16px;" width="120" />
+                      <img alt="JournalMate Logo" height="180" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:16px;" width="180" />
                     </div>
                     <h1 style="margin:0;padding:0;font-size:28px;line-height:1.44em;padding-top:0.389em;font-weight:700;color:#ffffff;letter-spacing:0.5px">Welcome to JournalMate</h1>
                     <p style="margin:8px 0 0;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:rgba(255,255,255,0.95);line-height:1.4">Plan Together. Discover Together. Grow Together.</p>
@@ -339,7 +339,7 @@ export function getProWelcomeEmailHTML(firstName: string = 'there') {
                 <tr>
                   <td class="header-padding" align="center" style="padding:40px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%);text-align:center;border-radius:20px 20px 0 0">
                     <div style="display:inline-block; background-color:rgba(255,255,255,0.95); padding:16px; border-radius:32px; box-shadow:0 8px 32px rgba(0,0,0,0.15); margin:0 auto 24px;">
-                      <img alt="JournalMate Logo" height="120" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:16px;" width="120" />
+                      <img alt="JournalMate Logo" height="180" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:16px;" width="180" />
                     </div>
                     <div style="margin-bottom:15px">
                       <span style="background:rgba(255,255,255,0.25);color:#ffffff;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:0.8px;border:1px solid rgba(255,255,255,0.4)">PRO MEMBER</span>
