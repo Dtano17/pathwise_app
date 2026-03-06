@@ -1,10 +1,10 @@
 import { useState } from 'react';
+import { useLocation } from 'wouter';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SiGoogle } from "react-icons/si";
 import { Mail, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { EmailAuthDialog } from './EmailAuthDialog';
 import { useAuth } from "@/hooks/useAuth";
 import { isNative } from "@/lib/platform";
 
@@ -26,7 +26,7 @@ export function SocialLogin({
 }: SocialLoginProps) {
   const { toast } = useToast();
   const { loginWithGoogle } = useAuth();
-  const [showEmailAuth, setShowEmailAuth] = useState(false);
+  const [, setLocation] = useLocation();
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Get returnTo parameter from URL if present (validate to prevent open redirect)
@@ -99,7 +99,7 @@ export function SocialLogin({
         {/* Email Sign In */}
         <Button
           variant="outline"
-          onClick={() => setShowEmailAuth(true)}
+          onClick={() => setLocation('/email-auth')}
           className="w-full min-h-[44px] h-auto py-2.5 text-sm sm:text-base justify-start"
           data-testid="button-login-email"
         >
@@ -136,12 +136,6 @@ export function SocialLogin({
           .
         </p>
       </CardContent>
-      
-      {/* Email Authentication Dialog */}
-      <EmailAuthDialog 
-        open={showEmailAuth} 
-        onOpenChange={setShowEmailAuth} 
-      />
     </Card>
   );
 }
