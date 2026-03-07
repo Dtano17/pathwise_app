@@ -363,11 +363,11 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
                 </AccordionTrigger>
                 <AccordionContent>
                   <Tabs defaultValue="chatgpt" className="w-full">
-                    <TabsList className="grid w-full grid-cols-4 h-11 bg-white/10">
-                      <TabsTrigger value="chatgpt" className="text-sm">ChatGPT</TabsTrigger>
-                      <TabsTrigger value="claude" className="text-sm">Claude</TabsTrigger>
-                      <TabsTrigger value="gemini" className="text-sm">Gemini</TabsTrigger>
-                      <TabsTrigger value="social" className="text-sm">Social</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-4 h-9 bg-white/5 border border-white/10 rounded-lg">
+                      <TabsTrigger value="chatgpt" className="text-xs font-bold">ChatGPT</TabsTrigger>
+                      <TabsTrigger value="claude" className="text-xs font-bold">Claude</TabsTrigger>
+                      <TabsTrigger value="gemini" className="text-xs font-bold">Gemini</TabsTrigger>
+                      <TabsTrigger value="social" className="text-xs font-bold">Social</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="chatgpt" className="mt-4 space-y-3 text-sm">
