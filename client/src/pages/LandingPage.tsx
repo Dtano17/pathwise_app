@@ -441,11 +441,6 @@ export default function LandingPage() {
 
             {/* Desktop Center Nav (Hidden on Mobile) */}
             <div className="hidden sm:flex items-center gap-1 absolute left-1/2 -translate-x-1/2 w-max">
-              <Link href="/updates">
-                <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4" data-testid="link-updates">
-                  Updates
-                </Button>
-              </Link>
               <Link href="/discover">
                 <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4" data-testid="link-discover">
                   Discover
@@ -454,6 +449,11 @@ export default function LandingPage() {
               <Link href="/import-plan">
                 <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4" data-testid="link-import">
                   Import
+                </Button>
+              </Link>
+              <Link href="/updates">
+                <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4" data-testid="link-updates">
+                  Updates
                 </Button>
               </Link>
             </div>
@@ -480,12 +480,6 @@ export default function LandingPage() {
             <div className="mx-6 h-px bg-border/30"></div>
             {/* Centered action buttons */}
             <div className="flex items-center justify-center py-3 gap-2.5">
-              <Link href="/updates">
-                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40 font-medium text-[13px] shadow-sm flex items-center transition-colors" data-testid="link-updates-mobile">
-                  <Megaphone className="h-3.5 w-3.5 mr-1.5" />
-                  Updates
-                </Button>
-              </Link>
               <Link href="/discover">
                 <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800/50 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/40 font-medium text-[13px] shadow-sm flex items-center transition-colors" data-testid="link-discover-mobile">
                   <Compass className="h-3.5 w-3.5 mr-1.5" />
@@ -493,12 +487,15 @@ export default function LandingPage() {
                 </Button>
               </Link>
               <Link href="/import-plan">
-                <Button variant="default" size="sm" className="h-8 px-3.5 rounded-full bg-violet-500 dark:bg-violet-600 hover:bg-violet-600 dark:hover:bg-violet-500 text-white font-medium text-[13px] shadow-sm flex items-center relative border border-transparent transition-colors" data-testid="link-import-mobile">
+                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-violet-50 dark:bg-violet-950/40 border-violet-200 dark:border-violet-800/50 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 font-medium text-[13px] shadow-sm flex items-center transition-colors" data-testid="link-import-mobile">
                   <Upload className="h-3.5 w-3.5 mr-1.5" />
                   Import
-                  <div className="absolute -top-1.5 -right-2 bg-emerald-500 border-2 border-background text-white text-[8px] font-bold px-1 py-px rounded-full tracking-wider shadow-sm uppercase">
-                    New
-                  </div>
+                </Button>
+              </Link>
+              <Link href="/updates">
+                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40 font-medium text-[13px] shadow-sm flex items-center transition-colors" data-testid="link-updates-mobile">
+                  <Megaphone className="h-3.5 w-3.5 mr-1.5" />
+                  Updates
                 </Button>
               </Link>
             </div>

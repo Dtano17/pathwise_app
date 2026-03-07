@@ -197,7 +197,6 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
         <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-400/20 via-transparent to-transparent" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-cyan-400/15 via-transparent to-transparent" />
-
         {/* Floating orbs */}
         <motion.div
           animate={{ y: [0, -15, 0], x: [0, 8, 0] }}
@@ -277,35 +276,35 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
             </div>
           </motion.div>
         </div>
-      </div>
 
-      {/* How It Works Steps */}
-      <div className="w-full px-5 sm:px-8 -mt-1 relative z-10">
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/15 p-5 shadow-lg">
-          <div className="grid grid-cols-3 gap-3 sm:gap-6">
-            {steps.map((step, i) => (
-              <motion.div
-                key={step.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 + i * 0.1 }}
-                className="flex flex-col items-center text-center"
-              >
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-2 ${
-                  i === 0 ? 'bg-violet-500/20' :
-                  i === 1 ? 'bg-pink-500/20' :
-                  'bg-emerald-500/20'
-                }`}>
-                  <step.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${
-                    i === 0 ? 'text-violet-300' :
-                    i === 1 ? 'text-pink-300' :
-                    'text-emerald-300'
-                  }`} />
-                </div>
-                <h4 className="text-xs sm:text-sm font-semibold text-white">{step.title}</h4>
-                <p className="text-[10px] sm:text-xs text-white/50 mt-0.5 leading-snug">{step.description}</p>
-              </motion.div>
-            ))}
+        {/* How It Works Steps — inside the gradient */}
+        <div className="relative z-10 px-5 sm:px-8 pb-6">
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/15 p-5 shadow-lg">
+            <div className="grid grid-cols-3 gap-3 sm:gap-6">
+              {steps.map((step, i) => (
+                <motion.div
+                  key={step.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + i * 0.1 }}
+                  className="flex flex-col items-center text-center"
+                >
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-2 ${
+                    i === 0 ? 'bg-violet-500/20' :
+                    i === 1 ? 'bg-pink-500/20' :
+                    'bg-emerald-500/20'
+                  }`}>
+                    <step.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                      i === 0 ? 'text-violet-300' :
+                      i === 1 ? 'text-pink-300' :
+                      'text-emerald-300'
+                    }`} />
+                  </div>
+                  <h4 className="text-xs sm:text-sm font-semibold text-white">{step.title}</h4>
+                  <p className="text-[10px] sm:text-xs text-white/50 mt-0.5 leading-snug">{step.description}</p>
+                </motion.div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -1020,7 +1019,7 @@ export default function ImportPlan() {
       {/* Scrollable content layer */}
       <div className="relative z-10 h-screen overflow-auto">
       {/* Premium Header */}
-      <header className="fixed top-0 sm:top-4 left-0 sm:left-1/2 sm:-translate-x-1/2 z-50 w-full sm:w-[95%] sm:max-w-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sm:rounded-full shadow-sm sm:shadow-lg border-b sm:border border-white/20 dark:border-white/10 sm:border-white/20 dark:sm:border-white/10 transition-all duration-300">
+      <header className="fixed top-0 sm:top-4 left-0 sm:left-1/2 sm:-translate-x-1/2 z-50 w-full sm:w-[95%] sm:max-w-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sm:rounded-full shadow-sm sm:shadow-lg border-b sm:border border-white/20 dark:border-white/10 sm:border-white/20 dark:sm:border-white/10 transition-all duration-300 pt-[env(safe-area-inset-top)] sm:pt-0">
         <div className="flex flex-col sm:flex-row items-center justify-between w-full">
           {/* Top Row */}
           <div className="px-4 py-3 sm:px-6 sm:py-3 flex items-center justify-between w-full sm:h-14 relative">
@@ -1045,11 +1044,6 @@ export default function ImportPlan() {
 
             {/* Desktop Center Nav */}
             <div className="hidden sm:flex items-center gap-1 absolute left-1/2 -translate-x-1/2 w-max">
-              <Link href="/updates">
-                <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4">
-                  Updates
-                </Button>
-              </Link>
               <Link href="/discover">
                 <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4">
                   Discover
@@ -1058,6 +1052,11 @@ export default function ImportPlan() {
               <Link href="/import-plan">
                 <Button variant="ghost" size="sm" className="rounded-full bg-primary/10 text-primary font-medium text-sm px-4">
                   Import
+                </Button>
+              </Link>
+              <Link href="/updates">
+                <Button variant="ghost" size="sm" className="rounded-full hover:bg-muted font-medium text-sm px-4">
+                  Updates
                 </Button>
               </Link>
             </div>
@@ -1072,29 +1071,29 @@ export default function ImportPlan() {
           <div className="sm:hidden w-full">
             <div className="mx-6 h-px bg-border/30" />
             <div className="flex items-center justify-center py-2.5 gap-2.5">
-              <Link href="/updates">
-                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-orange-500/15 border-orange-400/30 text-orange-300 hover:bg-orange-500/25 font-medium text-[13px] shadow-sm flex items-center transition-colors">
-                  <Megaphone className="h-3.5 w-3.5 mr-1.5" />
-                  Updates
-                </Button>
-              </Link>
               <Link href="/discover">
-                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-sky-500/15 border-sky-400/30 text-sky-300 hover:bg-sky-500/25 font-medium text-[13px] shadow-sm flex items-center transition-colors">
+                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800/50 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/40 font-medium text-[13px] shadow-sm flex items-center transition-colors">
                   <Compass className="h-3.5 w-3.5 mr-1.5" />
                   Discover
                 </Button>
               </Link>
-              <Button variant="default" size="sm" className="h-8 px-3.5 rounded-full bg-violet-500 hover:bg-violet-600 text-white font-medium text-[13px] shadow-sm flex items-center border border-transparent transition-colors">
+              <Button variant="default" size="sm" className="h-8 px-3.5 rounded-full bg-violet-500 dark:bg-violet-600 hover:bg-violet-600 dark:hover:bg-violet-500 text-white font-medium text-[13px] shadow-sm flex items-center border border-transparent transition-colors">
                 <Upload className="h-3.5 w-3.5 mr-1.5" />
                 Import
               </Button>
+              <Link href="/updates">
+                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40 font-medium text-[13px] shadow-sm flex items-center transition-colors">
+                  <Megaphone className="h-3.5 w-3.5 mr-1.5" />
+                  Updates
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
       </header>
 
       {/* Spacer for fixed header */}
-      <div className="h-[104px] sm:h-[88px]" />
+      <div className="h-[104px] sm:h-[88px] safe-top sm:!pt-0" />
 
       <div className="max-w-2xl mx-auto p-4 pb-24">
         {limits && limits.tier === 'free' && !showSignIn && (
