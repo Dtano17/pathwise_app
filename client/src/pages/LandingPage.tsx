@@ -41,6 +41,8 @@ import {
   LayoutGrid,
   Award,
   Trophy,
+  Shield,
+  Trash2,
   Heart,
   Leaf,
   LogIn,
@@ -70,15 +72,14 @@ const allHeroVideos = [
 ];
 
 const heroRotatingCaptions = [
-  "The ultimate planning copilot. Turn inspiration into action.",
-  "Never miss a spectacular moment again.",
-  "The best planning and accountability engine for your life.",
-  "Plan with family and friends, hold each other accountable.",
-  "See an idea online, adapt it, and plan with your group to get things done.",
-  "Grow together. Build your perfect routine and stay accountable.",
-  "Find inspiration, invite your circle, and achieve milestones.",
-  "Turn 'one day' into day one. Plan together, win together.",
-  "Turn wellness into a shared journey. Plan and grow together.",
+  "See a trip on Instagram? Share it with the app, adapt it, and make it yours.",
+  "Plan a date night — let them know exactly what to expect, how to dress, and when to arrive.",
+  "Your data never leaves your device. Plan privately, or share securely with personal info redacted.",
+  "Create plans for the community. When others use them, you earn rewards.",
+  "Discover trending plans and emergency-ready guides near you.",
+  "Already planning elsewhere? Import your plans and let the app hold you accountable.",
+  "Plan as a group, track each other's progress, and celebrate every win together.",
+  "Turn any social media post or AI conversation into a trackable, shareable plan.",
 ];
 
 const presetData: Record<string, { verb: string; noun: string; image: string[]; video?: { src?: string; srcDesktop?: string; srcMobile?: string; caption: string }[]; fonts: { heading: string; drama: string; data: string } }> = {
@@ -142,49 +143,49 @@ const presetData: Record<string, { verb: string; noun: string; image: string[]; 
 const features = [
   {
     icon: Target,
-    title: "Turn ideas into action",
+    title: "Plan with anything you find online",
     description:
-      "Stop staring at blank lists. We gently shape your scattered thoughts into clear, doable steps so you always know what's next.",
+      "Come across a trip to Marrakech on Instagram? A workout routine on TikTok? Share it with JournalMate and we turn it into a personalized plan you can adapt, track, and complete — solo or with your group.",
     color: "text-emerald-500",
     bgColor: "bg-emerald-100 dark:bg-emerald-900/30",
   },
   {
     icon: Users,
-    title: "Grow with your people",
+    title: "Built-in accountability engine",
     description:
-      "Share your journey with friends who get it. Cheer each other on, swap plans, and celebrate the small wins together.",
+      "No more plans that collect dust. The app keeps you on track with smart follow-ups, progress tracking, and gentle nudges on your deliverables — so your plans actually meet reality, not just your notes app.",
     color: "text-blue-500",
     bgColor: "bg-blue-100 dark:bg-blue-900/30",
   },
   {
-    icon: BookMarked,
-    title: "A journal that writes itself",
+    icon: Share2,
+    title: "Collaborate and plan as a group",
     description:
-      "We remember the little things for you. As you check things off, we weave them into a beautiful, reflective timeline of your growth.",
+      "Create group plans, invite friends or family, assign tasks, and track each other's progress in real time. Planning a date? Let them know exactly what to expect. Coordinating a trip? Keep everyone synced and accountable.",
+    color: "text-amber-500",
+    bgColor: "bg-amber-100 dark:bg-amber-900/30",
+  },
+  {
+    icon: BookMarked,
+    title: "Every experience, auto-journaled",
+    description:
+      "As you complete plans and hit milestones, JournalMate automatically journals every event into a timeline. Share your journal securely for fun, or keep it completely private — your call.",
     color: "text-orange-500",
     bgColor: "bg-orange-100 dark:bg-orange-900/30",
   },
   {
     icon: Compass,
-    title: "Explore new rhythms",
+    title: "Discover plans, earn rewards",
     description:
-      "Feeling stuck? Borrow routines from the community. Mix and match pieces of different plans to find the flow that feels just right for you.",
+      "Browse trending plans near you, find local experiences, or discover emergency and life-saving guides from the community. Create your own plans for others to adopt — and earn rewards every time they do.",
     color: "text-pink-500",
     bgColor: "bg-pink-100 dark:bg-pink-900/30",
   },
   {
-    icon: Instagram,
-    title: "Inspiration to reality",
+    icon: Shield,
+    title: "Data privacy is our #1 priority",
     description:
-      "Found a morning routine on TikTok or a healthy recipe on Instagram? Just paste the link, and we'll magically turn it into a trackable plan.",
-    color: "text-cyan-500",
-    bgColor: "bg-cyan-100 dark:bg-cyan-900/30",
-  },
-  {
-    icon: Trophy,
-    title: "Celebrate everything",
-    description:
-      "Life is hard enough. Whether you meditated for two minutes or finally ran that 5K, we make every milestone feel like a party.",
+      "Your plans and data stay on your device. No ads. No data selling. Ever. When you choose to share, we auto-redact personal information so others can use your plan safely. Request data deletion anytime — it's gone instantly.",
     color: "text-violet-500",
     bgColor: "bg-violet-100 dark:bg-violet-900/30",
   }
@@ -611,7 +612,7 @@ export default function LandingPage() {
             ref={el => { textRefs.current[2] = el; }}
             className="text-base md:text-xl text-white/90 mb-6 sm:mb-8 max-w-2xl font-medium leading-relaxed px-2 lg:px-0 drop-shadow-md"
           >
-            The AI-powered lifestyle planner that turns inspiration into action. Plan your perfect routine, stay accountable with friends, and celebrate every win together.
+            The planning and accountability engine for the social media age. See something you love online? Turn it into a real plan in seconds. Go solo or rally your crew — our built-in accountability engine keeps everyone on track while auto-journaling every win along the way. This is where plans meet reality.
           </p>
 
           <div
@@ -699,6 +700,21 @@ export default function LandingPage() {
             </motion.div>
           </AnimatePresence>
 
+          {/* Privacy Trust Bar */}
+          <div className="mt-6 sm:mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-5 px-4">
+            {[
+              { icon: Shield, text: "Your data stays on your device" },
+              { icon: Shield, text: "No ads, ever" },
+              { icon: Trash2, text: "Request deletion anytime — it's gone" },
+              { icon: Shield, text: "We never sell your data" },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-1.5 text-white/70 text-[11px] sm:text-xs font-medium">
+                <item.icon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white/50 shrink-0" />
+                <span>{item.text}</span>
+              </div>
+            ))}
+          </div>
+
         </div>
       </section>
 
@@ -744,7 +760,7 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="hidden md:flex gap-2">
-              <Button variant="outline" className="rounded-full h-12 px-6 hover-squish border-border/50 shadow-sm">Explore all domains <ArrowRight className="w-4 h-4 ml-2" /></Button>
+              <Link href="/discover"><Button variant="outline" className="rounded-full h-12 px-6 hover-squish border-border/50 shadow-sm">Explore all domains <ArrowRight className="w-4 h-4 ml-2" /></Button></Link>
             </div>
           </motion.div>
         </div>
@@ -765,6 +781,7 @@ export default function LandingPage() {
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
               className="relative shrink-0 w-[85vw] sm:w-[320px] h-[340px] sm:h-[480px] rounded-[2rem] overflow-hidden snap-center group shadow-diffuse-primary border border-border/10 cursor-pointer hover:-translate-y-2 transition-transform duration-500"
+              onClick={() => navigate('/discover')}
             >
               <img src={domain.img} alt={domain.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -794,11 +811,11 @@ export default function LandingPage() {
             className="text-center mb-16"
           >
             <h2 className="text-3xl md:text-5xl font-bold mb-4 font-drama italic text-primary tracking-tight">
-              More than just a to-do list
+              Everything you need to plan, do, and share
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-              We built JournalMate to feel like a supportive friend, not a demanding boss.
-              Here's how we help you find your rhythm.
+              We built JournalMate to be your smart AI-powered planning, journaling, and accountability companion for the social media age.
+              Here's how we help you turn your feed into your future.
             </p>
           </motion.div>
 
@@ -850,7 +867,7 @@ export default function LandingPage() {
               Your Journey, Shared.
             </h2>
             <p className={`text-muted-foreground max-w-2xl mx-auto text-lg md:text-xl leading-relaxed ${currentPresetData.fonts.data}`}>
-              Turn that "someday" idea into something you actually do today. Build a circle of friends to keep you grounded, motivated, and celebrated.
+              Stop dreaming, start doing. Turn any idea — from social media, AI tools, or your own imagination — into a plan you actually follow through on. Go solo or build a crew that holds each other to every deliverable.
             </p>
           </motion.div>
 
@@ -894,16 +911,16 @@ export default function LandingPage() {
                 {
                   step: "1",
                   icon: Lightbulb,
-                  title: "Spark the idea",
-                  description: "Wherever you get the idea from—TikTok, Instagram, or the web—just paste the link or tell us your goal.",
+                  title: "Spark it from anywhere",
+                  description: "See a post on TikTok, a recipe on Instagram, or a travel idea on the web? Paste the link or describe your goal — the app takes it from there.",
                   color: "text-purple-500",
                   bgColor: "bg-purple-100 dark:bg-purple-900/40",
                 },
                 {
                   step: "2",
                   icon: Bot,
-                  title: "Let the AI guide you",
-                  description: "Our dedicated agent schedules tasks, follows up with you, and adapts your plan to real-time traffic and weather.",
+                  title: "AI builds your plan",
+                  description: "Our AI agent turns your inspiration into a structured plan with tasks, timelines, and real-time updates for weather, traffic, and local conditions.",
                   color: "text-emerald-500",
                   bgColor: "bg-emerald-100 dark:bg-emerald-900/40",
                 },
@@ -911,15 +928,15 @@ export default function LandingPage() {
                   step: "3",
                   icon: Users,
                   title: "Plan with your circle",
-                  description: "Create plans for group trips or events, invite your people, and stay perfectly synced and informed on progress.",
+                  description: "Invite friends or family, assign roles, and stay perfectly synced. Plan a date and let them know exactly what to expect — or coordinate a group trip with full visibility.",
                   color: "text-amber-500",
                   bgColor: "bg-amber-100 dark:bg-amber-900/40",
                 },
                 {
                   step: "4",
                   icon: Target,
-                  title: "Achieve together",
-                  description: "Let the app hold you and your group accountable. Check off milestones and find a way to achieve your goals.",
+                  title: "Watch your plan meet reality",
+                  description: "The accountability engine holds you and your group to every deliverable — tracking progress, sending follow-ups, and auto-journaling every completed milestone into a timeline you can share or keep private.",
                   color: "text-rose-500",
                   bgColor: "bg-rose-100 dark:bg-rose-900/40",
                 }
@@ -961,8 +978,7 @@ export default function LandingPage() {
             className="text-center mt-16"
           >
             <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
-              Share permanent links that never expire. Recipients can view your
-              plan, join your group, and track progress together in real-time.
+              Share plans with permanent links that never expire. Personal information is auto-redacted so others can safely adopt your plan, join your group, and track progress in real-time.
             </p>
             <Link href="/login">
               <Button

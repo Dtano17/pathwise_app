@@ -28,7 +28,10 @@ import {
   ArrowRight,
   Smartphone,
 } from 'lucide-react';
-import { SiInstagram, SiTiktok, SiYoutube, SiX, SiFacebook, SiReddit, SiOpenai, SiAnthropic, SiGooglegemini } from 'react-icons/si';
+import { 
+  SiInstagram, SiTiktok, SiYoutube, SiX, SiFacebook, SiReddit, 
+  SiOpenai, SiAnthropic, SiGooglegemini, SiLinkedin, SiThreads 
+} from 'react-icons/si';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -58,22 +61,28 @@ import { useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import ThemeToggle from '@/components/ThemeToggle';
 
+const heroVideoUrl = 'https://storage.googleapis.com/pathwise-media/public/hero_video.mp4';
+
 function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/20 dark:border-slate-700/30 rounded-2xl shadow-xl ${className}`}>
+    <div className={`backdrop-blur-2xl bg-white/10 border border-white/15 rounded-2xl shadow-xl ${className}`}>
       {children}
     </div>
   );
 }
 
-function SourcePill({ icon: Icon, label, color, tooltip }: { icon: any; label: string; color: string; tooltip?: string }) {
+function SourcePill({ icon: Icon, label, color, iconColor, tooltip }: { icon: any; label: string; color: string; iconColor?: string; tooltip?: string }) {
   const pill = (
     <motion.div
       whileHover={{ scale: 1.05, y: -1 }}
       whileTap={{ scale: 0.97 }}
-      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium ${color} ${tooltip ? 'cursor-help' : 'cursor-default'} transition-shadow hover:shadow-md border border-transparent hover:border-white/30 dark:hover:border-white/10`}
+      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-white/10 text-white/90 ${tooltip ? 'cursor-help' : 'cursor-default'} transition-shadow hover:shadow-md border border-white/10 hover:border-white/30`}
     >
-      <Icon className="w-4 h-4" />
+      <Icon 
+        className="w-4 h-4" 
+        style={iconColor?.startsWith('url') ? {} : { color: iconColor }} 
+        {...(iconColor?.startsWith('url') ? { fill: iconColor } : {})}
+      />
       <span>{label}</span>
     </motion.div>
   );
@@ -104,14 +113,14 @@ function LoadingState({ message }: { message?: string }) {
     >
       <div className="relative w-20 h-20 mb-6">
         <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500 to-violet-600 animate-pulse" />
-        <div className="absolute inset-2 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center">
-          <Sparkles className="w-8 h-8 text-purple-500 animate-spin" style={{ animationDuration: '3s' }} />
+        <div className="absolute inset-2 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center">
+          <Sparkles className="w-8 h-8 text-purple-300 animate-spin" style={{ animationDuration: '3s' }} />
         </div>
       </div>
-      <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">
+      <h3 className="text-lg font-semibold text-white mb-2">
         {message || 'Analyzing Your Content'}
       </h3>
-      <p className="text-slate-500 dark:text-slate-400 text-center max-w-xs">
+      <p className="text-white/60 text-center max-w-xs">
         Extracting content, generating your personalized plan...
       </p>
     </motion.div>
@@ -124,21 +133,23 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
       title: 'Social Media',
       icon: Globe,
       sources: [
-        { icon: SiInstagram, label: 'Instagram', color: 'bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30 text-pink-600 dark:text-pink-400', tooltip: 'Paste URL like instagram.com/p/ABC123 or use share sheet' },
-        { icon: SiTiktok, label: 'TikTok', color: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300', tooltip: 'Paste video URL or share from TikTok app' },
-        { icon: SiYoutube, label: 'YouTube', color: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400', tooltip: 'Paste video URL - we\'ll transcribe it' },
-        { icon: SiX, label: 'Twitter/X', color: 'bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400', tooltip: 'Paste tweet URL' },
-        { icon: SiFacebook, label: 'Facebook', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400', tooltip: 'Paste post URL' },
-        { icon: SiReddit, label: 'Reddit', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400', tooltip: 'Paste thread or comment URL' },
+        { icon: SiInstagram, label: 'Instagram', color: '', iconColor: '#E1306C', tooltip: 'Paste URL like instagram.com/p/ABC123 or use share sheet' },
+        { icon: SiTiktok, label: 'TikTok', color: '', iconColor: '#FFFFFF', tooltip: 'Paste video URL or share from TikTok app' },
+        { icon: SiYoutube, label: 'YouTube', color: '', iconColor: '#FF0000', tooltip: 'Paste video URL - we\'ll transcribe it' },
+        { icon: SiX, label: 'Twitter/X', color: '', iconColor: '#FFFFFF', tooltip: 'Paste tweet URL' },
+        { icon: SiFacebook, label: 'Facebook', color: '', iconColor: '#1877F2', tooltip: 'Paste post URL' },
+        { icon: SiLinkedin, label: 'LinkedIn', color: '', iconColor: '#0A66C2', tooltip: 'Paste post URL' },
+        { icon: SiReddit, label: 'Reddit', color: '', iconColor: '#FF4500', tooltip: 'Paste thread or comment URL' },
+        { icon: SiThreads, label: 'Threads', color: '', iconColor: '#FFFFFF', tooltip: 'Paste thread URL' },
       ]
     },
     {
       title: 'AI Chats',
       icon: Sparkles,
       sources: [
-        { icon: SiOpenai, label: 'ChatGPT', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400', tooltip: 'Copy conversation or paste share URL' },
-        { icon: SiAnthropic, label: 'Claude', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400', tooltip: 'Copy conversation or paste share URL' },
-        { icon: SiGooglegemini, label: 'Gemini', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400', tooltip: 'Copy conversation or paste share URL' },
+        { icon: SiOpenai, label: 'ChatGPT', color: '', iconColor: '#10A37F', tooltip: 'Copy conversation or paste share URL' },
+        { icon: SiAnthropic, label: 'Claude', color: '', iconColor: '#D97757', tooltip: 'Copy conversation or paste share URL' },
+        { icon: SiGooglegemini, label: 'Gemini', color: '', iconColor: '#8E24AA', tooltip: 'Copy conversation or paste share URL' },
       ]
     },
     {
@@ -166,10 +177,24 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
       animate={{ opacity: 1 }}
       className="flex flex-col items-center"
     >
+      <svg width="0" height="0" className="hidden">
+        <defs>
+          <linearGradient id="ig-grad" x1="1" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#833ab4" />
+            <stop offset="50%" stopColor="#fd1d1d" />
+            <stop offset="100%" stopColor="#fcb045" />
+          </linearGradient>
+          <linearGradient id="gemini-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#4285F4" />
+            <stop offset="50%" stopColor="#9B72CB" />
+            <stop offset="100%" stopColor="#D96570" />
+          </linearGradient>
+        </defs>
+      </svg>
       {/* Hero Section */}
       <div className="relative w-full overflow-hidden rounded-t-2xl">
         {/* Animated gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 dark:from-violet-900 dark:via-purple-900 dark:to-indigo-950" />
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-400/20 via-transparent to-transparent" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-cyan-400/15 via-transparent to-transparent" />
 
@@ -256,7 +281,7 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
 
       {/* How It Works Steps */}
       <div className="w-full px-5 sm:px-8 -mt-1 relative z-10">
-        <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 dark:border-slate-700/50 p-5 shadow-lg">
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/15 p-5 shadow-lg">
           <div className="grid grid-cols-3 gap-3 sm:gap-6">
             {steps.map((step, i) => (
               <motion.div
@@ -267,18 +292,18 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
                 className="flex flex-col items-center text-center"
               >
                 <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-2 ${
-                  i === 0 ? 'bg-violet-100 dark:bg-violet-900/40' :
-                  i === 1 ? 'bg-pink-100 dark:bg-pink-900/40' :
-                  'bg-emerald-100 dark:bg-emerald-900/40'
+                  i === 0 ? 'bg-violet-500/20' :
+                  i === 1 ? 'bg-pink-500/20' :
+                  'bg-emerald-500/20'
                 }`}>
                   <step.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${
-                    i === 0 ? 'text-violet-600 dark:text-violet-400' :
-                    i === 1 ? 'text-pink-600 dark:text-pink-400' :
-                    'text-emerald-600 dark:text-emerald-400'
+                    i === 0 ? 'text-violet-300' :
+                    i === 1 ? 'text-pink-300' :
+                    'text-emerald-300'
                   }`} />
                 </div>
-                <h4 className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-white">{step.title}</h4>
-                <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">{step.description}</p>
+                <h4 className="text-xs sm:text-sm font-semibold text-white">{step.title}</h4>
+                <p className="text-[10px] sm:text-xs text-white/50 mt-0.5 leading-snug">{step.description}</p>
               </motion.div>
             ))}
           </div>
@@ -293,7 +318,7 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
             animate={{ opacity: 1 }}
             transition={{ delay: 0.7 }}
           >
-            <h3 className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 text-center">
+            <h3 className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-4 text-center">
               Supported Sources
             </h3>
 
@@ -306,14 +331,14 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
                   transition={{ delay: 0.8 + catIdx * 0.1 }}
                 >
                   <div className="flex items-center gap-2 mb-2.5">
-                    <div className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                      <cat.icon className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                    <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center">
+                      <cat.icon className="w-3.5 h-3.5 text-white/60" />
                     </div>
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{cat.title}</span>
+                    <span className="text-xs font-semibold text-white/80">{cat.title}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {cat.sources.map((source) => (
-                      <SourcePill key={source.label} icon={source.icon} label={source.label} color={source.color} tooltip={source.tooltip} />
+                      <SourcePill key={source.label} icon={source.icon} label={source.label} color={source.color} iconColor={source.iconColor} tooltip={source.tooltip} />
                     ))}
                   </div>
                 </motion.div>
@@ -329,9 +354,9 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
             className="mt-6"
           >
             <Accordion type="single" collapsible>
-              <AccordionItem value="import-guide" className="border border-slate-200/60 dark:border-slate-700/50 rounded-xl px-4 bg-slate-50/50 dark:bg-slate-800/30">
+              <AccordionItem value="import-guide" className="border border-white/15 rounded-xl px-4 bg-white/5">
                 <AccordionTrigger className="text-sm font-medium hover:no-underline py-3">
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                  <div className="flex items-center gap-2 text-white/70">
                     <BookOpen className="w-4 h-4" />
                     <span>How to Import from ChatGPT, Claude, Gemini & Social Media</span>
                   </div>
@@ -348,7 +373,7 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
                     <TabsContent value="chatgpt" className="mt-4 space-y-3 text-sm">
                       <div>
                         <p className="font-semibold mb-2">Method 1: Copy & Paste</p>
-                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-white/60">
                           <li>Go to your ChatGPT conversation</li>
                           <li>Select all text (Ctrl+A / Cmd+A)</li>
                           <li>Copy (Ctrl+C / Cmd+C)</li>
@@ -357,12 +382,12 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
                       </div>
                       <div>
                         <p className="font-semibold mb-2">Method 2: Share Link</p>
-                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-white/60">
                           <li>Click Share button in ChatGPT</li>
                           <li>Copy the share URL</li>
                           <li>Paste URL and click Parse</li>
                         </ol>
-                        <code className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded mt-2 block">
+                        <code className="text-xs bg-white/10 px-2 py-1 rounded mt-2 block">
                           https://chat.openai.com/share/abc-123
                         </code>
                       </div>
@@ -371,7 +396,7 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
                     <TabsContent value="claude" className="mt-4 space-y-3 text-sm">
                       <div>
                         <p className="font-semibold mb-2">Method 1: Copy & Paste</p>
-                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-white/60">
                           <li>Go to your Claude conversation</li>
                           <li>Select all text (Ctrl+A / Cmd+A)</li>
                           <li>Copy (Ctrl+C / Cmd+C)</li>
@@ -380,7 +405,7 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
                       </div>
                       <div>
                         <p className="font-semibold mb-2">Method 2: Share Link</p>
-                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-white/60">
                           <li>Click Share in Claude</li>
                           <li>Copy the share URL</li>
                           <li>Paste URL and click Parse</li>
@@ -391,7 +416,7 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
                     <TabsContent value="gemini" className="mt-4 space-y-3 text-sm">
                       <div>
                         <p className="font-semibold mb-2">Copy & Paste from Gemini</p>
-                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-white/60">
                           <li>Create your plan in Gemini (with images if needed)</li>
                           <li>Copy the conversation text</li>
                           <li>Click "Paste from Clipboard" above</li>
@@ -402,16 +427,16 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
                     <TabsContent value="social" className="mt-4 space-y-3 text-sm">
                       <div>
                         <p className="font-semibold mb-2">Instagram / TikTok / YouTube</p>
-                        <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-white/60">
                           <li>Find the post/video you want to save</li>
                           <li>Tap Share &gt; Copy Link</li>
                           <li>Paste the URL and click Parse</li>
                           <li>We'll extract the recipe, workout, or tutorial</li>
                         </ol>
                       </div>
-                      <div className="bg-pink-50 dark:bg-pink-900/20 p-3 rounded-lg border border-pink-100 dark:border-pink-800">
-                        <p className="font-semibold text-xs mb-2">Example URLs:</p>
-                        <div className="space-y-1 text-xs font-mono text-slate-500 dark:text-slate-400">
+                      <div className="bg-white/5 p-3 rounded-lg border border-white/10">
+                        <p className="font-semibold text-xs text-white/80 mb-2">Example URLs:</p>
+                        <div className="space-y-1 text-xs font-mono text-white/50">
                           <div>instagram.com/p/ABC123</div>
                           <div>tiktok.com/@user/video/123</div>
                           <div>youtube.com/watch?v=ABC123</div>
@@ -431,10 +456,10 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.2 }}
-        className="flex items-center gap-2 mt-5 mb-6 px-4 py-2.5 rounded-full bg-slate-100/80 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40"
+        className="flex items-center gap-2 mt-5 mb-6 px-4 py-2.5 rounded-full bg-white/10 border border-white/15"
       >
-        <Smartphone className="w-3.5 h-3.5 text-slate-400" />
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <Smartphone className="w-3.5 h-3.5 text-white/40" />
+        <p className="text-xs text-white/50">
           On mobile, use the share button in any app to send content directly
         </p>
       </motion.div>
@@ -451,23 +476,23 @@ function SignInPrompt({ planPreview, onSignIn }: { planPreview: any; onSignIn: (
     >
       {planPreview && (
         <div className="w-full mb-6">
-          <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800/30">
+          <div className="bg-white/10 rounded-xl p-4 border border-white/15">
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-purple-500" />
-              <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Your Plan is Ready!</span>
+              <Sparkles className="w-4 h-4 text-purple-400" />
+              <span className="text-sm font-semibold text-purple-300">Your Plan is Ready!</span>
             </div>
-            
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
+
+            <h3 className="text-lg font-bold text-white mb-2">
               {planPreview?.title || 'Generated Plan'}
             </h3>
-            
+
             {planPreview?.description && (
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">
+              <p className="text-sm text-white/60 mb-3 line-clamp-2">
                 {planPreview.description}
               </p>
             )}
-            
-            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+
+            <div className="flex items-center gap-2 text-sm text-white/50">
               <Check className="w-4 h-4 text-emerald-500" />
               <span>{planPreview?.taskCount || 0} actionable tasks created</span>
             </div>
@@ -476,10 +501,10 @@ function SignInPrompt({ planPreview, onSignIn }: { planPreview: any; onSignIn: (
       )}
 
       <div className="text-center mb-6">
-        <h4 className="text-xl font-bold text-slate-800 dark:text-white mb-2">
+        <h4 className="text-xl font-bold text-white mb-2">
           {planPreview ? 'Sign in to save your plan' : 'Sign in to import plans'}
         </h4>
-        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
+        <p className="text-sm text-white/60 max-w-xs">
           {planPreview 
             ? 'Create an account to track your progress, get reminders, and access your plans anywhere.'
             : 'Import plans from ChatGPT, Claude, Instagram, TikTok, and more. Track your progress and celebrate your wins.'}
@@ -496,7 +521,7 @@ function SignInPrompt({ planPreview, onSignIn }: { planPreview: any; onSignIn: (
         Sign in to Continue
       </Button>
       
-      <p className="text-xs text-slate-400 dark:text-slate-500 mt-4">
+      <p className="text-xs text-white/40 mt-4">
         Free account. No credit card required.
       </p>
     </motion.div>
@@ -521,20 +546,20 @@ function ErrorState({
       className="flex flex-col items-center justify-center py-12 px-6"
     >
       <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
-        upgradeRequired 
-          ? 'bg-amber-100 dark:bg-amber-900/30' 
-          : 'bg-red-100 dark:bg-red-900/30'
+        upgradeRequired
+          ? 'bg-amber-500/20'
+          : 'bg-red-500/20'
       }`}>
         {upgradeRequired ? (
-          <Sparkles className="w-8 h-8 text-amber-500" />
+          <Sparkles className="w-8 h-8 text-amber-400" />
         ) : (
-          <AlertCircle className="w-8 h-8 text-red-500" />
+          <AlertCircle className="w-8 h-8 text-red-400" />
         )}
       </div>
-      <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">
+      <h3 className="text-lg font-semibold text-white mb-2">
         {upgradeRequired ? 'Upgrade to Pro' : 'Something went wrong'}
       </h3>
-      <p className="text-slate-500 dark:text-slate-400 text-center max-w-xs mb-6">
+      <p className="text-white/60 text-center max-w-xs mb-6">
         {error}
       </p>
       {upgradeRequired ? (
@@ -575,10 +600,10 @@ function SuccessState() {
       >
         <Check className="w-10 h-10 text-white" />
       </motion.div>
-      <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-2">
+      <h3 className="text-xl font-semibold text-white mb-2">
         Plan Created & Journaled!
       </h3>
-      <p className="text-slate-500 dark:text-slate-400 text-center">
+      <p className="text-white/60 text-center">
         Redirecting to your new activity...
       </p>
     </motion.div>
@@ -612,14 +637,14 @@ function TaskItem({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ delay: index * 0.05 }}
-      className="group flex items-start gap-3 p-4 rounded-xl bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 hover:bg-white/80 dark:hover:bg-slate-800/80 transition-colors"
+      className="group flex items-start gap-3 p-4 rounded-xl bg-white/10 border border-white/10 hover:bg-white/15 transition-colors"
       data-testid={`task-item-${index}`}
     >
       <div className="flex-shrink-0 cursor-grab opacity-0 group-hover:opacity-50 transition-opacity">
         <GripVertical className="w-5 h-5 text-slate-400" />
       </div>
 
-      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-xs font-semibold text-purple-600 dark:text-purple-400">
+      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center text-xs font-semibold text-purple-300">
         {index + 1}
       </div>
 
@@ -638,7 +663,7 @@ function TaskItem({
           </div>
         ) : (
           <div 
-            className="font-medium text-slate-800 dark:text-white cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+            className="font-medium text-white cursor-pointer hover:text-purple-300 transition-colors"
             onClick={() => setIsEditing(true)}
           >
             {task.title}
@@ -646,7 +671,7 @@ function TaskItem({
         )}
 
         {task.description && (
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+          <p className="text-sm text-white/50 mt-1 line-clamp-2">
             {task.description}
           </p>
         )}
@@ -693,7 +718,7 @@ function TaskItem({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+          className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/20"
           onClick={onRemove}
           data-testid={`button-remove-task-${index}`}
         >
@@ -985,9 +1010,17 @@ export default function ImportPlan() {
   const isProcessing = isLoading || extractingContent || generatePlanMutation.isPending;
 
   return (
-    <div className="h-screen overflow-auto bg-gradient-to-b from-slate-50 via-white to-purple-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950/30">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Blurred Video Background */}
+      <video autoPlay muted playsInline loop poster="/hero_poster.jpg" className="absolute inset-0 w-full h-full object-cover blur-sm scale-105">
+        <source src={heroVideoUrl} type="video/mp4" />
+      </video>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px]" />
+
+      {/* Scrollable content layer */}
+      <div className="relative z-10 h-screen overflow-auto">
       {/* Premium Header */}
-      <header className="fixed top-0 sm:top-4 left-0 sm:left-1/2 sm:-translate-x-1/2 z-50 w-full sm:w-[95%] sm:max-w-3xl bg-background sm:bg-background/80 sm:backdrop-blur-md sm:rounded-full shadow-sm sm:shadow-lg border-b sm:border border-border/10 sm:border-border/50 transition-all duration-300">
+      <header className="fixed top-0 sm:top-4 left-0 sm:left-1/2 sm:-translate-x-1/2 z-50 w-full sm:w-[95%] sm:max-w-3xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sm:rounded-full shadow-sm sm:shadow-lg border-b sm:border border-white/20 dark:border-white/10 sm:border-white/20 dark:sm:border-white/10 transition-all duration-300">
         <div className="flex flex-col sm:flex-row items-center justify-between w-full">
           {/* Top Row */}
           <div className="px-4 py-3 sm:px-6 sm:py-3 flex items-center justify-between w-full sm:h-14 relative">
@@ -1040,18 +1073,18 @@ export default function ImportPlan() {
             <div className="mx-6 h-px bg-border/30" />
             <div className="flex items-center justify-center py-2.5 gap-2.5">
               <Link href="/updates">
-                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40 font-medium text-[13px] shadow-sm flex items-center transition-colors">
+                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-orange-500/15 border-orange-400/30 text-orange-300 hover:bg-orange-500/25 font-medium text-[13px] shadow-sm flex items-center transition-colors">
                   <Megaphone className="h-3.5 w-3.5 mr-1.5" />
                   Updates
                 </Button>
               </Link>
               <Link href="/discover">
-                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800/50 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/40 font-medium text-[13px] shadow-sm flex items-center transition-colors">
+                <Button variant="outline" size="sm" className="h-8 px-3.5 rounded-full bg-sky-500/15 border-sky-400/30 text-sky-300 hover:bg-sky-500/25 font-medium text-[13px] shadow-sm flex items-center transition-colors">
                   <Compass className="h-3.5 w-3.5 mr-1.5" />
                   Discover
                 </Button>
               </Link>
-              <Button variant="default" size="sm" className="h-8 px-3.5 rounded-full bg-violet-500 dark:bg-violet-600 hover:bg-violet-600 dark:hover:bg-violet-500 text-white font-medium text-[13px] shadow-sm flex items-center border border-transparent transition-colors">
+              <Button variant="default" size="sm" className="h-8 px-3.5 rounded-full bg-violet-500 hover:bg-violet-600 text-white font-medium text-[13px] shadow-sm flex items-center border border-transparent transition-colors">
                 <Upload className="h-3.5 w-3.5 mr-1.5" />
                 Import
               </Button>
@@ -1072,13 +1105,13 @@ export default function ImportPlan() {
           >
             <GlassCard className="p-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600 dark:text-slate-400">
+                <span className="text-sm text-white/60">
                   Free imports: {limits.remaining} of {limits.limit} remaining
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-purple-600 dark:text-purple-400"
+                  className="text-purple-300"
                   onClick={() => setLocation('/settings/subscription')}
                   data-testid="button-upgrade"
                 >
@@ -1142,15 +1175,15 @@ export default function ImportPlan() {
               >
                 <div className="mb-6">
                   <div className="flex items-center gap-2 mb-1">
-                    <Badge 
-                      variant="secondary" 
-                      className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                    <Badge
+                      variant="secondary"
+                      className="bg-purple-500/20 text-purple-300"
                     >
                       <Sparkles className="w-3 h-3 mr-1" />
                       AI Parsed
                     </Badge>
                     {state.parsedPlan.confidence >= 0.8 && (
-                      <Badge variant="outline" className="text-emerald-600 border-emerald-200 dark:border-emerald-800">
+                      <Badge variant="outline" className="text-emerald-400 border-emerald-500/30">
                         High Confidence
                       </Badge>
                     )}
@@ -1159,7 +1192,7 @@ export default function ImportPlan() {
                   <Input
                     value={state.parsedPlan.title}
                     onChange={(e) => updateParsedPlan({ title: e.target.value })}
-                    className="text-xl font-bold border-none bg-transparent p-0 h-auto focus-visible:ring-0 text-slate-800 dark:text-white"
+                    className="text-xl font-bold border-none bg-transparent p-0 h-auto focus-visible:ring-0 text-white"
                     placeholder="Plan title..."
                     data-testid="input-plan-title"
                   />
@@ -1168,7 +1201,7 @@ export default function ImportPlan() {
                     <Textarea
                       value={state.parsedPlan.description}
                       onChange={(e) => updateParsedPlan({ description: e.target.value })}
-                      className="mt-2 border-none bg-transparent resize-none focus-visible:ring-0 text-slate-600 dark:text-slate-400"
+                      className="mt-2 border-none bg-transparent resize-none focus-visible:ring-0 text-white/60"
                       placeholder="Plan description..."
                       rows={2}
                       data-testid="textarea-plan-description"
@@ -1178,14 +1211,14 @@ export default function ImportPlan() {
 
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-slate-700 dark:text-slate-300">
+                    <h3 className="font-semibold text-white/80">
                       Tasks ({state.parsedPlan.tasks.length})
                     </h3>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setShowAddTask(true)}
-                      className="text-purple-600 dark:text-purple-400"
+                      className="text-purple-300"
                       data-testid="button-add-task"
                     >
                       <Plus className="w-4 h-4 mr-1" />
@@ -1211,7 +1244,7 @@ export default function ImportPlan() {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="flex gap-2 p-3 rounded-xl bg-white/50 dark:bg-slate-800/50 border border-dashed border-purple-300 dark:border-purple-700"
+                        className="flex gap-2 p-3 rounded-xl bg-white/10 border border-dashed border-purple-400/30"
                       >
                         <Input
                           value={newTaskTitle}
@@ -1243,11 +1276,11 @@ export default function ImportPlan() {
       </div>
 
       {isParsed && state.parsedPlan && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent dark:from-slate-900 dark:via-slate-900">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/60 to-transparent backdrop-blur-sm z-20">
           <div className="max-w-2xl mx-auto flex gap-3">
             <Button
               variant="outline"
-              className="flex-1"
+              className="flex-1 bg-white/20 hover:bg-white/30 text-white border-white/30"
               onClick={cancel}
               disabled={state.status === 'saving'}
               data-testid="button-cancel-import"
@@ -1275,6 +1308,8 @@ export default function ImportPlan() {
           </div>
         </div>
       )}
+
+      </div>{/* end scrollable content layer */}
 
       <SocialMediaShareDialog
         isOpen={isSocialMediaChoice}
