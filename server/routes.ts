@@ -23350,7 +23350,24 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       // If URL provided, extract content using socialMediaVideoService (same pipeline as Quick/Smart Plan)
       if (url) {
         detectedPlatform = socialMediaVideoService.detectPlatform(url) || detectPlatform(url) || platform;
-        const normalizedUrl = normalizeUrlForCache(url);
+
+        // Inline URL normalizer (strips tracking params, normalizes path) — scoped to verify route
+        const normalizeVerifyUrl = (urlString: string): string => {
+          try {
+            const parsed = new URL(urlString);
+            if (parsed.hostname.includes('instagram.com')) {
+              const m = parsed.pathname.match(/\/(reel|p|stories)\/([^\/]+)/);
+              if (m) return `https://www.instagram.com/${m[1]}/${m[2]}/`;
+            }
+            if (parsed.hostname.includes('tiktok.com')) {
+              const m = parsed.pathname.match(/\/@[^\/]+\/video\/(\d+)/);
+              if (m) return `https://www.tiktok.com/${parsed.pathname.split('/')[1]}/video/${m[1]}`;
+            }
+            ['igsh', 'utm_source', 'utm_medium', 'utm_campaign', 'fbclid', 'ref'].forEach(p => parsed.searchParams.delete(p));
+            return parsed.toString();
+          } catch { return urlString; }
+        };
+        const normalizedUrl = normalizeVerifyUrl(url);
 
         // Check URL content cache first
         const cached = await storage.getUrlContentCache(normalizedUrl);
@@ -23377,42 +23394,23 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           // Use socialMediaVideoService — same OCR + caption + transcript pipeline as Quick/Smart Plan
           if (isSocialMediaUrl(url) && detectedPlatform) {
             try {
-              const socialResult = await socialMediaVideoService.extractContent(url);
+              // Strip query params (e.g. ?igsh=...) before extraction — same as parse-url route
+              let cleanUrl = url;
+              try { const u = new URL(url); u.search = ''; cleanUrl = u.toString(); } catch {}
+              const socialResult = await socialMediaVideoService.extractContent(cleanUrl);
               if (socialResult.success) {
                 // Combine all extracted content (caption + OCR + transcript) for rich verification
                 extractedContent = socialMediaVideoService.combineExtractedContent(socialResult);
+                // Pull engagement metrics directly from socialResult metadata (avoids redundant Apify call)
+                const smMeta = socialResult.metadata as any;
                 postMetadata = {
-                  author: socialResult.metadata?.author,
+                  author: smMeta?.author?.username || smMeta?.author || socialResult.metadata?.author,
+                  likesCount: smMeta?.likesCount,
+                  viewsCount: smMeta?.viewsCount,
+                  hashtags: smMeta?.hashtags || socialResult.hashtags,
                   caption: socialResult.caption,
                   firstImageUrl: socialResult.firstImageUrl,
                 };
-
-                // Also extract engagement metrics from Apify if available
-                if (detectedPlatform === 'instagram' && apifyService.isAvailable()) {
-                  try {
-                    const igResult = await apifyService.extractInstagramReel(url);
-                    if (igResult.success) {
-                      postMetadata.likesCount = igResult.likesCount;
-                      postMetadata.viewsCount = igResult.viewsCount;
-                      postMetadata.hashtags = igResult.hashtags;
-                      if (!postMetadata.author) postMetadata.author = igResult.author?.username;
-                    }
-                  } catch (apifyErr) {
-                    console.error('[VERIFY] Apify metadata extraction failed (non-fatal):', apifyErr);
-                  }
-                } else if (detectedPlatform === 'tiktok' && apifyService.isAvailable()) {
-                  try {
-                    const ttResult = await apifyService.extractTikTokVideo(url);
-                    if (ttResult.success) {
-                      postMetadata.likesCount = ttResult.likesCount;
-                      postMetadata.viewsCount = ttResult.viewsCount;
-                      postMetadata.hashtags = ttResult.hashtags;
-                      if (!postMetadata.author) postMetadata.author = ttResult.author?.username;
-                    }
-                  } catch (apifyErr) {
-                    console.error('[VERIFY] Apify metadata extraction failed (non-fatal):', apifyErr);
-                  }
-                }
 
                 // Collect image URLs for Gemini vision
                 if (socialResult.firstImageUrl) {
