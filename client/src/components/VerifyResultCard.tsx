@@ -2,8 +2,26 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, ChevronDown, ChevronUp, ExternalLink, Shield, AlertTriangle, CheckCircle, XCircle, HelpCircle, Loader2, Link2, Info, User, Heart, Eye, Hash, Minus } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, ExternalLink, Shield, AlertTriangle, CheckCircle, XCircle, HelpCircle, Loader2, Link2, Info, Heart, Eye, Hash, Minus } from 'lucide-react';
+import { SiInstagram, SiTiktok, SiYoutube, SiX, SiFacebook, SiReddit } from 'react-icons/si';
 import { motion, AnimatePresence } from 'framer-motion';
+
+const getPlatformBadge = (url: string): { icon: JSX.Element; label: string; color: string } | null => {
+  const lower = url.toLowerCase();
+  if (lower.includes('instagram.com'))
+    return { icon: <SiInstagram className="w-3.5 h-3.5" />, label: 'Instagram', color: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' };
+  if (lower.includes('tiktok.com'))
+    return { icon: <SiTiktok className="w-3.5 h-3.5" />, label: 'TikTok', color: 'bg-black text-white dark:bg-white dark:text-black' };
+  if (lower.includes('youtube.com') || lower.includes('youtu.be'))
+    return { icon: <SiYoutube className="w-3.5 h-3.5" />, label: 'YouTube', color: 'bg-red-600 text-white' };
+  if (lower.includes('twitter.com') || lower.includes('x.com'))
+    return { icon: <SiX className="w-3.5 h-3.5" />, label: 'X', color: 'bg-black text-white dark:bg-white dark:text-black' };
+  if (lower.includes('facebook.com'))
+    return { icon: <SiFacebook className="w-3.5 h-3.5" />, label: 'Facebook', color: 'bg-blue-600 text-white' };
+  if (lower.includes('reddit.com'))
+    return { icon: <SiReddit className="w-3.5 h-3.5" />, label: 'Reddit', color: 'bg-orange-500 text-white' };
+  return null;
+};
 
 interface ClaimSource {
   title: string;
@@ -47,6 +65,7 @@ interface VerifyResultCardProps {
   isLoading: boolean;
   error?: string | null;
   onDismiss: () => void;
+  postUrl?: string;
 }
 
 const getScoreColor = (score: number) => {
@@ -98,7 +117,7 @@ const getClaimVerdictColor = (verdict: string) => {
   }
 };
 
-export default function VerifyResultCard({ result, isLoading, error, onDismiss }: VerifyResultCardProps) {
+export default function VerifyResultCard({ result, isLoading, error, onDismiss, postUrl }: VerifyResultCardProps) {
   const hasFlaggedClaims = result?.claims?.some(c => ['false', 'misleading', 'unverified', 'unverifiable', 'mixed'].includes(c.verdict));
   const [showClaims, setShowClaims] = useState(hasFlaggedClaims || false);
   const [isDocked, setIsDocked] = useState(false);
@@ -204,49 +223,52 @@ export default function VerifyResultCard({ result, isLoading, error, onDismiss }
                 {/* Divider */}
                 <div className="border-t border-border/40" />
 
-                {/* Post Summary Panel */}
-                {result.postMetadata && (result.postMetadata.author || result.postMetadata.likesCount != null || result.postMetadata.caption || result.postMetadata.firstImageUrl) && (
-                  <div className="flex gap-3 text-xs text-muted-foreground bg-background/50 rounded-lg px-3 py-2">
-                    {result.postMetadata.firstImageUrl && (
-                      <img
-                        src={result.postMetadata.firstImageUrl}
-                        alt="Post thumbnail"
-                        className="w-14 h-14 rounded-md object-cover flex-shrink-0"
-                      />
-                    )}
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
-                      {result.postMetadata.author && (
-                        <span className="inline-flex items-center gap-1">
-                          <User className="w-3 h-3" />
-                          @{result.postMetadata.author}
-                        </span>
+                {/* Post Source Panel */}
+                {(postUrl || result.postMetadata) && (() => {
+                  const platform = postUrl ? getPlatformBadge(postUrl) : null;
+                  const meta = result.postMetadata;
+                  const hasStats = meta && (meta.likesCount != null || meta.viewsCount != null || (meta.hashtags && meta.hashtags.length > 0) || meta.caption);
+                  if (!platform && !hasStats) return null;
+                  return (
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground bg-background/50 rounded-lg px-3 py-2">
+                      {/* Platform icon link */}
+                      {platform && postUrl && (
+                        <a href={postUrl} target="_blank" rel="noopener noreferrer" data-testid="badge-source-label">
+                          <Badge variant="outline" className="gap-1.5 pr-2 cursor-pointer">
+                            <span className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${platform.color}`}>
+                              {platform.icon}
+                            </span>
+                            <span className="text-xs font-medium">{platform.label}</span>
+                          </Badge>
+                        </a>
                       )}
-                      {result.postMetadata.likesCount != null && (
+                      {/* Stats */}
+                      {meta?.likesCount != null && (
                         <span className="inline-flex items-center gap-1">
                           <Heart className="w-3 h-3" />
-                          {result.postMetadata.likesCount.toLocaleString()}
+                          {meta.likesCount.toLocaleString()}
                         </span>
                       )}
-                      {result.postMetadata.viewsCount != null && (
+                      {meta?.viewsCount != null && (
                         <span className="inline-flex items-center gap-1">
                           <Eye className="w-3 h-3" />
-                          {result.postMetadata.viewsCount.toLocaleString()}
+                          {meta.viewsCount.toLocaleString()}
                         </span>
                       )}
-                      {result.postMetadata.hashtags && result.postMetadata.hashtags.length > 0 && (
-                        <span className="inline-flex items-center gap-1 flex-wrap">
+                      {meta?.hashtags && meta.hashtags.length > 0 && (
+                        <span className="inline-flex items-center gap-1">
                           <Hash className="w-3 h-3" />
-                          {result.postMetadata.hashtags.slice(0, 4).map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}
+                          {meta.hashtags.slice(0, 4).map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}
                         </span>
                       )}
-                      {result.postMetadata.caption && (
-                        <p className="w-full mt-1 text-xs italic text-muted-foreground/80 line-clamp-2">
-                          {result.postMetadata.caption.substring(0, 150)}{result.postMetadata.caption.length > 150 ? '...' : ''}
+                      {meta?.caption && (
+                        <p className="w-full mt-1 italic text-muted-foreground/80 line-clamp-2">
+                          {meta.caption.substring(0, 150)}{meta.caption.length > 150 ? '...' : ''}
                         </p>
                       )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Summary */}
                 <p className="text-sm text-foreground/80 leading-relaxed">{result.verdictSummary}</p>

@@ -1560,6 +1560,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       isLoading={isVerifying}
                       error={verifyError}
                       onDismiss={() => { setVerifyResult(null); setVerifyError(null); }}
+                      postUrl={verifiedUrl ?? undefined}
                     />
                   </div>
                 )}
