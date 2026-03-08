@@ -40,25 +40,26 @@ interface GoogleAuthPlugin {
   refresh(): Promise<{ accessToken?: string }>;
 }
 
-// Register the GoogleAuth plugin - this creates the JS-to-native bridge
-// The plugin is auto-registered by Capacitor on native platforms
-// On web, this provides a fallback implementation
-const GoogleAuth = registerPlugin<GoogleAuthPlugin>('GoogleAuth', {
-  web: () => Promise.resolve({
-    initialize: async () => {
-      console.log('[GOOGLE_AUTH_WEB] initialize - no-op on web');
-    },
-    signIn: async () => {
-      throw new Error('Native Google Auth not available on web - use web OAuth');
-    },
-    signOut: async () => {
-      console.log('[GOOGLE_AUTH_WEB] signOut - no-op on web');
+// Register the GoogleAuth plugin only on native platforms
+// On web, OAuth is handled via server redirect, not the native bridge
+const GoogleAuth = isNative()
+  ? registerPlugin<GoogleAuthPlugin>('GoogleAuth', {
+    web: () => Promise.resolve({
+      initialize: async () => {
+        console.log('[GOOGLE_AUTH_WEB] initialize - no-op on web');
+      },
+      signIn: async () => {
+        throw new Error('Native Google Auth not available on web - use web OAuth');
+      },
+      signOut: async () => {
+        console.log('[GOOGLE_AUTH_WEB] signOut - no-op on web');
     },
     refresh: async () => {
       throw new Error('Native Google Auth not available on web');
     },
   }),
-});
+})
+  : null;
 
 export interface NativeAuthResult {
   success: boolean;
@@ -94,7 +95,7 @@ export async function initializeGoogleAuth(): Promise<void> {
   // Capacitor environment with GoogleAuth plugin - initialize native Google Sign-In
   try {
     console.log('[GOOGLE_AUTH] Initializing native Google Sign-In');
-    await GoogleAuth.initialize({
+    await GoogleAuth!.initialize({
       scopes: [
         'profile',
         'email',
@@ -175,7 +176,7 @@ export async function signInWithGoogleNative(): Promise<NativeAuthResult> {
     console.log('[GOOGLE_AUTH] Starting native sign-in via GoogleAuth.signIn()...');
 
     // Trigger native Google Sign-In dialog
-    const result = await GoogleAuth.signIn();
+    const result = await GoogleAuth!.signIn();
 
     console.log('[GOOGLE_AUTH] Native sign-in successful:', {
       email: result.email,
@@ -279,7 +280,7 @@ export async function signOutGoogleNative(): Promise<void> {
   }
 
   try {
-    await GoogleAuth.signOut();
+    await GoogleAuth!.signOut();
     console.log('[GOOGLE_AUTH] Signed out successfully');
   } catch (error) {
     console.error('[GOOGLE_AUTH] Sign-out failed:', error);
@@ -295,7 +296,7 @@ export async function refreshGoogleAuth(): Promise<string | null> {
   }
 
   try {
-    const result = await GoogleAuth.refresh();
+    const result = await GoogleAuth!.refresh();
     console.log('[GOOGLE_AUTH] Token refreshed');
     return result.accessToken || null;
   } catch (error) {
@@ -314,7 +315,7 @@ export async function isGoogleSignedIn(): Promise<boolean> {
 
   try {
     // Try to get current user silently
-    await GoogleAuth.refresh();
+    await GoogleAuth!.refresh();
     return true;
   } catch (error) {
     return false;

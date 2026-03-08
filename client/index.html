@@ -44,100 +44,8 @@
     href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Fira+Code:wght@300..700&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Lora:ital,wght@0,400..700;1,400..700&family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Outfit:wght@100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Space+Grotesk:wght@300..700&display=swap"
     rel="stylesheet">
 
-  <!-- Facebook SDK for JavaScript -->
-  <script>
-    window.fbAsyncInit = function () {
-      FB.init({
-        appId: '1675001660123017',
-        cookie: true,
-        xfbml: true,
-        version: 'v18.0'
-      });
-
-      FB.AppEvents.logPageView();
-
-      // Check login status on page load
-      FB.getLoginStatus(function (response) {
-        statusChangeCallback(response);
-      });
-    };
-
-    function checkLoginState() {
-      FB.getLoginStatus(function (response) {
-        statusChangeCallback(response);
-      });
-    }
-
-    // Prevent multiple verification attempts
-    let isVerifying = false;
-
-    function statusChangeCallback(response) {
-      console.log('Facebook login status:', response.status);
-      window.fbLoginStatus = response;
-
-      if (response.status === 'connected' && !isVerifying) {
-        isVerifying = true;
-
-        // User is logged into Facebook and your app
-        FB.api('/me', { fields: 'name,email' }, function (userInfo) {
-          // Send to backend for authentication
-          fetch('/api/auth/facebook/verify', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              accessToken: response.authResponse.accessToken,
-              userInfo: userInfo
-            })
-          }).then(res => res.json()).then(data => {
-            console.log('Facebook verification response:', data);
-            if (data.success) {
-              console.log('Facebook login successful, redirecting to dashboard');
-              // Force page reload to refresh authentication state
-              setTimeout(() => {
-                window.location.href = '/dashboard';
-              }, 100);
-            } else {
-              console.error('Facebook verification failed:', data.error);
-              isVerifying = false;
-            }
-          }).catch(err => {
-            console.error('Error during Facebook authentication:', err);
-            isVerifying = false;
-          });
-        });
-      }
-
-      // Trigger custom event for React to listen to
-      window.dispatchEvent(new CustomEvent('fbStatusChange', {
-        detail: response
-      }));
-    }
-
-    // Login function that forces popup display to avoid iframe issues
-    window.facebookLogin = function () {
-      FB.login(function (response) {
-        if (response.authResponse) {
-          console.log('Facebook login successful');
-          statusChangeCallback(response);
-        } else {
-          console.log('Facebook login cancelled or failed');
-        }
-      }, {
-        scope: 'email,public_profile',
-        display: 'popup'  // Force popup to avoid X-Frame-Options issues
-      });
-    };
-
-    (function (d, s, id) {
-      var js, fjs = d.getElementsByTagName(s)[0];
-      if (d.getElementById(id)) { return; }
-      js = d.createElement(s); js.id = id;
-      js.src = "https://connect.facebook.net/en_US/sdk.js";
-      fjs.parentNode.insertBefore(js, fjs);
-    }(document, 'script', 'facebook-jssdk'));
-  </script>
+  <!-- Facebook SDK removed — app only supports Google + Email sign-in.
+       Backend routes and Passport strategy kept for potential future use. -->
   <style>
     /* Prevent white flash before React hydrates — matches dark theme background */
     #root { min-height: 100vh; min-height: 100dvh; background: #1a1a2e; }
@@ -148,8 +56,6 @@
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
-  <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
-  <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
 </body>
 
 </html>

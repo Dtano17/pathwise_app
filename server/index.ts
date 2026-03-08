@@ -11,7 +11,7 @@ import { handleStripeWebhook } from "./stripeWebhook";
 import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from "./stripeClient";
 import { startReminderProcessor } from "./services/reminderProcessor";
-import { storage } from "./storage";
+import { storage, pool } from "./storage";
 import { initializeSocketIO } from "./services/socketService";
 import { initializePushNotifications } from "./services/pushNotificationService";
 
@@ -222,9 +222,15 @@ async function initializeBackground() {
     throw err;
   });
 
-  // Health check endpoint for deployment
-  app.get('/health', (req: Request, res: Response) => {
-    res.status(200).json({ status: 'ok' });
+  // Health check endpoint for deployment — validates DB connectivity
+  app.get('/health', async (req: Request, res: Response) => {
+    try {
+      await pool.query('SELECT 1');
+      res.status(200).json({ status: 'ok' });
+    } catch (err: any) {
+      console.error('[HEALTH] DB check failed:', err.message);
+      res.status(503).json({ status: 'unhealthy', error: 'database unreachable' });
+    }
   });
 
   // Cache control middleware for production deployments

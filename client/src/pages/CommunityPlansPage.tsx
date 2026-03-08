@@ -19,19 +19,21 @@ export default function CommunityPlansPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 sm:hidden"
+                className="h-8 w-8"
                 onClick={() => navigate("/")}
               >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
-              <img
-                src="/icons/web/android-chrome-192x192.png"
-                alt="JournalMate"
-                className="h-7 w-7 sm:h-8 sm:w-8 object-contain shrink-0"
-              />
-              <span className="font-bold text-[19px] sm:text-xl tracking-tight text-foreground whitespace-nowrap pt-0.5">
-                JournalMate
-              </span>
+              <Link href="/" className="flex items-center gap-1">
+                <img
+                  src="/icons/web/android-chrome-192x192.png"
+                  alt="JournalMate"
+                  className="h-7 w-7 sm:h-8 sm:w-8 object-contain shrink-0"
+                />
+                <span className="font-bold text-[19px] sm:text-xl tracking-tight text-foreground whitespace-nowrap pt-0.5">
+                  JournalMate
+                </span>
+              </Link>
             </div>
 
             {/* Desktop Center Nav */}

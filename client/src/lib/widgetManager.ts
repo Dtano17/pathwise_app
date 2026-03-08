@@ -23,7 +23,9 @@ interface WidgetDataPlugin {
   refreshWidget(): Promise<void>;
 }
 
-const WidgetData = registerPlugin<WidgetDataPlugin>('WidgetData');
+const WidgetData = isNative()
+  ? registerPlugin<WidgetDataPlugin>('WidgetData')
+  : null;
 
 export interface WidgetTask {
   id: string;
@@ -102,7 +104,7 @@ export async function updateWidgetData(
 
       // Optionally trigger widget refresh if plugin supports it
       try {
-        await WidgetData.refreshWidget();
+        await WidgetData!.refreshWidget();
         console.log('[WIDGET] Android widget refresh triggered');
       } catch (error) {
         console.log('[WIDGET] Android widget refresh not available:', error);
@@ -110,14 +112,14 @@ export async function updateWidgetData(
     } else if (isIOS()) {
       // Use custom native plugin to write to App Group
       try {
-        await WidgetData.setWidgetData({
+        await WidgetData!.setWidgetData({
           data: JSON.stringify(data)
         });
         console.log('[WIDGET] iOS App Group widget data updated via native bridge');
 
         // Trigger widget timeline reload
         try {
-          await WidgetData.refreshWidget();
+          await WidgetData!.refreshWidget();
           console.log('[WIDGET] iOS widget refresh triggered');
         } catch (error) {
           console.log('[WIDGET] iOS widget refresh not available:', error);
@@ -286,7 +288,7 @@ export async function refreshWidget(): Promise<boolean> {
   }
 
   try {
-    await WidgetData.refreshWidget();
+    await WidgetData!.refreshWidget();
     console.log('[WIDGET] Widget refresh requested');
     return true;
   } catch (error) {

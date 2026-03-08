@@ -149,12 +149,21 @@ import {
   pendingShares,
 } from "@shared/schema";
 
-const pool = new Pool({
+export const pool = new Pool({
   connectionString: process.env.DATABASE_URL!,
   ssl: process.env.DATABASE_URL?.includes('neondb.io') || process.env.DATABASE_URL?.includes('neon.tech')
     ? { rejectUnauthorized: false }
-    : undefined
+    : undefined,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
+
+// Prevent unhandled pool errors from crashing the process (e.g. 57P01 admin_shutdown)
+pool.on('error', (err) => {
+  console.error('[DB POOL] Unexpected error on idle client:', err.message);
+});
+
 export const db = drizzle(pool);
 
 // In-memory storage for mobile auth tokens (one-time use, expire in 5 min)

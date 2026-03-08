@@ -15,8 +15,10 @@ interface SharePluginInterface {
   getPendingShare(): Promise<{ hasData: boolean; data: string | null }>;
 }
 
-// Register our custom SharePlugin (defined in MainActivity.java)
-const SharePlugin = registerPlugin<SharePluginInterface>('SharePlugin');
+// Register our custom SharePlugin only on native (defined in MainActivity.java)
+const SharePlugin = isNative()
+  ? registerPlugin<SharePluginInterface>('SharePlugin')
+  : null;
 
 // Import the share extension plugin for iOS
 let ShareExtension: any = null;
@@ -318,7 +320,7 @@ export function initIncomingShareListener(): void {
   // Android: Check for cold start share data using our registered SharePlugin
   if (isAndroid()) {
     console.log('[SHARE ANDROID] Checking for cold start share data...');
-    SharePlugin.getPendingShare()
+    SharePlugin!.getPendingShare()
       .then((result) => {
         console.log('[SHARE ANDROID] getPendingShare result:', result);
         if (result.hasData && result.data) {

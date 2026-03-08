@@ -20,7 +20,8 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, ChevronRight, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin, MapPin, Settings, Flag, Combine, X, Check, Loader2 } from "lucide-react";
-import { SiLinkedin, SiInstagram, SiX } from "react-icons/si";
+import { SiInstagram, SiX } from "react-icons/si";
+import { FaLinkedin } from "react-icons/fa";
 import type { Activity } from "@shared/schema";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
 import { ReportDialog } from "@/components/ReportDialog";
@@ -169,7 +170,7 @@ const getVerificationLabel = (sourceType: string | null | undefined, verificatio
 };
 
 // Get platform-specific verification icon component
-const getVerificationIconComponent = (verificationBadge: string | null | undefined): typeof CheckCircle2 | typeof SiX | typeof SiInstagram | typeof SiLinkedin => {
+const getVerificationIconComponent = (verificationBadge: string | null | undefined): typeof CheckCircle2 | typeof SiX | typeof SiInstagram | typeof FaLinkedin => {
   if (!verificationBadge) return CheckCircle2;
 
   switch (verificationBadge) {
@@ -178,7 +179,7 @@ const getVerificationIconComponent = (verificationBadge: string | null | undefin
     case 'instagram':
       return SiInstagram;
     case 'linkedin':
-      return SiLinkedin;
+      return FaLinkedin;
     default:
       return CheckCircle2;
   }

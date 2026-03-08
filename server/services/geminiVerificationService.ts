@@ -2,7 +2,7 @@ import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/ge
 import { v4 as uuidv4 } from "uuid";
 import type { InsertVerification } from "@shared/schema";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
 // Initialize Gemini client
 const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
@@ -625,7 +625,7 @@ Respond in JSON format with trustScore (0-100), verdict (verified/mostly_true/mi
     if (this.isConfigured()) {
       return { configured: true, message: "Gemini verification service ready" };
     }
-    return { configured: false, message: "GEMINI_API_KEY not set" };
+    return { configured: false, message: "GEMINI_API_KEY or GOOGLE_API_KEY not set" };
   }
 }
 

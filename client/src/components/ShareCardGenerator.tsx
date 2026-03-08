@@ -2,7 +2,8 @@ import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 're
 import { toPng, toJpeg } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { Download, Loader2, Image as ImageIcon, FileText, Check, Circle, Share2, Copy, RotateCcw } from 'lucide-react';
-import { SiInstagram, SiTiktok, SiX, SiFacebook, SiLinkedin, SiPinterest, SiWhatsapp } from 'react-icons/si';
+import { SiInstagram, SiTiktok, SiX, SiFacebook, SiPinterest, SiWhatsapp } from 'react-icons/si';
+import { FaLinkedin } from 'react-icons/fa';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Card, CardContent } from './ui/card';
@@ -204,7 +205,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
       tiktok: SiTiktok,
       twitter: SiX,
       facebook: SiFacebook,
-      linkedin: SiLinkedin,
+      linkedin: FaLinkedin,
       pinterest: SiPinterest,
       whatsapp: SiWhatsapp,
     };

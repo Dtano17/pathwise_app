@@ -2,7 +2,7 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap, BookOpen, RefreshCw, ChevronDown, MapPin, Loader2, DollarSign, Calculator, Link2, Undo } from 'lucide-react';
+import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap, BookOpen, RefreshCw, ChevronDown, MapPin, Loader2, DollarSign, Calculator, Link2, Undo, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 import ShareDialog from './ShareDialog';
@@ -13,6 +13,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { SiInstagram, SiTiktok, SiYoutube, SiX, SiFacebook, SiReddit, SiPinterest } from 'react-icons/si';
 import { invalidateJournalCache } from '@/lib/cacheInvalidation';
 import { parseInlineFormatting } from '@/lib/formatText';
+import { useAuth } from '@/hooks/useAuth';
+import { UpgradeModal } from '@/components/UpgradeModal';
+import VerifyResultCard from '@/components/VerifyResultCard';
 
 // Helper to get friendly source label and icon from URL
 const getSourceLabel = (url?: string): { name: string; icon: JSX.Element; color: string } | null => {
@@ -343,6 +346,44 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
   const [swappedTasks, setSwappedTasks] = useState<Map<string, Task>>(new Map());
   const [swappedCostAdjustments, setSwappedCostAdjustments] = useState<Map<string, number>>(new Map());
   const [matchBudgetFilter, setMatchBudgetFilter] = useState(false);
+
+  // Verify Lens state
+  const { user } = useAuth();
+  const isPro = user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'family';
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<any>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  const handleVerifyPlan = async () => {
+    if (!isPro) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    const content = [
+      planTitle && `Plan: ${planTitle}`,
+      summary,
+      ...tasks.map(t => `- ${t.title}${t.description ? ': ' + t.description : ''}`)
+    ].filter(Boolean).join('\n');
+
+    setIsVerifying(true);
+    setVerifyResult(null);
+    setVerifyError(null);
+    try {
+      const res = await apiRequest('POST', '/api/verify', { content });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Verification failed' }));
+        setVerifyError(err.error || 'Verification failed');
+        return;
+      }
+      const data = await res.json();
+      setVerifyResult(data.verification);
+    } catch (e: any) {
+      setVerifyError(e.message || 'Verification failed');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   // Helper to generate stable unique ID for each task (task.id or fallback to index)
   const getStableTaskId = (task: Task, index: number): string => {
@@ -1189,13 +1230,44 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
               Set as Theme
             </Button>
           )}
+
+          {/* Verify Plan */}
+          <Button
+            onClick={handleVerifyPlan}
+            className="gap-2"
+            variant="outline"
+            disabled={isVerifying}
+            data-testid="button-verify-plan"
+          >
+            <Search className="w-4 h-4" />
+            {isVerifying ? 'Verifying...' : 'Verify'}
+          </Button>
         </div>
         <p className="text-xs text-muted-foreground text-center mt-3">
-          {!activityId 
+          {!activityId
             ? "Create an activity to share and track progress, or set this plan as today's theme"
             : "Share your progress or set this as today's focus theme"}
         </p>
+
+        {/* Verify Result Card */}
+        {(isVerifying || verifyResult || verifyError) && (
+          <div className="mt-3">
+            <VerifyResultCard
+              result={verifyResult}
+              isLoading={isVerifying}
+              error={verifyError}
+              onDismiss={() => { setVerifyResult(null); setVerifyError(null); }}
+            />
+          </div>
+        )}
       </div>
+
+      {/* Upgrade Modal for Verify */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        trigger="verify"
+      />
 
       {/* Share Dialog */}
       <ShareDialog

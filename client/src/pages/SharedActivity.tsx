@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { parseInlineFormatting } from '@/lib/formatText';
 import { useParams } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
@@ -515,7 +516,7 @@ export default function SharedActivity() {
         });
         // Redirect to the activity page after a short delay
         setTimeout(() => {
-          window.location.href = `/?activity=${result.activity.id}&tab=tasks`;
+          window.location.href = `/?activity=${result.activity.id}&tab=activities`;
         }, 1500);
       }
     },
@@ -1275,7 +1276,7 @@ export default function SharedActivity() {
                       data-testid={`task-active-${task.id}`}
                       onClick={() => {
                         if (isAuthenticated) {
-                          window.location.href = `/?activity=${activity.id}&tab=tasks`;
+                          window.location.href = `/?activity=${activity.id}&tab=activities`;
                         }
                       }}
                     >
@@ -1283,11 +1284,11 @@ export default function SharedActivity() {
                         <div className="text-xl sm:text-2xl shrink-0">{priorityEmoji}</div>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-bold text-foreground mb-1 break-words text-base sm:text-lg">
-                            {task.title}
+                            {parseInlineFormatting(task.title, `title-${task.id}`)}
                           </h4>
                           {task.description && (
                             <p className="text-xs sm:text-sm text-muted-foreground mb-2 sm:mb-3 break-words leading-relaxed">
-                              {task.description}
+                              {parseInlineFormatting(task.description, `desc-${task.id}`)}
                             </p>
                           )}
                           <div className="flex flex-wrap items-center gap-2">
@@ -1365,11 +1366,11 @@ export default function SharedActivity() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-green-800 dark:text-green-200 line-through mb-1 break-words">
-                          {task.title}
+                          {parseInlineFormatting(task.title, `title-${task.id}`)}
                         </h4>
                         {task.description && (
                           <p className="text-sm text-green-700 dark:text-green-300 line-through break-words">
-                            {task.description}
+                            {parseInlineFormatting(task.description, `desc-${task.id}`)}
                           </p>
                         )}
                         {task.completedAt && (

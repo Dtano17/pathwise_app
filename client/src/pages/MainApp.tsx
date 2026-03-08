@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { trackEvent } from "@/lib/analytics";
+import { showLocalNotification } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -105,6 +106,7 @@ import {
   Zap,
   Sparkles,
   ChevronRight,
+  AlertCircle,
 } from "lucide-react";
 import DiscoverPlansView from "@/components/discover/DiscoverPlansView";
 import { Link } from "wouter";
@@ -428,7 +430,7 @@ export default function MainApp({
   }, [activeTab]);
 
   // Auto-process pending import URL from /import-plan sign-in flow
-  const [autoImportProcessed, setAutoImportProcessed] = useState(false);
+  const autoImportProcessedRef = useRef(false);
 
   // Task filtering state
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -495,6 +497,11 @@ export default function MainApp({
 
   // State to hold pending share content that needs processing after mutation is available
   const [pendingShareContent, setPendingShareContent] = useState<string | null>(null);
+  // Ref mirror of pendingShareContent for use in effects without adding it as a dependency
+  const pendingShareContentRef = useRef<string | null>(null);
+  useEffect(() => { pendingShareContentRef.current = pendingShareContent; }, [pendingShareContent]);
+  // Track share IDs that have already been processed to prevent re-processing
+  const processedShareIdsRef = useRef<Set<string>>(new Set());
 
   // Initialize share listener early (but don't process yet - wait for mutation)
   useEffect(() => {
@@ -556,10 +563,12 @@ export default function MainApp({
 
         if (orphanedShares.length > 0) {
           const mostRecent = orphanedShares[0];
+          const shareId = (mostRecent as any)._pendingShareId || '';
           const content = mostRecent.url || mostRecent.text || '';
-          if (content && !pendingShareContent) {
+          if (content && !pendingShareContentRef.current && !processedShareIdsRef.current.has(shareId || content)) {
             console.log('[SHARE MainApp] Recovering orphaned share:', content.substring(0, 100));
-            pendingShareIdRef.current = (mostRecent as any)._pendingShareId || null;
+            processedShareIdsRef.current.add(shareId || content);
+            pendingShareIdRef.current = shareId || null;
             setPendingShareContent(content);
           }
         }
@@ -595,7 +604,7 @@ export default function MainApp({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       appResumeCleanup?.();
     };
-  }, [userData, pendingShareContent]);
+  }, [userData]);
 
   // Upgrade modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -1387,6 +1396,10 @@ export default function MainApp({
 
   // Process goal mutation
   const processGoalMutation = useMutation({
+    onMutate: () => {
+      setProcessingStatus('processing');
+      setProcessingMessage('Creating an action plan from your content...');
+    },
     mutationFn: async (goalText: string) => {
       // For refinements, incorporate additional context into the original request
       // Example: "plan my weekend" + "add timeline with timestamps" = "plan my weekend with detailed timeline and timestamps"
@@ -1521,17 +1534,27 @@ export default function MainApp({
       }
 
       // Stay on input tab to show Claude-style output
+
+      // Update processing bar to success
+      setProcessingStatus('success');
+      setProcessingMessage('Your plan is ready!');
+
+      // Fire local notification (works even when app is backgrounded)
+      showLocalNotification({
+        title: 'Your plan is ready!',
+        body: 'Your content has been processed. Tap to view your new plan.',
+        id: Date.now(),
+      });
     },
     onError: (error: any) => {
       const errorMessage =
         error?.response?.error ||
         error.message ||
         "Failed to process your goal. Please try again.";
-      toast({
-        title: "Processing Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
+
+      // Update processing bar to error
+      setProcessingStatus('error');
+      setProcessingMessage(errorMessage);
 
       // Update pending share status on failure
       if (pendingShareIdRef.current) {
@@ -1545,9 +1568,25 @@ export default function MainApp({
     },
   });
 
+  // Stable ref for processGoalMutation.mutate to avoid unstable callback identity
+  const processGoalMutateRef = useRef(processGoalMutation.mutate);
+  useEffect(() => { processGoalMutateRef.current = processGoalMutation.mutate; }, [processGoalMutation.mutate]);
+
+  // Processing status state for floating processing bar
+  const [processingStatus, setProcessingStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [processingMessage, setProcessingMessage] = useState('');
+
+  // Auto-hide success bar after 8 seconds
+  useEffect(() => {
+    if (processingStatus === 'success') {
+      const timer = setTimeout(() => setProcessingStatus('idle'), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [processingStatus]);
+
   // Auto-process pending import URL from /import-plan sign-in flow
   useEffect(() => {
-    if (autoImportProcessed) return;
+    if (autoImportProcessedRef.current) return;
 
     const pendingUrl = localStorage.getItem("journalmate.pendingImportUrl");
     const timestamp = localStorage.getItem(
@@ -1561,7 +1600,7 @@ export default function MainApp({
         // Clear localStorage first to prevent re-triggering
         localStorage.removeItem("journalmate.pendingImportUrl");
         localStorage.removeItem("journalmate.pendingImportTimestamp");
-        setAutoImportProcessed(true);
+        autoImportProcessedRef.current = true;
 
         // Navigate to input tab
         setActiveTab("input");
@@ -1575,26 +1614,24 @@ export default function MainApp({
         // Set the text in the input field so user can see what's being processed
         setChatText(goalText);
 
-        // Show toast to let user know we're processing their content
-        toast({
-          title: "Processing your content",
-          description: "Creating an action plan from your pasted content...",
-        });
+        // Show processing bar
+        setProcessingStatus('processing');
+        setProcessingMessage('Creating an action plan from your pasted content...');
 
         // Trigger the goal processing mutation after a brief delay
         setTimeout(() => {
-          processGoalMutation.mutate(goalText);
+          processGoalMutateRef.current(goalText);
         }, 500);
       } else {
         // Expired - clean up
         localStorage.removeItem("journalmate.pendingImportUrl");
         localStorage.removeItem("journalmate.pendingImportTimestamp");
-        setAutoImportProcessed(true);
+        autoImportProcessedRef.current = true;
       }
     } else {
-      setAutoImportProcessed(true);
+      autoImportProcessedRef.current = true;
     }
-  }, [autoImportProcessed, toast, processGoalMutation]);
+  }, []);
 
   // Process shared content (from share sheet or clipboard paste)
   // This is defined after processGoalMutation so it can use it
@@ -1630,17 +1667,15 @@ export default function MainApp({
     // Set the text in the input field so user can see what's being processed
     setChatText(goalText);
 
-    // Show toast to let user know we're processing their content
-    toast({
-      title: "Processing your content",
-      description: "Creating an action plan from your shared content...",
-    });
+    // Show processing bar
+    setProcessingStatus('processing');
+    setProcessingMessage('Creating an action plan from your shared content...');
 
     // Trigger the goal processing mutation after a brief delay
     setTimeout(() => {
-      processGoalMutation.mutate(goalText);
+      processGoalMutateRef.current(goalText);
     }, 500);
-  }, [toast, processGoalMutation]);
+  }, []);
 
   // Process any pending shared content when it's set
   useEffect(() => {
@@ -2666,6 +2701,65 @@ export default function MainApp({
                   </TabsTrigger>
                 </TabsList>
               </div>
+
+              {/* Floating Processing Bar — visible across all tabs */}
+              {processingStatus !== 'idle' && (
+                <div className={`mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 transition-all duration-300 ${
+                  processingStatus === 'processing'
+                    ? 'bg-primary/5 border-primary/30 dark:bg-primary/10'
+                    : processingStatus === 'success'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50'
+                    : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/50'
+                }`}>
+                  {processingStatus === 'processing' && (
+                    <Loader2 className="w-5 h-5 text-primary animate-spin shrink-0" />
+                  )}
+                  {processingStatus === 'success' && (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  )}
+                  {processingStatus === 'error' && (
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${
+                      processingStatus === 'processing' ? 'text-foreground' :
+                      processingStatus === 'success' ? 'text-emerald-800 dark:text-emerald-200' :
+                      'text-red-800 dark:text-red-200'
+                    }`}>
+                      {processingMessage}
+                    </p>
+                    {processingStatus === 'processing' && (
+                      <p className="text-xs text-muted-foreground mt-0.5">Navigate freely — we'll notify you when ready</p>
+                    )}
+                  </div>
+                  {processingStatus === 'success' && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="shrink-0 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-xs font-medium"
+                      onClick={() => { setActiveTab('input'); setProcessingStatus('idle'); }}
+                    >
+                      View Plan
+                    </Button>
+                  )}
+                  {processingStatus === 'error' && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="shrink-0 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 text-xs font-medium"
+                      onClick={() => { setProcessingStatus('idle'); }}
+                    >
+                      Dismiss
+                    </Button>
+                  )}
+                  <button
+                    onClick={() => setProcessingStatus('idle')}
+                    className="shrink-0 p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                </div>
+              )}
 
               {/* Discover Tab */}
               <TabsContent value="discover" className="space-y-6 pb-32 safe-bottom">

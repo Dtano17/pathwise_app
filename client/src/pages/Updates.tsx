@@ -38,6 +38,22 @@ interface UpdateEntry {
 
 const updates: UpdateEntry[] = [
   {
+    id: 'verify-lens',
+    date: 'March 2026',
+    title: 'Verify Lens — AI Fact Checker',
+    category: 'feature',
+    description: 'Fact-check any URL, social media post, or plan content before you commit. Powered by Gemini AI with live web grounding.',
+    highlights: [
+      'Trust score 0-100 with clear verdict',
+      'Extracts and verifies individual claims',
+      'Verify before planning or after plan generation',
+      'Powered by VerifyMate.ai — visit for deeper analysis',
+      'Pro members get unlimited verifications',
+    ],
+    icon: <Search className="w-6 h-6 text-amber-500" />,
+    isNew: true,
+  },
+  {
     id: 'smart-notifications',
     date: 'February 2026',
     title: 'Smart Notifications & Scheduling',

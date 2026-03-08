@@ -42,10 +42,10 @@ import {
   Award,
   Trophy,
   Shield,
-  Trash2,
   Heart,
   Leaf,
   LogIn,
+  Search,
 } from "lucide-react";
 import { SiApple, SiGoogleplay, SiTiktok, SiYoutube } from "react-icons/si";
 import { motion, AnimatePresence } from "framer-motion";
@@ -609,7 +609,7 @@ export default function LandingPage() {
             ref={el => { textRefs.current[2] = el; }}
             className="text-base md:text-xl text-white/90 mb-6 sm:mb-8 max-w-2xl font-medium leading-relaxed px-2 lg:px-0 drop-shadow-md"
           >
-            The planning and accountability engine for the social media age. See something you love online? Turn it into a real plan in seconds. Go solo or rally your crew — our built-in accountability engine keeps everyone on track while auto-journaling every win along the way. This is where plans meet reality.
+            Where plans get activated. Turn anything you find on social media into a step-by-step action plan — or discover new ones. Stay on track solo or with your crew while we auto-journal every milestone of your journey.
           </p>
 
           <div
@@ -697,20 +697,6 @@ export default function LandingPage() {
             </motion.div>
           </AnimatePresence>
 
-          {/* Privacy Trust Bar */}
-          <div className="mt-6 sm:mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-5 px-4">
-            {[
-              { icon: Shield, text: "Your data stays on your device" },
-              { icon: Shield, text: "No ads, ever" },
-              { icon: Trash2, text: "Request deletion anytime — it's gone" },
-              { icon: Shield, text: "We never sell your data" },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-1.5 text-white/70 text-[11px] sm:text-xs font-medium">
-                <item.icon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white/50 shrink-0" />
-                <span>{item.text}</span>
-              </div>
-            ))}
-          </div>
 
         </div>
       </section>
@@ -1338,6 +1324,10 @@ export default function LandingPage() {
                       <span>Plan using inspiration from imports</span>
                     </div>
                     <div className="flex items-start gap-2">
+                      <Search className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <span>Verify social media before you plan</span>
+                    </div>
+                    <div className="flex items-start gap-2">
                       <BarChart3 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
                       <span>Task progress & analytics</span>
                     </div>
@@ -1410,6 +1400,10 @@ export default function LandingPage() {
                     <div className="flex items-start gap-2">
                       <Sparkles className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
                       <span>Remix social plans with your flavor</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Search className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <span>Verify social media before you plan</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
@@ -1486,6 +1480,10 @@ export default function LandingPage() {
                       <span>
                         Discover & remix inspiration from others' plans
                       </span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Search className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
+                      <span>Verify social media before you plan</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />

@@ -8,7 +8,7 @@ import { useState } from "react";
 interface UpgradeModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  trigger?: 'planLimit' | 'favorites' | 'export' | 'insights';
+  trigger?: 'planLimit' | 'favorites' | 'export' | 'insights' | 'verify';
   planCount?: number;
   planLimit?: number;
 }
@@ -47,6 +47,11 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
         return {
           title: "Unlock Journal Insights",
           description: "Get AI-powered insights from your journal entries and track your progress over time."
+        };
+      case 'verify':
+        return {
+          title: "Verify Before You Plan",
+          description: "Fact-check any URL or content with AI-powered verification before planning. Pro members get unlimited verifications."
         };
       default:
         return {

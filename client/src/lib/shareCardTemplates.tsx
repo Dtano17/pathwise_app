@@ -102,7 +102,7 @@ export const PLATFORM_TEMPLATES: Record<string, PlatformTemplate> = {
   linkedin: {
     id: 'linkedin',
     name: 'LinkedIn',
-    icon: 'SiLinkedin',
+    icon: 'FaLinkedin',
     width: 1200,
     height: 627,
     aspectRatio: '1.91:1',

@@ -15,7 +15,8 @@ import {
   Code,
   Image as ImageIcon
 } from 'lucide-react';
-import { SiWhatsapp, SiFacebook, SiX, SiMessenger, SiInstagram, SiLinkedin, SiTelegram } from 'react-icons/si';
+import { SiWhatsapp, SiFacebook, SiX, SiMessenger, SiInstagram, SiTelegram } from 'react-icons/si';
+import { FaLinkedin } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 import { getContextualEmoji, generatePlatformCaption } from '@/lib/shareCardTemplates';
 import { ShareCardGenerator, type ShareCardGeneratorRef } from './ShareCardGenerator';
@@ -335,7 +336,7 @@ export default function ShareDialog({
     },
     {
       name: 'LinkedIn',
-      icon: SiLinkedin,
+      icon: FaLinkedin,
       action: async () => {
         // Share with LinkedIn-optimized landscape sharecard
         const linkedinCaption = generatePlatformCaption(

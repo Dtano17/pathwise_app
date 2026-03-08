@@ -52,8 +52,10 @@ interface BackgroundServicePlugin {
   cancelNotification(options: { id: number }): Promise<{ success: boolean }>;
 }
 
-// Register the plugin
-const BackgroundService = registerPlugin<BackgroundServicePlugin>('BackgroundService');
+// Register the plugin only on native platforms to avoid console errors on web
+const BackgroundService = isNative()
+  ? registerPlugin<BackgroundServicePlugin>('BackgroundService')
+  : null;
 
 /**
  * Check if background services are available (native platforms only)
@@ -75,7 +77,7 @@ export async function startForegroundService(): Promise<boolean> {
 
   try {
     console.log('[BACKGROUND] Starting foreground service...');
-    const result = await BackgroundService.startForegroundService();
+    const result = await BackgroundService!.startForegroundService();
     console.log('[BACKGROUND] Foreground service started:', result.success);
     return result.success;
   } catch (error: any) {
@@ -96,7 +98,7 @@ export async function stopForegroundService(): Promise<boolean> {
   }
 
   try {
-    const result = await BackgroundService.stopForegroundService();
+    const result = await BackgroundService!.stopForegroundService();
     console.log('[BACKGROUND] Foreground service stopped:', result.success);
     return result.success;
   } catch (error) {
@@ -121,7 +123,7 @@ export async function updateTaskProgress(options: {
   }
 
   try {
-    const result = await BackgroundService.updateProgress({
+    const result = await BackgroundService!.updateProgress({
       completedTasks: options.completedTasks,
       totalTasks: options.totalTasks,
       streak: options.streak || 0,
@@ -148,7 +150,7 @@ export async function enableBackgroundSync(intervalMinutes: number = 60): Promis
   }
 
   try {
-    const result = await BackgroundService.enableBackgroundSync({ intervalMinutes });
+    const result = await BackgroundService!.enableBackgroundSync({ intervalMinutes });
     console.log('[BACKGROUND] Background sync enabled, interval:', result.intervalMinutes, 'min');
     return result.success;
   } catch (error) {
@@ -166,7 +168,7 @@ export async function disableBackgroundSync(): Promise<boolean> {
   }
 
   try {
-    const result = await BackgroundService.disableBackgroundSync();
+    const result = await BackgroundService!.disableBackgroundSync();
     console.log('[BACKGROUND] Background sync disabled');
     return result.success;
   } catch (error) {
@@ -187,7 +189,7 @@ export async function setBackgroundCredentials(userId: string, authToken: string
   }
 
   try {
-    const result = await BackgroundService.setUserCredentials({ userId, authToken });
+    const result = await BackgroundService!.setUserCredentials({ userId, authToken });
     console.log('[BACKGROUND] Credentials stored for background sync');
     return result.success;
   } catch (error) {
@@ -206,7 +208,7 @@ export async function clearBackgroundCredentials(): Promise<boolean> {
   }
 
   try {
-    const result = await BackgroundService.clearUserCredentials();
+    const result = await BackgroundService!.clearUserCredentials();
     console.log('[BACKGROUND] Credentials cleared');
     return result.success;
   } catch (error) {
@@ -226,7 +228,7 @@ export async function setReminderTime(minutesBefore: number): Promise<boolean> {
   }
 
   try {
-    const result = await BackgroundService.setReminderPreferences({ minutesBefore });
+    const result = await BackgroundService!.setReminderPreferences({ minutesBefore });
     console.log('[BACKGROUND] Reminder time set to', minutesBefore, 'minutes before');
     return result.success;
   } catch (error) {
@@ -257,7 +259,7 @@ export async function updateWidgetData(data: {
   }
 
   try {
-    const result = await BackgroundService.updateWidgetData(data);
+    const result = await BackgroundService!.updateWidgetData(data);
     console.log('[BACKGROUND] Widget data updated successfully:', result);
     return result.success;
   } catch (error) {
@@ -280,7 +282,7 @@ export async function refreshWidgets(): Promise<boolean> {
 
   console.log('[BACKGROUND] refreshWidgets: calling BackgroundService.refreshWidgets()');
   try {
-    const result = await BackgroundService.refreshWidgets();
+    const result = await BackgroundService!.refreshWidgets();
     console.log('[BACKGROUND] Widgets refreshed successfully:', result);
     return result.success;
   } catch (error) {
@@ -303,7 +305,7 @@ export async function getBackgroundServiceStatus(): Promise<{
   }
 
   try {
-    return await BackgroundService.getStatus();
+    return await BackgroundService!.getStatus();
   } catch (error) {
     console.error('[BACKGROUND] Failed to get status:', error);
     return null;
@@ -400,7 +402,7 @@ export async function showAlertNotification(options: {
 
   try {
     console.log('[BACKGROUND] showAlertNotification called:', options);
-    const result = await BackgroundService.showNotification({
+    const result = await BackgroundService!.showNotification({
       title: options.title,
       body: options.body,
       id: options.id || Date.now(),
@@ -422,7 +424,7 @@ export async function cancelAlertNotification(id: number): Promise<boolean> {
   }
 
   try {
-    const result = await BackgroundService.cancelNotification({ id });
+    const result = await BackgroundService!.cancelNotification({ id });
     return result.success;
   } catch (error) {
     console.error('[BACKGROUND] Failed to cancel notification:', error);

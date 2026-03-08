@@ -30,8 +30,9 @@ import {
 } from 'lucide-react';
 import { 
   SiInstagram, SiTiktok, SiYoutube, SiX, SiFacebook, SiReddit, 
-  SiOpenai, SiAnthropic, SiGooglegemini, SiLinkedin, SiThreads 
+  SiOpenai, SiAnthropic, SiGooglegemini, SiThreads
 } from 'react-icons/si';
+import { FaLinkedin } from 'react-icons/fa';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -138,7 +139,7 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
         { icon: SiYoutube, label: 'YouTube', color: '', iconColor: '#FF0000', tooltip: 'Paste video URL - we\'ll transcribe it' },
         { icon: SiX, label: 'Twitter/X', color: '', iconColor: '#FFFFFF', tooltip: 'Paste tweet URL' },
         { icon: SiFacebook, label: 'Facebook', color: '', iconColor: '#1877F2', tooltip: 'Paste post URL' },
-        { icon: SiLinkedin, label: 'LinkedIn', color: '', iconColor: '#0A66C2', tooltip: 'Paste post URL' },
+        { icon: FaLinkedin, label: 'LinkedIn', color: '', iconColor: '#0A66C2', tooltip: 'Paste post URL' },
         { icon: SiReddit, label: 'Reddit', color: '', iconColor: '#FF4500', tooltip: 'Paste thread or comment URL' },
         { icon: SiThreads, label: 'Threads', color: '', iconColor: '#FFFFFF', tooltip: 'Paste thread URL' },
       ]

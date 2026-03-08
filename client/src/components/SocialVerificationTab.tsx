@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Alert, AlertDescription } from './ui/alert';
 import { Badge } from './ui/badge';
 import { CheckCircle2, ExternalLink, AlertCircle, X as Twitter, Instagram, Linkedin } from 'lucide-react';
-import { SiX, SiInstagram, SiThreads, SiLinkedin } from 'react-icons/si';
+import { SiX, SiInstagram, SiThreads } from 'react-icons/si';
+import { FaLinkedin } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 
 interface SocialVerificationTabProps {
@@ -59,7 +60,7 @@ const PLATFORMS: PlatformConfig[] = [
   {
     id: 'linkedinPostUrl',
     name: 'LinkedIn',
-    icon: <SiLinkedin className="w-5 h-5" />,
+    icon: <FaLinkedin className="w-5 h-5" />,
     placeholder: 'https://linkedin.com/posts/username_activity-123456',
     domain: 'linkedin.com',
     color: 'text-blue-700',

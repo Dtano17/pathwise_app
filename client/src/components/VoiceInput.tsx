@@ -8,12 +8,15 @@ import { Progress } from '@/components/ui/progress';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen, FileText, RotateCcw } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen, FileText, RotateCcw, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { invalidateActivitiesCache } from '@/lib/cacheInvalidation';
 import { trackEvent } from '@/lib/analytics';
 import { parseInlineFormatting } from '@/lib/formatText';
 import { useDeviceLocation } from '@/hooks/useDeviceLocation';
+import { useAuth } from '@/hooks/useAuth';
+import { UpgradeModal } from '@/components/UpgradeModal';
+import VerifyResultCard from '@/components/VerifyResultCard';
 
 // Simple markdown formatter for Claude-style responses
 const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
@@ -126,6 +129,14 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const [isInCuratedFlow, setIsInCuratedFlow] = useState(false);
   const [conversationHints, setConversationHints] = useState<string[]>([]);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+
+  // Verify Lens state
+  const { user } = useAuth();
+  const isPro = user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'family';
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<any>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   // Device location for Gemini Maps grounding + location hint resolution
   const { location: deviceLocation, requestLocation } = useDeviceLocation();
@@ -519,6 +530,37 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     }
   };
 
+  const handleVerify = async () => {
+    if (!isPro) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    const content = text.trim();
+    if (!content) {
+      toast({ title: 'Nothing to verify', description: 'Enter a URL or text to fact-check.', variant: 'destructive' });
+      return;
+    }
+    setIsVerifying(true);
+    setVerifyResult(null);
+    setVerifyError(null);
+    try {
+      const isUrl = /^https?:\/\//i.test(content) || /^www\./i.test(content);
+      const body = isUrl ? { url: content, content } : { content };
+      const res = await apiRequest('POST', '/api/verify', body);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Verification failed' }));
+        setVerifyError(err.error || 'Verification failed');
+        return;
+      }
+      const data = await res.json();
+      setVerifyResult(data.verification);
+    } catch (e: any) {
+      setVerifyError(e.message || 'Verification failed');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const startConversationWithMode = async (mode: 'quick' | 'smart') => {
     // Prevent duplicate requests on rapid clicks
     if (chatMutation.isPending || isLoadingCuratedQuestions) return;
@@ -893,7 +935,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     return (
       <div className="flex flex-col min-h-[100dvh] w-full bg-background">
         {/* Minimal Header - Claude Style */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 sticky top-0 z-[999] bg-background">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 sticky top-0 z-40 bg-background safe-top">
           <Button
             variant="ghost"
             size="icon"
@@ -1415,6 +1457,21 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       <Brain className="w-3.5 h-3.5 flex-shrink-0" />
                       <span className="text-xs font-medium">Smart Plan</span>
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleVerify}
+                      disabled={isVerifying}
+                      className={`gap-1.5 px-3 py-1.5 ${
+                        isVerifying
+                          ? 'bg-amber-600/10 border-amber-600 text-amber-700 dark:text-amber-400 dark:bg-amber-900/20 dark:border-amber-500'
+                          : 'bg-amber-600/5 border-amber-600/40 text-amber-700 dark:text-amber-400 dark:bg-amber-900/10 dark:border-amber-600/40'
+                      }`}
+                      data-testid="button-verify"
+                    >
+                      <Search className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="text-xs font-medium">Verify</span>
+                    </Button>
                   </div>
                   
                   <Button
@@ -1443,6 +1500,18 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                     )}
                   </Button>
                 </div>
+
+                {/* Verify Result Card - shown inline after manual verify */}
+                {(isVerifying || verifyResult || verifyError) && (
+                  <div className="mt-2">
+                    <VerifyResultCard
+                      result={verifyResult}
+                      isLoading={isVerifying}
+                      error={verifyError}
+                      onDismiss={() => { setVerifyResult(null); setVerifyError(null); }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
@@ -1654,6 +1723,13 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Upgrade Modal for Verify */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        trigger="verify"
+      />
     </div>
   );
 };

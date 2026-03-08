@@ -11,7 +11,7 @@ export default function ChatGPTPlanTracker() {
     <div className="min-h-screen bg-gradient-to-b from-purple-50 via-white to-blue-50">
       <SEO {...PAGE_SEO.chatgptTracker} />
       {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50 safe-top">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-purple-600" />
