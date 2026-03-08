@@ -286,6 +286,12 @@ export default function MainApp({
   // Update browser tab title with notification count
   useNotificationTitle();
 
+  // Shared URL from share sheet (populated in input for manual verify)
+  const [sharedUrlText, setSharedUrlText] = useState("");
+  // Auto-verify result for shared URLs (pro users only, runs in parallel with plan)
+  const [sharedVerifyResult, setSharedVerifyResult] = useState<any>(null);
+  const [sharedVerifyLoading, setSharedVerifyLoading] = useState(false);
+
   // Chat sync form state
   const [chatText, setChatText] = useState("");
   const [chatSource, setChatSource] = useState("chatgpt");
@@ -1667,6 +1673,24 @@ export default function MainApp({
     // Set the text in the input field so user can see what's being processed
     setChatText(goalText);
 
+    // For URL shares, also populate the raw URL in VoiceInput
+    if (isUrl) {
+      setSharedUrlText(sharedContent.trim());
+
+      // Pro users: auto-verify the URL in parallel with plan generation
+      const isPro = (user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family';
+      if (isPro) {
+        setSharedVerifyLoading(true);
+        setSharedVerifyResult(null);
+        const url = sharedContent.trim();
+        apiRequest('POST', '/api/verify', { url, content: url })
+          .then(res => res.ok ? res.json() : Promise.reject('Verification failed'))
+          .then(data => setSharedVerifyResult(data.verification))
+          .catch(() => {}) // Silently fail — verify is supplementary
+          .finally(() => setSharedVerifyLoading(false));
+      }
+    }
+
     // Show processing bar
     setProcessingStatus('processing');
     setProcessingMessage('Creating an action plan from your shared content...');
@@ -1675,7 +1699,7 @@ export default function MainApp({
     setTimeout(() => {
       processGoalMutateRef.current(goalText);
     }, 500);
-  }, []);
+  }, [user]);
 
   // Process any pending shared content when it's set
   useEffect(() => {
@@ -2953,6 +2977,9 @@ export default function MainApp({
                         <VoiceInput
                           onSubmit={(text) => processGoalMutation.mutate(text)}
                           isGenerating={processGoalMutation.isPending}
+                          initialText={sharedUrlText}
+                          onInitialTextConsumed={() => setSharedUrlText("")}
+
                         />
                       </div>
                     </div>
@@ -2961,6 +2988,8 @@ export default function MainApp({
                   <VoiceInput
                     onSubmit={(text) => processGoalMutation.mutate(text)}
                     isGenerating={processGoalMutation.isPending}
+                    initialText={sharedUrlText}
+                    onInitialTextConsumed={() => setSharedUrlText("")}
                   />
                 )}
 
@@ -3211,6 +3240,8 @@ export default function MainApp({
                         )?.backdrop ?? undefined
                       }
                       showConfetti={true}
+                      initialVerifyResult={sharedVerifyResult}
+                      initialVerifyLoading={sharedVerifyLoading}
                     />
 
                     {/* Action buttons */}

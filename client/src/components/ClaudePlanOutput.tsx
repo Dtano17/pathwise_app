@@ -109,6 +109,8 @@ interface ClaudePlanOutputProps {
   sourceUrl?: string;
   importId?: string;
   planMetadata?: PlanMetadata;
+  initialVerifyResult?: any;
+  initialVerifyLoading?: boolean;
 }
 
 interface AlternativesSectionProps {
@@ -334,7 +336,9 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
   backdrop,
   sourceUrl,
   importId,
-  planMetadata
+  planMetadata,
+  initialVerifyResult,
+  initialVerifyLoading
 }, ref) => {
   const { toast } = useToast();
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
@@ -354,6 +358,20 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<any>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  // Sync auto-verify result from share sheet (runs in parallel with plan generation)
+  useEffect(() => {
+    if (initialVerifyLoading) {
+      setIsVerifying(true);
+    }
+  }, [initialVerifyLoading]);
+
+  useEffect(() => {
+    if (initialVerifyResult) {
+      setVerifyResult(initialVerifyResult);
+      setIsVerifying(false);
+    }
+  }, [initialVerifyResult]);
 
   const handleVerifyPlan = async () => {
     if (!isPro) {
@@ -794,6 +812,18 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
           </div>
         ) : null;
       })()}
+
+      {/* Verify Result Card - shown before action steps so users see credibility first */}
+      {(isVerifying || verifyResult || verifyError) && (
+        <div className="mt-3">
+          <VerifyResultCard
+            result={verifyResult}
+            isLoading={isVerifying}
+            error={verifyError}
+            onDismiss={() => { setVerifyResult(null); setVerifyError(null); }}
+          />
+        </div>
+      )}
 
       {/* Tasks List */}
       <div className="space-y-4">
@@ -1249,17 +1279,6 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
             : "Share your progress or set this as today's focus theme"}
         </p>
 
-        {/* Verify Result Card */}
-        {(isVerifying || verifyResult || verifyError) && (
-          <div className="mt-3">
-            <VerifyResultCard
-              result={verifyResult}
-              isLoading={isVerifying}
-              error={verifyError}
-              onDismiss={() => { setVerifyResult(null); setVerifyError(null); }}
-            />
-          </div>
-        )}
       </div>
 
       {/* Upgrade Modal for Verify */}

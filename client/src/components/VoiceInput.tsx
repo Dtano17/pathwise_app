@@ -100,10 +100,23 @@ interface VoiceInputProps {
   onSubmit: (data: any) => void;
   isGenerating?: boolean;
   placeholder?: string;
+  initialText?: string;
+  onInitialTextConsumed?: () => void;
 }
 
-const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "Plan your goals or paste URL to journal..." }) => {
+const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "Plan your goals or paste URL to journal...", initialText, onInitialTextConsumed }) => {
   const [text, setText] = useState('');
+  const [showVerifyIndicator, setShowVerifyIndicator] = useState(false);
+
+  // Sync external text (e.g., from share sheet) into local state
+  useEffect(() => {
+    if (initialText) {
+      setText(initialText);
+      setShowVerifyIndicator(true);
+      onInitialTextConsumed?.();
+    }
+  }, [initialText]);
+
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
@@ -541,6 +554,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       toast({ title: 'Nothing to verify', description: 'Enter a URL or text to fact-check.', variant: 'destructive' });
       return;
     }
+    setShowVerifyIndicator(false);
     setIsVerifying(true);
     setVerifyResult(null);
     setVerifyError(null);
@@ -1513,7 +1527,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       size="sm"
                       onClick={handleVerify}
                       disabled={isVerifying}
-                      className={`gap-1.5 px-3 py-1.5 ${
+                      className={`relative overflow-visible gap-1.5 px-3 py-1.5 ${
                         isVerifying
                           ? 'bg-amber-600/10 border-amber-600 text-amber-700 dark:text-amber-400 dark:bg-amber-900/20 dark:border-amber-500'
                           : 'bg-amber-600/5 border-amber-600/40 text-amber-700 dark:text-amber-400 dark:bg-amber-900/10 dark:border-amber-600/40'
@@ -1522,6 +1536,12 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                     >
                       <Search className="w-3.5 h-3.5 flex-shrink-0" />
                       <span className="text-xs font-medium">Verify</span>
+                      {showVerifyIndicator && !isVerifying && (
+                        <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
+                        </span>
+                      )}
                     </Button>
                   </div>
                   

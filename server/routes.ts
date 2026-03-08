@@ -23321,16 +23321,13 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         return res.status(400).json({ error: "Either URL or content is required" });
       }
 
-      // Check monthly verification limit (5 free per month)
-      const userVerifications = await storage.getUserVerificationsThisMonth(user.id);
+      // Verify is pro-only
       const userRecord = await storage.getUser(user.id);
       const isPro = userRecord?.subscriptionTier === 'pro' || userRecord?.subscriptionTier === 'family';
 
-      if (!isPro && userVerifications >= 5) {
+      if (!isPro) {
         return res.status(403).json({
-          error: "Monthly verification limit reached",
-          limit: 5,
-          used: userVerifications,
+          error: "Verification is a Pro feature",
           upgradeUrl: "/pricing"
         });
       }
