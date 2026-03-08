@@ -23344,52 +23344,111 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
 
       let extractedContent = content;
       let detectedPlatform = platform;
+      let postMetadata: { author?: string; likesCount?: number; viewsCount?: number; hashtags?: string[]; caption?: string } | undefined;
 
-      // If URL provided, extract content first
+      // If URL provided, extract content first (with cache)
       if (url) {
-        // Detect platform from URL
         detectedPlatform = detectPlatform(url) || platform;
+        const normalizedUrl = normalizeUrlForCache(url);
 
-        // Try to extract content from URL
-        if (isSocialMediaUrl(url)) {
-          // Use Apify for social media extraction
-          if (detectedPlatform === 'instagram' && apifyService.isAvailable()) {
-            const igResult = await apifyService.extractInstagramReel(url);
-            if (igResult.success) {
-              extractedContent = igResult.caption || content;
-            }
-          } else if (detectedPlatform === 'tiktok' && apifyService.isAvailable()) {
-            const ttResult = await apifyService.extractTikTokVideo(url);
-            if (ttResult.success) {
-              extractedContent = ttResult.caption || content;
+        // Check URL content cache first to avoid duplicate Apify calls
+        const cached = await storage.getUrlContentCache(normalizedUrl);
+        if (cached) {
+          console.log(`[VERIFY] Cache HIT for ${normalizedUrl}`);
+          extractedContent = cached.extractedContent || content;
+          const meta = cached.metadata as any;
+          if (meta) {
+            postMetadata = {
+              author: meta.author?.username || meta.author,
+              likesCount: meta.likesCount,
+              viewsCount: meta.viewsCount,
+              hashtags: meta.hashtags,
+              caption: meta.caption || cached.extractedContent?.substring(0, 300),
+            };
+          }
+        } else {
+          console.log(`[VERIFY] Cache MISS for ${normalizedUrl}, extracting...`);
+
+          // Try to extract content from URL
+          if (isSocialMediaUrl(url)) {
+            if (detectedPlatform === 'instagram' && apifyService.isAvailable()) {
+              const igResult = await apifyService.extractInstagramReel(url);
+              if (igResult.success) {
+                extractedContent = igResult.caption || content;
+                postMetadata = {
+                  author: igResult.author?.username,
+                  likesCount: igResult.likesCount,
+                  viewsCount: igResult.viewsCount,
+                  hashtags: igResult.hashtags,
+                  caption: igResult.caption,
+                };
+                // Cache the extraction
+                try {
+                  await storage.createUrlContentCache({
+                    normalizedUrl,
+                    originalUrl: url,
+                    extractedContent: igResult.caption || '',
+                    extractionSource: 'apify-instagram',
+                    wordCount: (igResult.caption || '').split(/\s+/).length,
+                    metadata: { author: igResult.author, likesCount: igResult.likesCount, viewsCount: igResult.viewsCount, hashtags: igResult.hashtags, caption: igResult.caption },
+                  });
+                } catch (cacheErr) {
+                  console.error('[VERIFY] Cache write failed:', cacheErr);
+                }
+              }
+            } else if (detectedPlatform === 'tiktok' && apifyService.isAvailable()) {
+              const ttResult = await apifyService.extractTikTokVideo(url);
+              if (ttResult.success) {
+                extractedContent = ttResult.caption || content;
+                postMetadata = {
+                  author: ttResult.author?.username,
+                  likesCount: ttResult.likesCount,
+                  viewsCount: ttResult.viewsCount,
+                  hashtags: ttResult.hashtags,
+                  caption: ttResult.caption,
+                };
+                try {
+                  await storage.createUrlContentCache({
+                    normalizedUrl,
+                    originalUrl: url,
+                    extractedContent: ttResult.caption || '',
+                    extractionSource: 'apify-tiktok',
+                    wordCount: (ttResult.caption || '').split(/\s+/).length,
+                    metadata: { author: ttResult.author, likesCount: ttResult.likesCount, viewsCount: ttResult.viewsCount, hashtags: ttResult.hashtags, caption: ttResult.caption },
+                  });
+                } catch (cacheErr) {
+                  console.error('[VERIFY] Cache write failed:', cacheErr);
+                }
+              }
             }
           }
-        }
 
-        // Fallback to Tavily for other URLs
-        if (!extractedContent && isTavilyConfigured()) {
-          try {
-            const tavilyResult = await tavilyExtract(url);
-            if (tavilyResult && tavilyResult.rawContent) {
-              extractedContent = tavilyResult.rawContent;
+          // Fallback to Tavily for other URLs
+          if (!extractedContent && isTavilyConfigured()) {
+            try {
+              const tavilyResult = await tavilyExtract(url);
+              if (tavilyResult && tavilyResult.rawContent) {
+                extractedContent = tavilyResult.rawContent;
+              }
+            } catch (e) {
+              console.error('[VERIFY] Tavily extraction failed:', e);
             }
-          } catch (e) {
-            console.error('[VERIFY] Tavily extraction failed:', e);
           }
-        }
 
-        if (!extractedContent) {
-          extractedContent = content || `Content from: ${url}`;
+          if (!extractedContent) {
+            extractedContent = content || `Content from: ${url}`;
+          }
         }
       }
 
-      // Perform verification
+      // Perform verification with post metadata for richer context
       const verificationResult = await geminiVerificationService.verifyContent({
         url,
         platform: detectedPlatform,
         content: extractedContent,
         mediaUrls,
         author,
+        postMetadata,
       });
 
       // Generate share token
@@ -23401,7 +23460,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         userId: user.id,
         sourceUrl: url,
         sourcePlatform: detectedPlatform,
-        sourceContent: extractedContent?.substring(0, 10000), // Limit content size
+        sourceContent: extractedContent?.substring(0, 10000),
         sourceMediaUrls: mediaUrls || [],
         sourceAuthor: author,
         trustScore: verificationResult.trustScore,
@@ -23425,6 +23484,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         verification: {
           id: verification[0].id,
           ...verificationResult,
+          postMetadata,
           shareToken,
           shareUrl: `/verify/result/${shareToken}`,
         },

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, ChevronDown, ChevronUp, ExternalLink, Shield, AlertTriangle, CheckCircle, XCircle, HelpCircle, Loader2, Link2 } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, ExternalLink, Shield, AlertTriangle, CheckCircle, XCircle, HelpCircle, Loader2, Link2, Info, User, Heart, Eye, Hash } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ClaimSource {
@@ -19,6 +19,16 @@ interface ClaimAnalysis {
   confidence: number;
   evidence?: string;
   sources?: ClaimSource[] | string[];
+  verificationStatus?: 'confirmed' | 'partially_confirmed' | 'insufficient_sources' | 'contradicted' | 'no_credible_sources' | 'opinion_based';
+  statusReason?: string;
+}
+
+interface PostMetadata {
+  author?: string;
+  likesCount?: number;
+  viewsCount?: number;
+  hashtags?: string[];
+  caption?: string;
 }
 
 interface VerificationResult {
@@ -28,6 +38,7 @@ interface VerificationResult {
   claims: ClaimAnalysis[];
   processingTimeMs?: number;
   webGroundingUsed?: boolean;
+  postMetadata?: PostMetadata;
 }
 
 interface VerifyResultCardProps {
@@ -157,6 +168,41 @@ export default function VerifyResultCard({ result, isLoading, error, onDismiss }
             </Button>
           </div>
 
+          {/* Post Summary Panel */}
+          {result.postMetadata && (result.postMetadata.author || result.postMetadata.likesCount != null || result.postMetadata.caption) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground bg-background/50 rounded-lg px-3 py-2">
+              {result.postMetadata.author && (
+                <span className="inline-flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  @{result.postMetadata.author}
+                </span>
+              )}
+              {result.postMetadata.likesCount != null && (
+                <span className="inline-flex items-center gap-1">
+                  <Heart className="w-3 h-3" />
+                  {result.postMetadata.likesCount.toLocaleString()}
+                </span>
+              )}
+              {result.postMetadata.viewsCount != null && (
+                <span className="inline-flex items-center gap-1">
+                  <Eye className="w-3 h-3" />
+                  {result.postMetadata.viewsCount.toLocaleString()}
+                </span>
+              )}
+              {result.postMetadata.hashtags && result.postMetadata.hashtags.length > 0 && (
+                <span className="inline-flex items-center gap-1 flex-wrap">
+                  <Hash className="w-3 h-3" />
+                  {result.postMetadata.hashtags.slice(0, 4).map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}
+                </span>
+              )}
+              {result.postMetadata.caption && (
+                <p className="w-full mt-1 text-xs italic text-muted-foreground/80 line-clamp-2">
+                  {result.postMetadata.caption.substring(0, 150)}{result.postMetadata.caption.length > 150 ? '...' : ''}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Summary */}
           <p className="text-sm text-foreground/80 leading-relaxed">{result.verdictSummary}</p>
 
@@ -197,10 +243,41 @@ export default function VerifyResultCard({ result, isLoading, error, onDismiss }
                           {/* Claim text */}
                           <p className="text-sm font-medium leading-snug">{claim.text}</p>
 
-                          {/* Evidence / reasoning */}
+                          {/* Verification status reason */}
+                          {claim.statusReason && (
+                            <p className="text-xs mt-1.5 px-2 py-1 rounded bg-muted/50 border border-border/50">
+                              <span className="font-semibold text-foreground/70">
+                                {claim.verificationStatus === 'confirmed' ? 'Confirmed' :
+                                 claim.verificationStatus === 'insufficient_sources' ? 'Insufficient Sources' :
+                                 claim.verificationStatus === 'no_credible_sources' ? 'No Credible Sources' :
+                                 claim.verificationStatus === 'contradicted' ? 'Contradicted' :
+                                 claim.verificationStatus === 'partially_confirmed' ? 'Partially Confirmed' :
+                                 claim.verificationStatus === 'opinion_based' ? 'Opinion' :
+                                 'Status'}:
+                              </span>{' '}
+                              <span className="text-muted-foreground">{claim.statusReason}</span>
+                            </p>
+                          )}
+
+                          {/* Evidence / reasoning — enhanced for flagged claims */}
                           {claim.evidence && (
-                            <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                              {claim.evidence}
+                            <div className={`text-xs mt-1.5 leading-relaxed flex items-start gap-1.5 ${
+                              ['false', 'misleading', 'unverified', 'unverifiable'].includes(claim.verdict)
+                                ? 'px-2 py-1.5 rounded bg-red-500/5 border border-red-500/20 text-foreground/70'
+                                : 'text-muted-foreground'
+                            }`}>
+                              {['false', 'misleading', 'unverified', 'unverifiable'].includes(claim.verdict) && (
+                                <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-red-500/70" />
+                              )}
+                              <span>{claim.evidence}</span>
+                            </div>
+                          )}
+
+                          {/* No sources warning for unverified/false claims */}
+                          {['false', 'misleading', 'unverified', 'unverifiable'].includes(claim.verdict) &&
+                            (!claim.sources || claim.sources.length === 0) && (
+                            <p className="text-[10px] text-muted-foreground mt-1.5 italic">
+                              No independent sources found to verify this claim
                             </p>
                           )}
 

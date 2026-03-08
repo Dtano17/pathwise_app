@@ -16,6 +16,15 @@ export interface ClaimAnalysis {
   confidence: number;
   evidence?: string;
   sources?: Array<{ title: string; url: string; credibility?: number }>;
+  verificationStatus: 'confirmed' | 'partially_confirmed' | 'insufficient_sources' | 'contradicted' | 'no_credible_sources' | 'opinion_based';
+  statusReason: string;
+}
+
+export interface ScoreBreakdown {
+  sourceCredibility: { score: number; reason: string };
+  claimVerifiability: { score: number; reason: string };
+  evidenceQuality: { score: number; reason: string };
+  overallCalculation: string;
 }
 
 export interface AIDetectionResult {
@@ -116,6 +125,7 @@ export interface VerificationResult {
   verdict: 'verified' | 'mostly_true' | 'mixed' | 'misleading' | 'false' | 'unverifiable';
   verdictSummary: string;
   claims: ClaimAnalysis[];
+  scoreBreakdown?: ScoreBreakdown;
   aiDetection?: AIDetectionResult;
   accountAnalysis?: AccountAnalysis;
   businessVerification?: BusinessVerification;
@@ -140,6 +150,13 @@ export interface VerificationInput {
     followers?: number;
     verified?: boolean;
     accountAge?: string;
+  };
+  postMetadata?: {
+    author?: string;
+    likesCount?: number;
+    viewsCount?: number;
+    hashtags?: string[];
+    caption?: string;
   };
 }
 
@@ -242,6 +259,16 @@ Author Information:
 
     const currentDate = new Date().toISOString();
 
+    const postContext = input.postMetadata
+      ? `
+POST CONTEXT (use this to assess account credibility and content reach):
+- Author: @${input.postMetadata.author || 'unknown'}
+${input.postMetadata.likesCount != null ? `- Likes: ${input.postMetadata.likesCount.toLocaleString()}` : ''}
+${input.postMetadata.viewsCount != null ? `- Views: ${input.postMetadata.viewsCount.toLocaleString()}` : ''}
+${input.postMetadata.hashtags?.length ? `- Hashtags: ${input.postMetadata.hashtags.map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}` : ''}
+`
+      : '';
+
     return `You are VerifyMate, an advanced AI fact-checker and content verification assistant. Analyze the following social media post and provide a comprehensive verification report with SOURCE TRACING, EVENT CORRELATION, and TIMELINE ANALYSIS.
 
 CURRENT DATE/TIME: ${currentDate}
@@ -249,7 +276,7 @@ CURRENT DATE/TIME: ${currentDate}
 CONTENT TO VERIFY:
 Platform: ${input.platform || 'Unknown'}
 URL: ${input.url || 'Not provided'}
-${authorInfo}
+${authorInfo}${postContext}
 Content:
 """
 ${input.content}
@@ -264,6 +291,32 @@ Extract all verifiable claims from the content. For each claim:
 - Verify against reliable sources using web search
 - Provide a verdict: verified, partially_true, unverified, false, or opinion
 - Cite your sources with URLs when possible
+
+CRITICAL — CLAIM SCORING RUBRIC (you MUST follow this exactly):
+Each claim gets a "confidence" score AND a "verificationStatus" + "statusReason":
+
+| Scenario | confidence | verificationStatus | verdict |
+|----------|-----------|-------------------|---------|
+| Trusted/credible source confirms the claim | 75–100 | "confirmed" | "verified" |
+| Partially verified (some evidence supports it) | 50–74 | "partially_confirmed" | "partially_true" |
+| No reliable sources found to confirm OR deny | exactly 50 | "insufficient_sources" | "unverified" |
+| No credible/peer-reviewed sources exist at all | exactly 50 | "no_credible_sources" | "unverified" |
+| Claim is an opinion (cannot be fact-checked) | N/A | "opinion_based" | "opinion" |
+| Evidence contradicts/disproves the claim | 25–49 | "contradicted" | "false" |
+| Claim promotes risky/misleading unverified info | 25–49 | "contradicted" | "misleading" |
+| Demonstrably false with strong counter-evidence | 0–24 | "contradicted" | "false" |
+
+"statusReason" MUST explain WHY that score was given, e.g.:
+- "Confirmed by peer-reviewed study in Nature (2024)"
+- "Insufficient sources — no peer-reviewed research found to confirm or deny this claim"
+- "No credible sources — this is based on anecdotal reports without clinical trials"
+- "Contradicted by FDA advisory warning against this compound"
+
+TRUST SCORE CALCULATION:
+The overall trustScore MUST be calculated as the weighted average of all claim confidence scores.
+Formula: trustScore = sum(claim.confidence) / number_of_claims
+Then adjust ±10 points based on source quality, bias, and account credibility.
+Provide a "scoreBreakdown" showing how you calculated it.
 
 2. AI CONTENT DETECTION
 Analyze patterns that might indicate AI-generated content:
@@ -331,9 +384,17 @@ RESPONSE FORMAT (respond in valid JSON):
       "verdict": "<verified|partially_true|unverified|false|opinion>",
       "confidence": <0-100>,
       "evidence": "<explanation and reasoning>",
-      "sources": [{"title": "<source name>", "url": "<source url>", "credibility": <0-100>}]
+      "sources": [{"title": "<source name>", "url": "<source url>", "credibility": <0-100>}],
+      "verificationStatus": "<confirmed|partially_confirmed|insufficient_sources|contradicted|no_credible_sources|opinion_based>",
+      "statusReason": "<clear explanation of why this score was given, citing specific source gaps or evidence>"
     }
   ],
+  "scoreBreakdown": {
+    "sourceCredibility": {"score": <0-100>, "reason": "<how trustworthy are the sources for/against claims>"},
+    "claimVerifiability": {"score": <0-100>, "reason": "<how many claims could actually be checked>"},
+    "evidenceQuality": {"score": <0-100>, "reason": "<quality of evidence found>"},
+    "overallCalculation": "<explain how trustScore was derived, e.g. 'Average of 2 claims (50+50)/2 = 50, adjusted -5 for promotional tone = 45'>"
+  },
   "aiDetection": {
     "isAiGenerated": <true|false>,
     "confidence": <0-100>,
@@ -441,7 +502,24 @@ IMPORTANT:
           confidence: Math.min(100, Math.max(0, claim.confidence || 50)),
           evidence: claim.evidence,
           sources: claim.sources || [],
+          verificationStatus: this.validateVerificationStatus(claim.verificationStatus),
+          statusReason: claim.statusReason || this.inferStatusReason(claim),
         })),
+        scoreBreakdown: parsed.scoreBreakdown ? {
+          sourceCredibility: {
+            score: Math.min(100, Math.max(0, parsed.scoreBreakdown.sourceCredibility?.score || 50)),
+            reason: parsed.scoreBreakdown.sourceCredibility?.reason || 'No source credibility data available',
+          },
+          claimVerifiability: {
+            score: Math.min(100, Math.max(0, parsed.scoreBreakdown.claimVerifiability?.score || 50)),
+            reason: parsed.scoreBreakdown.claimVerifiability?.reason || 'No verifiability data available',
+          },
+          evidenceQuality: {
+            score: Math.min(100, Math.max(0, parsed.scoreBreakdown.evidenceQuality?.score || 50)),
+            reason: parsed.scoreBreakdown.evidenceQuality?.reason || 'No evidence quality data available',
+          },
+          overallCalculation: parsed.scoreBreakdown.overallCalculation || 'Score calculation not provided',
+        } : undefined,
         aiDetection: parsed.aiDetection ? {
           isAiGenerated: !!parsed.aiDetection.isAiGenerated,
           confidence: Math.min(100, Math.max(0, parsed.aiDetection.confidence || 50)),
@@ -532,6 +610,22 @@ IMPORTANT:
       console.error(`[GEMINI-VERIFY] Failed to parse response:`, error);
       return this.getDefaultResult();
     }
+  }
+
+  private validateVerificationStatus(status: string): ClaimAnalysis['verificationStatus'] {
+    const valid = ['confirmed', 'partially_confirmed', 'insufficient_sources', 'contradicted', 'no_credible_sources', 'opinion_based'];
+    return valid.includes(status) ? status as ClaimAnalysis['verificationStatus'] : 'insufficient_sources';
+  }
+
+  private inferStatusReason(claim: any): string {
+    const verdict = claim.verdict || 'unverified';
+    const confidence = claim.confidence || 50;
+    if (verdict === 'verified') return 'Confirmed by credible sources';
+    if (verdict === 'partially_true') return 'Partially supported by available evidence';
+    if (verdict === 'false') return 'Contradicted by available evidence';
+    if (verdict === 'opinion') return 'This is an opinion and cannot be fact-checked';
+    if (confidence === 50) return 'Insufficient sources to confirm or deny this claim';
+    return 'Unable to determine verification status';
   }
 
   // Validation helpers for new fields

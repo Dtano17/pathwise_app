@@ -213,7 +213,7 @@ export default function VerifyLandingPage() {
       <SEO
         title="VerifyMate - Verify Before You Trust"
         description="AI-powered fact-checking for social media. Verify posts, detect AI content, and expose scams before you share or believe."
-        path="/"
+        url="https://verifymate.ai"
       />
 
       {/* Navigation */}

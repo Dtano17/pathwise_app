@@ -137,6 +137,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<any>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [verifiedUrl, setVerifiedUrl] = useState<string | null>(null);
 
   // Device location for Gemini Maps grounding + location hint resolution
   const { location: deviceLocation, requestLocation } = useDeviceLocation();
@@ -554,6 +555,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       }
       const data = await res.json();
       setVerifyResult(data.verification);
+      setVerifiedUrl(content);
     } catch (e: any) {
       setVerifyError(e.message || 'Verification failed');
     } finally {
@@ -583,10 +585,19 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           setText(''); // Clear input
           setIsLoadingCuratedQuestions(true);
           
+          // Check if this URL was previously verified and flagged
+          const isFlaggedUrl = verifyResult && verifiedUrl &&
+            userMessage.includes(verifiedUrl) &&
+            (verifyResult.trustScore < 60 || ['misleading', 'false'].includes(verifyResult.verdict));
+
+          const disclaimer = isFlaggedUrl
+            ? `\n\n---\n\n⚠️ **Content Advisory:** This post was flagged as **${verifyResult.verdict === 'false' ? 'False' : verifyResult.verdict === 'misleading' ? 'Misleading' : 'Low Trust'}** with a trust score of **${verifyResult.trustScore}/100**. Some claims could not be verified. The plan below is based on the post content — please consult a qualified professional before acting on any health, financial, or safety advice.`
+            : '';
+
           // Show loading message in chat
           setChatMessages([{
             role: 'assistant',
-            content: `**${mode === 'quick' ? 'Quick' : 'Smart'} Plan activated!** Analyzing the URL content to generate personalized questions for you...`,
+            content: `**${mode === 'quick' ? 'Quick' : 'Smart'} Plan activated!** Analyzing the URL content to generate personalized questions for you...${disclaimer}`,
             timestamp: new Date()
           }]);
           
@@ -644,13 +655,22 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
         timestamp: new Date()
       }]);
       
+      // Check if this URL was previously verified and flagged
+      const isFlaggedUrl = verifyResult && verifiedUrl &&
+        userMessage.includes(verifiedUrl) &&
+        (verifyResult.trustScore < 60 || ['misleading', 'false'].includes(verifyResult.verdict));
+
+      const disclaimer = isFlaggedUrl
+        ? `\n\n---\n\n⚠️ **Content Advisory:** This post was flagged as **${verifyResult.verdict === 'false' ? 'False' : verifyResult.verdict === 'misleading' ? 'Misleading' : 'Low Trust'}** with a trust score of **${verifyResult.trustScore}/100**. Some claims could not be verified. Please consult a qualified professional before acting on any health, financial, or safety advice.`
+        : '';
+
       // Add processing message
       setChatMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Analyzing the URL content to generate personalized questions for you...',
+        content: `Analyzing the URL content to generate personalized questions for you...${disclaimer}`,
         timestamp: new Date()
       }]);
-      
+
       try {
         const content = await fetchUrlContent(detectedUrl);
         await processCuratedQuestionsFlow(content, currentMode);
