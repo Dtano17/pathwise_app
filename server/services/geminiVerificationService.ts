@@ -242,7 +242,7 @@ class GeminiVerificationService {
         contents: [{ role: "user", parts }],
         generationConfig: {
           temperature: 1,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 65536,
         },
         tools: [{ googleSearch: {} }] as any,
       });
@@ -311,11 +311,12 @@ ${input.mediaUrls?.length ? `\nMedia URLs: ${input.mediaUrls.join(', ')}` : ''}
 ANALYSIS REQUIRED:
 
 1. CLAIM EXTRACTION AND VERIFICATION
-Extract all verifiable claims from the content. For each claim:
+Extract the 5–8 MOST IMPORTANT verifiable claims from the content (prioritize health/safety/financial claims over minor details). For each claim:
 - Identify the type: factual, opinion, speculation, exaggeration, or misleading
 - Verify against reliable sources using web search
 - Provide a verdict: verified, partially_true, unverified, false, or opinion
 - Cite your sources with URLs when possible
+- Keep "evidence" and "statusReason" concise (max 2 sentences each)
 
 CRITICAL — CLAIM SCORING RUBRIC (you MUST follow this exactly):
 Each claim gets a "confidence" score AND a "verificationStatus" + "statusReason":
@@ -504,15 +505,56 @@ IMPORTANT:
 - SOURCE TRACING: Find where content originated, not just where it was shared`;
   }
 
+  private extractAndParseJson(text: string): any {
+    // Strip markdown code fences (```json...``` or ```...```)
+    let cleaned = text.replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '').trim();
+
+    // Try direct parse first
+    try { return JSON.parse(cleaned); } catch {}
+
+    // Extract the outermost JSON object
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON object found in response");
+    cleaned = jsonMatch[0];
+
+    // Try again on extracted block
+    try { return JSON.parse(cleaned); } catch {}
+
+    // Sanitize: replace bare control characters (newlines, tabs etc) that break JSON string parsing
+    const sanitized = cleaned.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      .replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+    try { return JSON.parse(sanitized); } catch {}
+
+    // Last resort: try to recover by truncating at last valid claim boundary
+    // Find the last complete object in the claims array before the parse error
+    const truncateAt = cleaned.lastIndexOf(',"claims":');
+    if (truncateAt > 0) {
+      // Try just parsing the top-level fields without claims
+      try {
+        const noClaimsJson = cleaned.substring(0, truncateAt) + ',"claims":[]}';
+        return JSON.parse(noClaimsJson);
+      } catch {}
+    }
+
+    // Find the last complete claim object boundary
+    const lastCompleteClaimEnd = cleaned.lastIndexOf('}]');
+    if (lastCompleteClaimEnd > 0) {
+      try {
+        // Find the matching open bracket for claims array
+        const claimsStart = cleaned.lastIndexOf('"claims":', lastCompleteClaimEnd);
+        if (claimsStart > 0) {
+          const beforeClaims = cleaned.substring(0, claimsStart) + '"claims":' + cleaned.substring(claimsStart + '"claims":'.length, lastCompleteClaimEnd + 2) + '}';
+          return JSON.parse(beforeClaims);
+        }
+      } catch {}
+    }
+
+    throw new Error("JSON parsing failed after all recovery attempts");
+  }
+
   private parseVerificationResponse(text: string): Omit<VerificationResult, 'processingTimeMs' | 'geminiModel' | 'webGroundingUsed'> {
     try {
-      // Extract JSON from the response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("No JSON found in response");
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = this.extractAndParseJson(text);
 
       // Validate and sanitize the response
       return {
@@ -709,7 +751,7 @@ IMPORTANT:
     try {
       const result = await model.generateContent({
         contents: [{ role: "user", parts }],
-        generationConfig: { temperature: 1, maxOutputTokens: 8192 },
+        generationConfig: { temperature: 1, maxOutputTokens: 65536 },
       });
       const verificationResult = this.parseVerificationResponse(result.response.text());
 

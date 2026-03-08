@@ -691,40 +691,16 @@ Respond ONLY with valid JSON (no explanation):
    * Detect if query is clearly about a TV show (contains "Season X", "Episode X", "series", etc.)
    */
   private isTVShowQuery(query: string): boolean {
+    // ONLY use unambiguous TV signals — streaming service names (Netflix, Hulu, etc.)
+    // are platforms for BOTH movies and TV, so they must NOT trigger TV-only routing.
+    // \bMax\b is excluded because it appears in many movie titles (Mad Max, Max Payne, etc.)
     const tvPatterns = [
       /season\s*\d+/i,           // "Season 4", "season 1"
-      /\bS\d{1,2}\b/i,           // "S04", "S1"
+      /\bS\d{1,2}E\d{1,2}\b/i,  // "S04E01" (full episode code - unambiguous)
       /episode\s*\d+/i,          // "Episode 5"
-      /\bE\d{1,2}\b/i,           // "E05"
-      /\bseries\b/i,             // "series"
       /\bTV\s*show\b/i,          // "TV show"
-      /\bpremier(e|ing)\b/i,     // "premiering"
       /\bminiseries\b/i,         // "miniseries"
-      // Streaming services
-      /\bHBO\b/i,                // HBO (usually TV)
-      /\bNetflix\b/i,            // Netflix (usually TV)
-      /\bDisney\+?\b/i,          // Disney+
-      /\bParamount\+?\b/i,       // Paramount+
-      /\bApple\s*TV\+?\b/i,      // Apple TV+
-      /\bAmazon\s*Prime\b/i,     // Amazon Prime
-      /\bHulu\b/i,               // Hulu
-      /\bMax\b/i,                // Max (HBO Max)
-      /\bPeacock\b/i,            // Peacock
-      // Broadcast/Cable networks
-      /\bFX\b/,                  // FX (case sensitive to avoid false positives)
-      /\bAMC\b/,                 // AMC
-      /\bABC\b/,                 // ABC
-      /\bNBC\b/,                 // NBC
-      /\bCBS\b/,                 // CBS
-      /\bPBS\b/,                 // PBS
-      /\bUSA\s*Network\b/i,      // USA Network
-      /\bTNT\b/,                 // TNT
-      /\bTBS\b/,                 // TBS
-      /\bShowtime\b/i,           // Showtime
-      /\bStarz\b/i,              // Starz
-      /\bSyfy\b/i,               // Syfy
-      /\bCW\b/,                  // CW
-      /\bFreeform\b/i,           // Freeform
+      /\blimited\s*series\b/i,   // "limited series"
     ];
     return tvPatterns.some(p => p.test(query));
   }
@@ -760,12 +736,12 @@ Respond ONLY with valid JSON (no explanation):
     }
 
     try {
-      // CRITICAL: If query looks like a TV show, skip movie search entirely
-      // Always apply extractCoreName even with skipCleaning to strip season/network metadata
+      // If query has unambiguous TV signals (Season X, S01E01, etc.), redirect to TV search
+      // Always apply extractCoreName to strip season/network metadata before TV search
       if (this.isTVShowQuery(query)) {
-        console.log(`[TMDB] Query "${query}" looks like a TV show - skipping movie search`);
+        console.log(`[TMDB] Query "${query}" looks like a TV show - redirecting to TV search`);
         const coreName = this.extractCoreName(query);
-        return await this.searchTV(coreName, null);
+        return await this.searchTV(coreName, yearHint ?? null, skipCleaning);
       }
 
       const cleanQuery = skipCleaning ? query : this.extractMovieTitle(query);
