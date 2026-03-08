@@ -2,8 +2,14 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, ChevronDown, ChevronUp, ExternalLink, Shield, AlertTriangle, CheckCircle, XCircle, HelpCircle, Loader2 } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, ExternalLink, Shield, AlertTriangle, CheckCircle, XCircle, HelpCircle, Loader2, Link2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+interface ClaimSource {
+  title: string;
+  url: string;
+  credibility?: number;
+}
 
 interface ClaimAnalysis {
   id: string;
@@ -12,7 +18,7 @@ interface ClaimAnalysis {
   verdict: string;
   confidence: number;
   evidence?: string;
-  sources?: string[];
+  sources?: ClaimSource[] | string[];
 }
 
 interface VerificationResult {
@@ -32,32 +38,51 @@ interface VerifyResultCardProps {
 }
 
 const getScoreColor = (score: number) => {
-  if (score >= 80) return { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-600 dark:text-green-400', ring: 'ring-green-500' };
-  if (score >= 60) return { bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', text: 'text-yellow-600 dark:text-yellow-400', ring: 'ring-yellow-500' };
-  if (score >= 40) return { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-600 dark:text-orange-400', ring: 'ring-orange-500' };
-  return { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-600 dark:text-red-400', ring: 'ring-red-500' };
+  if (score >= 80) return { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-600 dark:text-green-400' };
+  if (score >= 60) return { bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', text: 'text-yellow-600 dark:text-yellow-400' };
+  if (score >= 40) return { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-600 dark:text-orange-400' };
+  return { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-600 dark:text-red-400' };
 };
 
-const getVerdictIcon = (verdict: string) => {
+const getVerdictIcon = (verdict: string, size = 'w-4 h-4') => {
   switch (verdict) {
-    case 'verified': return <CheckCircle className="w-4 h-4 text-green-500" />;
-    case 'mostly_true': return <CheckCircle className="w-4 h-4 text-yellow-500" />;
-    case 'mixed': return <AlertTriangle className="w-4 h-4 text-orange-500" />;
-    case 'misleading': return <AlertTriangle className="w-4 h-4 text-orange-600" />;
-    case 'false': return <XCircle className="w-4 h-4 text-red-500" />;
-    default: return <HelpCircle className="w-4 h-4 text-muted-foreground" />;
+    case 'verified': return <CheckCircle className={`${size} text-green-500`} />;
+    case 'mostly_true':
+    case 'partially_true': return <CheckCircle className={`${size} text-yellow-500`} />;
+    case 'mixed': return <AlertTriangle className={`${size} text-orange-500`} />;
+    case 'misleading': return <AlertTriangle className={`${size} text-orange-600`} />;
+    case 'false': return <XCircle className={`${size} text-red-500`} />;
+    case 'opinion': return <HelpCircle className={`${size} text-blue-500`} />;
+    case 'unverified':
+    case 'unverifiable': return <HelpCircle className={`${size} text-muted-foreground`} />;
+    default: return <HelpCircle className={`${size} text-muted-foreground`} />;
   }
 };
 
 const getVerdictLabel = (verdict: string) => {
   switch (verdict) {
     case 'verified': return 'Verified';
-    case 'mostly_true': return 'Mostly True';
+    case 'mostly_true':
+    case 'partially_true': return 'Mostly True';
     case 'mixed': return 'Mixed';
     case 'misleading': return 'Misleading';
     case 'false': return 'False';
+    case 'opinion': return 'Opinion';
+    case 'unverified':
     case 'unverifiable': return 'Unverifiable';
     default: return verdict;
+  }
+};
+
+const getClaimVerdictColor = (verdict: string) => {
+  switch (verdict) {
+    case 'verified': return 'border-green-500/30 bg-green-500/5';
+    case 'mostly_true':
+    case 'partially_true': return 'border-yellow-500/30 bg-yellow-500/5';
+    case 'mixed': return 'border-orange-500/30 bg-orange-500/5';
+    case 'misleading': return 'border-orange-600/30 bg-orange-600/5';
+    case 'false': return 'border-red-500/30 bg-red-500/5';
+    default: return 'border-border bg-background/50';
   }
 };
 
@@ -153,19 +178,66 @@ export default function VerifyResultCard({ result, isLoading, error, onDismiss }
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="mt-2 space-y-2">
+                    <div className="mt-2 space-y-2.5">
                       {result.claims.map((claim) => (
-                        <div key={claim.id} className="flex items-start gap-2 p-2 rounded-lg bg-background/50">
-                          {getVerdictIcon(claim.verdict)}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium">{claim.text}</p>
-                            {claim.evidence && (
-                              <p className="text-xs text-muted-foreground mt-0.5">{claim.evidence}</p>
-                            )}
+                        <div key={claim.id} className={`p-3 rounded-lg border ${getClaimVerdictColor(claim.verdict)}`}>
+                          {/* Claim header: verdict + confidence */}
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                              {getVerdictIcon(claim.verdict, 'w-3.5 h-3.5')}
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                {getVerdictLabel(claim.verdict)}
+                              </Badge>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground">
+                              {Math.round(claim.confidence)}% confidence
+                            </span>
                           </div>
-                          <Badge variant="outline" className="text-[10px] flex-shrink-0">
-                            {Math.round(claim.confidence * 100)}%
-                          </Badge>
+
+                          {/* Claim text */}
+                          <p className="text-sm font-medium leading-snug">{claim.text}</p>
+
+                          {/* Evidence / reasoning */}
+                          {claim.evidence && (
+                            <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                              {claim.evidence}
+                            </p>
+                          )}
+
+                          {/* Sources */}
+                          {claim.sources && claim.sources.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {claim.sources.map((source, idx) => {
+                                // Handle both string[] and {title, url}[] formats
+                                if (typeof source === 'string') {
+                                  return (
+                                    <a
+                                      key={idx}
+                                      href={source}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 hover:underline bg-blue-500/10 px-1.5 py-0.5 rounded"
+                                    >
+                                      <Link2 className="w-2.5 h-2.5" />
+                                      Source {idx + 1}
+                                    </a>
+                                  );
+                                }
+                                return (
+                                  <a
+                                    key={idx}
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 hover:underline bg-blue-500/10 px-1.5 py-0.5 rounded"
+                                  >
+                                    <Link2 className="w-2.5 h-2.5" />
+                                    {source.title || `Source ${idx + 1}`}
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
