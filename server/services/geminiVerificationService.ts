@@ -237,23 +237,14 @@ class GeminiVerificationService {
     }
 
     try {
-      // Request with web grounding enabled
+      // Request with web grounding enabled (Gemini 2.5+ uses googleSearch, not googleSearchRetrieval)
       const result = await model.generateContent({
         contents: [{ role: "user", parts }],
         generationConfig: {
-          temperature: 0.3,
-          topP: 0.8,
-          maxOutputTokens: 4096,
+          temperature: 1,
+          maxOutputTokens: 8192,
         },
-        // Enable web grounding for real-time fact-checking
-        tools: [{
-          googleSearchRetrieval: {
-            dynamicRetrievalConfig: {
-              mode: "MODE_DYNAMIC" as any,
-              dynamicThreshold: 0.3,
-            },
-          },
-        }] as any,
+        tools: [{ googleSearch: {} }] as any,
       });
 
       const response = await result.response;
@@ -684,21 +675,43 @@ IMPORTANT:
   }
 
   private async fallbackVerification(input: VerificationInput, startTime: number): Promise<VerificationResult> {
-    console.log(`[GEMINI-VERIFY] Using fallback verification without web grounding`);
+    console.log(`[GEMINI-VERIFY] Retrying without web grounding (using full prompt + images)`);
 
-    // Basic analysis without web grounding
-    const model = genAI!.getGenerativeModel({ model: this.model });
+    // Use the same model with full prompt + vision, just no grounding tool
+    const model = genAI!.getGenerativeModel({
+      model: this.model,
+      safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      ],
+    });
 
-    const simplePrompt = `Analyze this content for factual claims and potential misinformation. Be conservative in your assessment.
+    const prompt = this.buildVerificationPrompt(input);
+    const parts: any[] = [{ text: prompt }];
 
-Content: "${input.content}"
-
-Respond in JSON format with trustScore (0-100), verdict (verified/mostly_true/mixed/misleading/false/unverifiable), verdictSummary, and claims array.`;
+    // Include images if available — important for infographic posts
+    if (input.mediaUrls && input.mediaUrls.length > 0) {
+      const imageResults = await Promise.allSettled(
+        input.mediaUrls.slice(0, 4).map(url => fetchImageAsBase64(url))
+      );
+      for (const res of imageResults) {
+        if (res.status === 'fulfilled' && res.value) {
+          parts.push({ inlineData: { data: res.value.data, mimeType: res.value.mimeType } });
+        }
+      }
+      if (parts.length > 1) {
+        parts.push({ text: "\n\nIMPORTANT: The above images are from the post being verified. READ and EXTRACT any text, data, statistics, or claims visible in the images." });
+      }
+    }
 
     try {
-      const result = await model.generateContent(simplePrompt);
-      const response = await result.response;
-      const verificationResult = this.parseVerificationResponse(response.text());
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts }],
+        generationConfig: { temperature: 1, maxOutputTokens: 8192 },
+      });
+      const verificationResult = this.parseVerificationResponse(result.response.text());
 
       return {
         ...verificationResult,
@@ -707,6 +720,7 @@ Respond in JSON format with trustScore (0-100), verdict (verified/mostly_true/mi
         webGroundingUsed: false,
       };
     } catch (error) {
+      console.error('[GEMINI-VERIFY] Fallback also failed:', error);
       return {
         ...this.getDefaultResult(),
         processingTimeMs: Date.now() - startTime,

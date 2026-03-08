@@ -23381,7 +23381,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
               likesCount: meta.likesCount,
               viewsCount: meta.viewsCount,
               hashtags: meta.hashtags,
-              caption: meta.caption || cached.extractedContent?.substring(0, 300),
+              caption: meta.caption || undefined,
               firstImageUrl: meta.firstImageUrl,
             };
             if (meta.firstImageUrl) {
