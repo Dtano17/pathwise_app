@@ -4,6 +4,20 @@ import type { InsertVerification } from "@shared/schema";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
+// Helper to fetch an image URL and return base64 for Gemini vision
+async function fetchImageAsBase64(imageUrl: string): Promise<{ data: string; mimeType: string } | null> {
+  try {
+    const response = await fetch(imageUrl, { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) return null;
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return { data: buffer.toString('base64'), mimeType: contentType.split(';')[0] };
+  } catch (err) {
+    console.error(`[GEMINI-VERIFY] Failed to fetch image for vision: ${imageUrl}`, err);
+    return null;
+  }
+}
+
 // Initialize Gemini client
 const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
@@ -202,10 +216,30 @@ class GeminiVerificationService {
     // Build the verification prompt
     const prompt = this.buildVerificationPrompt(input);
 
+    // Build content parts — text prompt + optional images for vision analysis
+    const parts: any[] = [{ text: prompt }];
+
+    // Add images for Gemini vision (reads text from infographics, charts, overlays)
+    if (input.mediaUrls && input.mediaUrls.length > 0) {
+      console.log(`[GEMINI-VERIFY] Fetching ${input.mediaUrls.length} image(s) for vision analysis...`);
+      const imageResults = await Promise.all(
+        input.mediaUrls.slice(0, 4).map(url => fetchImageAsBase64(url))
+      );
+      for (const img of imageResults) {
+        if (img) {
+          parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
+        }
+      }
+      if (parts.length > 1) {
+        // Add instruction to analyze images
+        parts.push({ text: "\n\nIMPORTANT: The above images are from the post being verified. Carefully READ and EXTRACT any text, data, statistics, or claims visible in the images. Include these visual claims in your analysis — they are often the main content of infographic or carousel posts." });
+      }
+    }
+
     try {
       // Request with web grounding enabled
       const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [{ role: "user", parts }],
         generationConfig: {
           temperature: 0.3,
           topP: 0.8,

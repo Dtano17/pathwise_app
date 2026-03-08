@@ -29,6 +29,7 @@ interface PostMetadata {
   viewsCount?: number;
   hashtags?: string[];
   caption?: string;
+  firstImageUrl?: string;
 }
 
 interface VerificationResult {
@@ -98,7 +99,9 @@ const getClaimVerdictColor = (verdict: string) => {
 };
 
 export default function VerifyResultCard({ result, isLoading, error, onDismiss }: VerifyResultCardProps) {
-  const [showClaims, setShowClaims] = useState(false);
+  // Auto-expand claims when any claim is flagged (false, misleading, unverified)
+  const hasFlaggedClaims = result?.claims?.some(c => ['false', 'misleading', 'unverified', 'unverifiable', 'mixed'].includes(c.verdict));
+  const [showClaims, setShowClaims] = useState(hasFlaggedClaims || false);
 
   if (isLoading) {
     return (
@@ -169,37 +172,46 @@ export default function VerifyResultCard({ result, isLoading, error, onDismiss }
           </div>
 
           {/* Post Summary Panel */}
-          {result.postMetadata && (result.postMetadata.author || result.postMetadata.likesCount != null || result.postMetadata.caption) && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground bg-background/50 rounded-lg px-3 py-2">
-              {result.postMetadata.author && (
-                <span className="inline-flex items-center gap-1">
-                  <User className="w-3 h-3" />
-                  @{result.postMetadata.author}
-                </span>
+          {result.postMetadata && (result.postMetadata.author || result.postMetadata.likesCount != null || result.postMetadata.caption || result.postMetadata.firstImageUrl) && (
+            <div className="flex gap-3 text-xs text-muted-foreground bg-background/50 rounded-lg px-3 py-2">
+              {result.postMetadata.firstImageUrl && (
+                <img
+                  src={result.postMetadata.firstImageUrl}
+                  alt="Post thumbnail"
+                  className="w-14 h-14 rounded-md object-cover flex-shrink-0"
+                />
               )}
-              {result.postMetadata.likesCount != null && (
-                <span className="inline-flex items-center gap-1">
-                  <Heart className="w-3 h-3" />
-                  {result.postMetadata.likesCount.toLocaleString()}
-                </span>
-              )}
-              {result.postMetadata.viewsCount != null && (
-                <span className="inline-flex items-center gap-1">
-                  <Eye className="w-3 h-3" />
-                  {result.postMetadata.viewsCount.toLocaleString()}
-                </span>
-              )}
-              {result.postMetadata.hashtags && result.postMetadata.hashtags.length > 0 && (
-                <span className="inline-flex items-center gap-1 flex-wrap">
-                  <Hash className="w-3 h-3" />
-                  {result.postMetadata.hashtags.slice(0, 4).map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}
-                </span>
-              )}
-              {result.postMetadata.caption && (
-                <p className="w-full mt-1 text-xs italic text-muted-foreground/80 line-clamp-2">
-                  {result.postMetadata.caption.substring(0, 150)}{result.postMetadata.caption.length > 150 ? '...' : ''}
-                </p>
-              )}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
+                {result.postMetadata.author && (
+                  <span className="inline-flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    @{result.postMetadata.author}
+                  </span>
+                )}
+                {result.postMetadata.likesCount != null && (
+                  <span className="inline-flex items-center gap-1">
+                    <Heart className="w-3 h-3" />
+                    {result.postMetadata.likesCount.toLocaleString()}
+                  </span>
+                )}
+                {result.postMetadata.viewsCount != null && (
+                  <span className="inline-flex items-center gap-1">
+                    <Eye className="w-3 h-3" />
+                    {result.postMetadata.viewsCount.toLocaleString()}
+                  </span>
+                )}
+                {result.postMetadata.hashtags && result.postMetadata.hashtags.length > 0 && (
+                  <span className="inline-flex items-center gap-1 flex-wrap">
+                    <Hash className="w-3 h-3" />
+                    {result.postMetadata.hashtags.slice(0, 4).map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}
+                  </span>
+                )}
+                {result.postMetadata.caption && (
+                  <p className="w-full mt-1 text-xs italic text-muted-foreground/80 line-clamp-2">
+                    {result.postMetadata.caption.substring(0, 150)}{result.postMetadata.caption.length > 150 ? '...' : ''}
+                  </p>
+                )}
+              </div>
             </div>
           )}
 

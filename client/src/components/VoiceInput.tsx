@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen, FileText, RotateCcw, Search } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen, FileText, RotateCcw, Search, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { invalidateActivitiesCache } from '@/lib/cacheInvalidation';
 import { trackEvent } from '@/lib/analytics';
@@ -588,18 +588,25 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           // Check if this URL was previously verified and flagged
           const isFlaggedUrl = verifyResult && verifiedUrl &&
             userMessage.includes(verifiedUrl) &&
-            (verifyResult.trustScore < 60 || ['misleading', 'false'].includes(verifyResult.verdict));
+            (verifyResult.trustScore < 60 || ['misleading', 'false', 'mixed'].includes(verifyResult.verdict));
 
-          const disclaimer = isFlaggedUrl
-            ? `\n\n---\n\n⚠️ **Content Advisory:** This post was flagged as **${verifyResult.verdict === 'false' ? 'False' : verifyResult.verdict === 'misleading' ? 'Misleading' : 'Low Trust'}** with a trust score of **${verifyResult.trustScore}/100**. Some claims could not be verified. The plan below is based on the post content — please consult a qualified professional before acting on any health, financial, or safety advice.`
-            : '';
+          const flagLabel = verifyResult?.verdict === 'false' ? 'False' : verifyResult?.verdict === 'misleading' ? 'Misleading' : verifyResult?.verdict === 'mixed' ? 'Mixed' : 'Low Trust';
 
-          // Show loading message in chat
-          setChatMessages([{
+          // Show loading message in chat — add warning banner first if flagged
+          const messages: typeof chatMessages = [];
+          if (isFlaggedUrl) {
+            messages.push({
+              role: 'assistant',
+              content: `⚠️ **CONTENT WARNING — ${flagLabel} (Trust Score: ${verifyResult.trustScore}/100)**\n\nThis post has been flagged by Verify Lens. Some claims in this content could not be independently verified or were found to be ${flagLabel.toLowerCase()}. The plan generated below is based on the post content — please consult a qualified professional before acting on any health, financial, or safety advice.`,
+              timestamp: new Date()
+            });
+          }
+          messages.push({
             role: 'assistant',
-            content: `**${mode === 'quick' ? 'Quick' : 'Smart'} Plan activated!** Analyzing the URL content to generate personalized questions for you...${disclaimer}`,
+            content: `**${mode === 'quick' ? 'Quick' : 'Smart'} Plan activated!** Analyzing the URL content to generate personalized questions for you...`,
             timestamp: new Date()
-          }]);
+          });
+          setChatMessages(messages);
           
           try {
             const content = await fetchUrlContent(detectedUrl);
@@ -658,16 +665,23 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       // Check if this URL was previously verified and flagged
       const isFlaggedUrl = verifyResult && verifiedUrl &&
         userMessage.includes(verifiedUrl) &&
-        (verifyResult.trustScore < 60 || ['misleading', 'false'].includes(verifyResult.verdict));
+        (verifyResult.trustScore < 60 || ['misleading', 'false', 'mixed'].includes(verifyResult.verdict));
 
-      const disclaimer = isFlaggedUrl
-        ? `\n\n---\n\n⚠️ **Content Advisory:** This post was flagged as **${verifyResult.verdict === 'false' ? 'False' : verifyResult.verdict === 'misleading' ? 'Misleading' : 'Low Trust'}** with a trust score of **${verifyResult.trustScore}/100**. Some claims could not be verified. Please consult a qualified professional before acting on any health, financial, or safety advice.`
-        : '';
+      const flagLabel = verifyResult?.verdict === 'false' ? 'False' : verifyResult?.verdict === 'misleading' ? 'Misleading' : verifyResult?.verdict === 'mixed' ? 'Mixed' : 'Low Trust';
+
+      // Add warning banner first if flagged, then processing message
+      if (isFlaggedUrl) {
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `⚠️ **CONTENT WARNING — ${flagLabel} (Trust Score: ${verifyResult.trustScore}/100)**\n\nThis post has been flagged by Verify Lens. Some claims in this content could not be independently verified or were found to be ${flagLabel.toLowerCase()}. Please consult a qualified professional before acting on any health, financial, or safety advice.`,
+          timestamp: new Date()
+        }]);
+      }
 
       // Add processing message
       setChatMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Analyzing the URL content to generate personalized questions for you...${disclaimer}`,
+        content: `Analyzing the URL content to generate personalized questions for you...`,
         timestamp: new Date()
       }]);
 
@@ -1046,8 +1060,22 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
         {/* Chat Messages - Claude Style */}
         <div className="flex-1 overflow-y-auto" ref={chatContainerRef}>
           <div className="max-w-3xl mx-auto px-4 py-8">
-            {chatMessages.map((message, index) => (
+            {chatMessages.map((message, index) => {
+              const isWarningBanner = message.role === 'assistant' && message.content.includes('CONTENT WARNING');
+              return (
               <div key={index} className={`mb-8 ${message.role === 'user' ? '' : ''}`}>
+                {/* Prominent warning banner for flagged content */}
+                {isWarningBanner ? (
+                  <div className="rounded-xl border-2 border-amber-500/50 bg-amber-500/10 px-4 py-3">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div className="prose prose-sm dark:prose-invert max-w-none text-amber-900 dark:text-amber-200">
+                        <FormattedMessage content={message.content} />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                <>
                 {message.role === 'assistant' && (
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
@@ -1093,8 +1121,11 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                     </p>
                   )}
                 </div>
+                </>
+                )}
               </div>
-            ))}
+            );
+            })}
             <div ref={chatEndRef} />
           </div>
         </div>

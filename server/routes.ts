@@ -23344,14 +23344,15 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
 
       let extractedContent = content;
       let detectedPlatform = platform;
-      let postMetadata: { author?: string; likesCount?: number; viewsCount?: number; hashtags?: string[]; caption?: string } | undefined;
+      let postMetadata: { author?: string; likesCount?: number; viewsCount?: number; hashtags?: string[]; caption?: string; firstImageUrl?: string } | undefined;
+      let imageUrls: string[] = mediaUrls || [];
 
-      // If URL provided, extract content first (with cache)
+      // If URL provided, extract content using socialMediaVideoService (same pipeline as Quick/Smart Plan)
       if (url) {
-        detectedPlatform = detectPlatform(url) || platform;
+        detectedPlatform = socialMediaVideoService.detectPlatform(url) || detectPlatform(url) || platform;
         const normalizedUrl = normalizeUrlForCache(url);
 
-        // Check URL content cache first to avoid duplicate Apify calls
+        // Check URL content cache first
         const cached = await storage.getUrlContentCache(normalizedUrl);
         if (cached) {
           console.log(`[VERIFY] Cache HIT for ${normalizedUrl}`);
@@ -23364,66 +23365,80 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
               viewsCount: meta.viewsCount,
               hashtags: meta.hashtags,
               caption: meta.caption || cached.extractedContent?.substring(0, 300),
+              firstImageUrl: meta.firstImageUrl,
             };
+            if (meta.firstImageUrl) {
+              imageUrls = [meta.firstImageUrl, ...imageUrls];
+            }
           }
         } else {
-          console.log(`[VERIFY] Cache MISS for ${normalizedUrl}, extracting...`);
+          console.log(`[VERIFY] Cache MISS for ${normalizedUrl}, extracting via socialMediaVideoService...`);
 
-          // Try to extract content from URL
-          if (isSocialMediaUrl(url)) {
-            if (detectedPlatform === 'instagram' && apifyService.isAvailable()) {
-              const igResult = await apifyService.extractInstagramReel(url);
-              if (igResult.success) {
-                extractedContent = igResult.caption || content;
+          // Use socialMediaVideoService — same OCR + caption + transcript pipeline as Quick/Smart Plan
+          if (isSocialMediaUrl(url) && detectedPlatform) {
+            try {
+              const socialResult = await socialMediaVideoService.extractContent(url);
+              if (socialResult.success) {
+                // Combine all extracted content (caption + OCR + transcript) for rich verification
+                extractedContent = socialMediaVideoService.combineExtractedContent(socialResult);
                 postMetadata = {
-                  author: igResult.author?.username,
-                  likesCount: igResult.likesCount,
-                  viewsCount: igResult.viewsCount,
-                  hashtags: igResult.hashtags,
-                  caption: igResult.caption,
+                  author: socialResult.metadata?.author,
+                  caption: socialResult.caption,
+                  firstImageUrl: socialResult.firstImageUrl,
                 };
-                // Cache the extraction
+
+                // Also extract engagement metrics from Apify if available
+                if (detectedPlatform === 'instagram' && apifyService.isAvailable()) {
+                  try {
+                    const igResult = await apifyService.extractInstagramReel(url);
+                    if (igResult.success) {
+                      postMetadata.likesCount = igResult.likesCount;
+                      postMetadata.viewsCount = igResult.viewsCount;
+                      postMetadata.hashtags = igResult.hashtags;
+                      if (!postMetadata.author) postMetadata.author = igResult.author?.username;
+                    }
+                  } catch (apifyErr) {
+                    console.error('[VERIFY] Apify metadata extraction failed (non-fatal):', apifyErr);
+                  }
+                } else if (detectedPlatform === 'tiktok' && apifyService.isAvailable()) {
+                  try {
+                    const ttResult = await apifyService.extractTikTokVideo(url);
+                    if (ttResult.success) {
+                      postMetadata.likesCount = ttResult.likesCount;
+                      postMetadata.viewsCount = ttResult.viewsCount;
+                      postMetadata.hashtags = ttResult.hashtags;
+                      if (!postMetadata.author) postMetadata.author = ttResult.author?.username;
+                    }
+                  } catch (apifyErr) {
+                    console.error('[VERIFY] Apify metadata extraction failed (non-fatal):', apifyErr);
+                  }
+                }
+
+                // Collect image URLs for Gemini vision
+                if (socialResult.firstImageUrl) {
+                  imageUrls = [socialResult.firstImageUrl, ...imageUrls];
+                }
+
+                // Cache the rich extraction
                 try {
                   await storage.createUrlContentCache({
                     normalizedUrl,
                     originalUrl: url,
-                    extractedContent: igResult.caption || '',
-                    extractionSource: 'apify-instagram',
-                    wordCount: (igResult.caption || '').split(/\s+/).length,
-                    metadata: { author: igResult.author, likesCount: igResult.likesCount, viewsCount: igResult.viewsCount, hashtags: igResult.hashtags, caption: igResult.caption },
+                    extractedContent: extractedContent || '',
+                    extractionSource: `socialMediaVideoService-${detectedPlatform}`,
+                    wordCount: (extractedContent || '').split(/\s+/).length,
+                    metadata: { ...postMetadata, firstImageUrl: socialResult.firstImageUrl },
                   });
                 } catch (cacheErr) {
                   console.error('[VERIFY] Cache write failed:', cacheErr);
                 }
               }
-            } else if (detectedPlatform === 'tiktok' && apifyService.isAvailable()) {
-              const ttResult = await apifyService.extractTikTokVideo(url);
-              if (ttResult.success) {
-                extractedContent = ttResult.caption || content;
-                postMetadata = {
-                  author: ttResult.author?.username,
-                  likesCount: ttResult.likesCount,
-                  viewsCount: ttResult.viewsCount,
-                  hashtags: ttResult.hashtags,
-                  caption: ttResult.caption,
-                };
-                try {
-                  await storage.createUrlContentCache({
-                    normalizedUrl,
-                    originalUrl: url,
-                    extractedContent: ttResult.caption || '',
-                    extractionSource: 'apify-tiktok',
-                    wordCount: (ttResult.caption || '').split(/\s+/).length,
-                    metadata: { author: ttResult.author, likesCount: ttResult.likesCount, viewsCount: ttResult.viewsCount, hashtags: ttResult.hashtags, caption: ttResult.caption },
-                  });
-                } catch (cacheErr) {
-                  console.error('[VERIFY] Cache write failed:', cacheErr);
-                }
-              }
+            } catch (extractErr) {
+              console.error('[VERIFY] socialMediaVideoService extraction failed:', extractErr);
             }
           }
 
-          // Fallback to Tavily for other URLs
+          // Fallback to Tavily for non-social URLs
           if (!extractedContent && isTavilyConfigured()) {
             try {
               const tavilyResult = await tavilyExtract(url);
@@ -23441,12 +23456,12 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         }
       }
 
-      // Perform verification with post metadata for richer context
+      // Perform verification with post metadata + image URLs for Gemini vision
       const verificationResult = await geminiVerificationService.verifyContent({
         url,
         platform: detectedPlatform,
         content: extractedContent,
-        mediaUrls,
+        mediaUrls: imageUrls.length > 0 ? imageUrls : undefined,
         author,
         postMetadata,
       });

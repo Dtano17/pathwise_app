@@ -49,6 +49,15 @@ interface ClaimAnalysis {
   confidence: number;
   evidence?: string;
   sources?: Array<{ title: string; url: string; credibility?: number }>;
+  verificationStatus?: 'confirmed' | 'partially_confirmed' | 'insufficient_sources' | 'contradicted' | 'no_credible_sources' | 'opinion_based';
+  statusReason?: string;
+}
+
+interface ScoreBreakdown {
+  sourceCredibility: { score: number; reason: string };
+  claimVerifiability: { score: number; reason: string };
+  evidenceQuality: { score: number; reason: string };
+  overallCalculation: string;
 }
 
 interface AIDetection {
@@ -149,6 +158,7 @@ interface VerificationResult {
   verdict: 'verified' | 'mostly_true' | 'mixed' | 'misleading' | 'false' | 'unverifiable';
   verdictSummary: string;
   claims: ClaimAnalysis[];
+  scoreBreakdown?: ScoreBreakdown;
   aiDetection?: AIDetection;
   accountAnalysis?: AccountAnalysis;
   businessVerification?: BusinessVerification;
@@ -237,6 +247,15 @@ const claimTypeConfig = {
   speculation: { color: 'bg-amber-500/20 text-amber-700 dark:text-amber-300' },
   exaggeration: { color: 'bg-orange-500/20 text-orange-700 dark:text-orange-300' },
   misleading: { color: 'bg-red-500/20 text-red-700 dark:text-red-300' },
+};
+
+const verificationStatusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
+  confirmed: { label: 'Confirmed', color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-500/10 border-green-500/30' },
+  partially_confirmed: { label: 'Partially Confirmed', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-500/10 border-blue-500/30' },
+  insufficient_sources: { label: 'Insufficient Sources', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-500/10 border-amber-500/30' },
+  no_credible_sources: { label: 'No Credible Sources', color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-500/10 border-orange-500/30' },
+  contradicted: { label: 'Contradicted', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-500/10 border-red-500/30' },
+  opinion_based: { label: 'Opinion', color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-500/10 border-purple-500/30' },
 };
 
 export function VerdictCard({ result, onShare, isLoading, compact = false }: VerdictCardProps) {
@@ -346,12 +365,12 @@ export function VerdictCard({ result, onShare, isLoading, compact = false }: Ver
             <p className="text-xs text-muted-foreground">Verified</p>
           </div>
 
-          {/* False Claims */}
+          {/* Unverified Claims */}
           <div className="p-3 rounded-lg bg-muted/30 text-center">
-            <div className="text-2xl font-bold text-red-500">
-              {result.claims.filter(c => c.verdict === 'false').length}
+            <div className="text-2xl font-bold text-amber-500">
+              {result.claims.filter(c => c.verdict === 'unverified').length}
             </div>
-            <p className="text-xs text-muted-foreground">False</p>
+            <p className="text-xs text-muted-foreground">Unverified</p>
           </div>
 
           {/* Processing Time */}
@@ -365,6 +384,70 @@ export function VerdictCard({ result, onShare, isLoading, compact = false }: Ver
             </div>
           )}
         </div>
+
+        {/* Score Breakdown */}
+        {result.scoreBreakdown && (
+          <div className="p-4 rounded-lg border bg-muted/20">
+            <h4 className="font-semibold mb-3 flex items-center gap-2">
+              <Scale className="w-5 h-5 text-primary" />
+              Trust Score Breakdown
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+              {/* Source Credibility */}
+              <div className="p-3 rounded-lg bg-card border">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs text-muted-foreground">Source Credibility</p>
+                  <span className={`text-sm font-bold ${getTrustScoreColor(result.scoreBreakdown.sourceCredibility.score)}`}>
+                    {result.scoreBreakdown.sourceCredibility.score}%
+                  </span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden mb-1">
+                  <div
+                    className={`h-full ${getTrustScoreProgress(result.scoreBreakdown.sourceCredibility.score)}`}
+                    style={{ width: `${result.scoreBreakdown.sourceCredibility.score}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{result.scoreBreakdown.sourceCredibility.reason}</p>
+              </div>
+              {/* Claim Verifiability */}
+              <div className="p-3 rounded-lg bg-card border">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs text-muted-foreground">Claim Verifiability</p>
+                  <span className={`text-sm font-bold ${getTrustScoreColor(result.scoreBreakdown.claimVerifiability.score)}`}>
+                    {result.scoreBreakdown.claimVerifiability.score}%
+                  </span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden mb-1">
+                  <div
+                    className={`h-full ${getTrustScoreProgress(result.scoreBreakdown.claimVerifiability.score)}`}
+                    style={{ width: `${result.scoreBreakdown.claimVerifiability.score}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{result.scoreBreakdown.claimVerifiability.reason}</p>
+              </div>
+              {/* Evidence Quality */}
+              <div className="p-3 rounded-lg bg-card border">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs text-muted-foreground">Evidence Quality</p>
+                  <span className={`text-sm font-bold ${getTrustScoreColor(result.scoreBreakdown.evidenceQuality.score)}`}>
+                    {result.scoreBreakdown.evidenceQuality.score}%
+                  </span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden mb-1">
+                  <div
+                    className={`h-full ${getTrustScoreProgress(result.scoreBreakdown.evidenceQuality.score)}`}
+                    style={{ width: `${result.scoreBreakdown.evidenceQuality.score}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{result.scoreBreakdown.evidenceQuality.reason}</p>
+              </div>
+            </div>
+            {/* Overall Calculation */}
+            <div className="p-2 rounded bg-muted/50 text-xs text-muted-foreground">
+              <span className="font-semibold">Calculation:</span> {result.scoreBreakdown.overallCalculation}
+            </div>
+          </div>
+        )}
 
         {/* Claims Analysis Section */}
         {result.claims.length > 0 && (
@@ -380,21 +463,36 @@ export function VerdictCard({ result, onShare, isLoading, compact = false }: Ver
                 const verdictConf = claimVerdictConfig[claim.verdict];
                 const VerdictClaimIcon = verdictConf.icon;
                 const typeConf = claimTypeConfig[claim.type];
+                const statusConf = claim.verificationStatus ? verificationStatusConfig[claim.verificationStatus] : null;
 
                 return (
-                  <div key={claim.id} className="p-4 rounded-lg border bg-card">
+                  <div key={claim.id} className={`p-4 rounded-lg border bg-card ${statusConf ? statusConf.bgColor : ''}`}>
                     <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <VerdictClaimIcon className={`w-5 h-5 flex-shrink-0 ${verdictConf.color}`} />
                         <Badge variant="secondary" className={typeConf.color}>
                           {claim.type}
                         </Badge>
+                        {statusConf && (
+                          <Badge variant="outline" className={statusConf.color}>
+                            {statusConf.label}
+                          </Badge>
+                        )}
                       </div>
                       <Badge variant="outline" className={verdictConf.color}>
                         {verdictConf.label} ({claim.confidence}%)
                       </Badge>
                     </div>
-                    <p className="text-sm mb-2">{claim.text}</p>
+                    <p className="text-sm mb-2 font-medium">{claim.text}</p>
+                    {/* Verification status reason */}
+                    {claim.statusReason && (
+                      <div className={`text-xs p-2 rounded mb-2 border ${statusConf ? statusConf.bgColor : 'bg-muted/50'}`}>
+                        <span className={`font-semibold ${statusConf ? statusConf.color : 'text-muted-foreground'}`}>
+                          {statusConf ? statusConf.label : 'Status'}:
+                        </span>{' '}
+                        <span className="text-muted-foreground">{claim.statusReason}</span>
+                      </div>
+                    )}
                     {claim.evidence && (
                       <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
                         {claim.evidence}
@@ -412,9 +510,17 @@ export function VerdictCard({ result, onShare, isLoading, compact = false }: Ver
                           >
                             <ExternalLink className="w-3 h-3" />
                             {source.title}
+                            {source.credibility !== undefined && (
+                              <span className="text-muted-foreground">({source.credibility}%)</span>
+                            )}
                           </a>
                         ))}
                       </div>
+                    )}
+                    {(!claim.sources || claim.sources.length === 0) && claim.verdict === 'unverified' && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 italic">
+                        No sources found to verify or disprove this claim
+                      </p>
                     )}
                   </div>
                 );
