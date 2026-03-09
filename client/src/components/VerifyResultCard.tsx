@@ -387,7 +387,10 @@ export default function VerifyResultCard({ result, isLoading, error, onDismiss, 
                 {/* VerifyMate CTA */}
                 <div className="pt-2 border-t border-border/50">
                   <a
-                    href="https://verifymate.ai"
+                    href={postUrl
+                      ? `https://verifymate.ai?url=${encodeURIComponent(postUrl)}&auto=true&source=journalmate`
+                      : 'https://verifymate.ai'
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 hover:underline"

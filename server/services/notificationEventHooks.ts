@@ -526,6 +526,15 @@ export async function onActivityProcessingComplete(
   source?: string // e.g., 'url', 'paste', 'quick_plan', 'smart_plan'
 ): Promise<void> {
   try {
+    // Dedup: don't send if we already notified for this activity recently
+    const recentlySent = await storage.findRecentlySentSmartNotification(
+      userId.toString(), 'activity', activity.id.toString(), 'activity_ready', 1
+    );
+    if (recentlySent) {
+      console.log(`[NOTIFICATION] Skipping duplicate activity ready notification for activity ${activity.id}`);
+      return;
+    }
+
     const truncatedTitle = activity.title.length > 30
       ? activity.title.slice(0, 30) + '...'
       : activity.title;

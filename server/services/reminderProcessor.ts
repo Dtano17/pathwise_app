@@ -845,8 +845,9 @@ async function processDailyJournalPrompts(storage: IStorage): Promise<void> {
         const userHour = userNow.getHours();
         const userMinute = userNow.getMinutes();
 
-        // Only send during the 8:30 PM window (20:30–20:34) in the user's local time
-        if (userHour !== 20 || userMinute < 30 || userMinute >= 35) continue;
+        // Only send during the 8:30 PM window (20:30–20:39) in the user's local time
+        // 10-min window ensures the 5-min processor cycle reliably catches it
+        if (userHour !== 20 || userMinute < 30 || userMinute >= 40) continue;
 
         // Check if user already has a journal entry for today (in their local date)
         const userToday = `${userNow.getFullYear()}-${String(userNow.getMonth() + 1).padStart(2, '0')}-${String(userNow.getDate()).padStart(2, '0')}`;
@@ -856,11 +857,16 @@ async function processDailyJournalPrompts(storage: IStorage): Promise<void> {
 
         if (hasJournaledToday) continue;
 
-        // Dedup: don't send if already sent today
+        // Dedup: don't send if already sent today (check both pending and recently sent)
         const existing = await storage.findPendingSmartNotification(
           userId, 'journal', userId, 'daily_journal_prompt'
         );
         if (existing) continue;
+
+        const recentlySent = await storage.findRecentlySentSmartNotification(
+          userId, 'journal', userId, 'daily_journal_prompt', 12
+        );
+        if (recentlySent) continue;
 
         const message = generateNotificationMessage('daily_journal_prompt', {});
         if (message) {
@@ -871,6 +877,8 @@ async function processDailyJournalPrompts(storage: IStorage): Promise<void> {
             route: '/app?tab=goals',
             haptic: 'light',
             channel: message.channel,
+            sourceType: 'journal',
+            sourceId: userId,
           });
           prompted++;
         }
@@ -904,20 +912,25 @@ async function processIdleUserNudges(storage: IStorage): Promise<void> {
       if (!streak.lastActivityDate) continue;
       if (streak.lastActivityDate >= threeDaysAgoStr) continue; // Active recently
 
-      // Check if it's 11:00 AM in the user's local timezone
+      // Check if it's 11:00 AM in the user's local timezone (10-min window for reliability)
       const userTz = await getUserTimezone(storage, streak.userId);
       const userLocal = getUserLocalTime(userTz);
-      if (userLocal.getHours() !== 11 || userLocal.getMinutes() >= 5) continue;
+      if (userLocal.getHours() !== 11 || userLocal.getMinutes() >= 10) continue;
 
       // Check preferences
       const prefs = await storage.getNotificationPreferences(streak.userId);
       if (prefs?.enableAccountabilityReminders === false) continue;
 
-      // Dedup: only send once per idle period
+      // Dedup: only send once per idle period (check both pending and recently sent)
       const existing = await storage.findPendingSmartNotification(
         streak.userId, 'idle', streak.userId, 'idle_reminder'
       );
       if (existing) continue;
+
+      const recentlySent = await storage.findRecentlySentSmartNotification(
+        streak.userId, 'idle', streak.userId, 'idle_reminder', 24
+      );
+      if (recentlySent) continue;
 
       const message = generateNotificationMessage('idle_reminder', {});
       if (message) {
@@ -928,6 +941,8 @@ async function processIdleUserNudges(storage: IStorage): Promise<void> {
           route: '/app?tab=input',
           haptic: 'light',
           channel: message.channel,
+          sourceType: 'idle',
+          sourceId: streak.userId,
         });
         nudged++;
       }
@@ -962,8 +977,9 @@ async function processEndOfDayReviewPrompts(storage: IStorage): Promise<void> {
         const localHour = userNow.getHours();
         const localMinute = userNow.getMinutes();
 
-        // Only send during 9:00 PM window (21:00–21:04) in user's local time
-        if (localHour !== 21 || localMinute >= 5) continue;
+        // Only send during 9:00 PM window (21:00–21:09) in user's local time
+        // 10-min window ensures the 5-min processor cycle reliably catches it
+        if (localHour !== 21 || localMinute >= 10) continue;
 
         // Use user's local date for dedup (not UTC date)
         const userToday = `${userNow.getFullYear()}-${String(userNow.getMonth() + 1).padStart(2, '0')}-${String(userNow.getDate()).padStart(2, '0')}`;

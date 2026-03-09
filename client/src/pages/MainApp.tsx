@@ -501,6 +501,21 @@ export default function MainApp({
     }
   }, [userData]);
 
+  // Auto-detect and sync user timezone to server (for correct notification scheduling)
+  useEffect(() => {
+    if (userData && (userData as any).id && (userData as any).id !== "demo-user") {
+      const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const currentTimezone = (userData as any).timezone;
+
+      // Only update if timezone is different from what server has (or server has UTC default)
+      if (detectedTimezone && detectedTimezone !== currentTimezone) {
+        apiRequest('PUT', '/api/user/profile', { timezone: detectedTimezone })
+          .then(() => console.log(`[TIMEZONE] Synced timezone to ${detectedTimezone}`))
+          .catch(() => {}); // Silent fail — non-critical
+      }
+    }
+  }, [userData]);
+
   // State to hold pending share content that needs processing after mutation is available
   const [pendingShareContent, setPendingShareContent] = useState<string | null>(null);
   // Ref mirror of pendingShareContent for use in effects without adding it as a dependency
@@ -1545,12 +1560,8 @@ export default function MainApp({
       setProcessingStatus('success');
       setProcessingMessage('Your plan is ready!');
 
-      // Fire local notification (works even when app is backgrounded)
-      showLocalNotification({
-        title: 'Your plan is ready!',
-        body: 'Your content has been processed. Tap to view your new plan.',
-        id: Date.now(),
-      });
+      // Server-side notification (onActivityProcessingComplete) handles push notification
+      // No client-side local notification needed — avoids duplicate notifications
     },
     onError: (error: any) => {
       const errorMessage =

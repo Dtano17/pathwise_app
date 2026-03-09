@@ -145,7 +145,13 @@ export async function checkStreakAtRisk(
     return false;
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  // Use the user's local date, not UTC, for "today" comparison
+  let today: string;
+  try {
+    today = new Date().toLocaleDateString('en-CA', { timeZone: userTimezone });
+  } catch {
+    today = new Date().toISOString().split('T')[0];
+  }
 
   // If user already has activity today, streak is safe
   if (streak.lastActivityDate === today) {
@@ -169,10 +175,25 @@ export async function checkStreakAtRisk(
   const prefs = await storage.getNotificationPreferences(userId);
   const reminderTime = prefs?.streakReminderTime || '18:00';
 
-  // Calculate the scheduled time for today at the user's preferred time
+  // Calculate the scheduled time for today at the user's preferred time IN THEIR TIMEZONE
   const [hours, minutes] = reminderTime.split(':').map(Number);
-  const scheduledAt = new Date();
-  scheduledAt.setHours(hours, minutes, 0, 0);
+  let scheduledAt: Date;
+  try {
+    // Get today's date in the user's timezone
+    const now = new Date();
+    const userDateStr = now.toLocaleDateString('en-CA', { timeZone: userTimezone }); // YYYY-MM-DD
+    const targetStr = `${userDateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+    const naive = new Date(targetStr);
+    // Convert from user timezone to UTC
+    const utcInterp = new Date(naive.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const userInterp = new Date(naive.toLocaleString('en-US', { timeZone: userTimezone }));
+    const offsetMs = utcInterp.getTime() - userInterp.getTime();
+    scheduledAt = new Date(naive.getTime() + offsetMs);
+  } catch {
+    // Fallback: server local time
+    scheduledAt = new Date();
+    scheduledAt.setHours(hours, minutes, 0, 0);
+  }
 
   // If the time has already passed today, schedule for tomorrow
   if (scheduledAt < new Date()) {

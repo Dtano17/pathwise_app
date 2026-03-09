@@ -16328,6 +16328,7 @@ You can find these tasks in your task list and start working on them right away!
         "email",
         "location",
         "occupation",
+        "timezone",
       ];
       // Fields that belong to the user_profiles table
       const profileFields = [

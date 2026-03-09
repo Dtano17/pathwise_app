@@ -312,8 +312,8 @@ async function dispatchNotification(
     if (isInQuietHours(new Date(), prefs, timezone)) {
       const quietEnd = prefs?.quietHoursEnd || '08:00';
       const [endH, endM] = quietEnd.split(':').map(Number);
-      const reschedule = new Date();
-      reschedule.setHours(endH, endM, 0, 0);
+      // Build the reschedule time in the USER's timezone, not server timezone
+      const reschedule = getTimeInUserTimezone(endH, endM, timezone);
       // If quiet hours end time is earlier today (already passed), push to tomorrow
       if (reschedule <= new Date()) {
         reschedule.setDate(reschedule.getDate() + 1);
@@ -375,17 +375,56 @@ async function dispatchNotification(
 // HELPER FUNCTIONS
 // ============================================
 
+/**
+ * Convert a time (hours, minutes) in the user's timezone to a UTC Date for today.
+ */
+function getTimeInUserTimezone(hours: number, minutes: number, timezone: string): Date {
+  try {
+    const now = new Date();
+    // Get today's date in the user's timezone (YYYY-MM-DD)
+    const userDateStr = now.toLocaleDateString('en-CA', { timeZone: timezone });
+    // Create a naive date string for the target time
+    const targetStr = `${userDateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+    const naive = new Date(targetStr);
+    // Compute timezone offset: difference between UTC interpretation and user-tz interpretation
+    const utcInterp = new Date(naive.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const userInterp = new Date(naive.toLocaleString('en-US', { timeZone: timezone }));
+    const offsetMs = utcInterp.getTime() - userInterp.getTime();
+    return new Date(naive.getTime() + offsetMs);
+  } catch {
+    // Fallback: use server local time
+    const d = new Date();
+    d.setHours(hours, minutes, 0, 0);
+    return d;
+  }
+}
+
 function getMorningOfDate(date: Date, timezone: string): Date {
-  // Create a date for 8 AM on the same day in user's timezone
-  const dateStr = date.toISOString().split('T')[0];
-  const morningStr = `${dateStr}T08:00:00`;
-  return new Date(morningStr);
+  // Create a date for 8 AM on the same day (in user's timezone) as the given date
+  try {
+    const userDateStr = date.toLocaleDateString('en-CA', { timeZone: timezone }); // YYYY-MM-DD
+    const naive = new Date(`${userDateStr}T08:00:00`);
+    const utcInterp = new Date(naive.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const userInterp = new Date(naive.toLocaleString('en-US', { timeZone: timezone }));
+    const offsetMs = utcInterp.getTime() - userInterp.getTime();
+    return new Date(naive.getTime() + offsetMs);
+  } catch {
+    const dateStr = date.toISOString().split('T')[0];
+    return new Date(`${dateStr}T08:00:00Z`);
+  }
 }
 
 function isInQuietHours(now: Date, prefs: NotificationPreferences | null, timezone: string): boolean {
   if (!prefs?.quietHoursStart || !prefs?.quietHoursEnd) return false;
 
-  const currentHour = now.getHours();
+  // Get the current hour in the USER's timezone, not server timezone
+  let currentHour: number;
+  try {
+    const userLocalTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    currentHour = userLocalTime.getHours();
+  } catch {
+    currentHour = now.getHours();
+  }
   const startHour = parseInt(prefs.quietHoursStart.split(':')[0]);
   const endHour = parseInt(prefs.quietHoursEnd.split(':')[0]);
 
@@ -580,21 +619,30 @@ export async function sendImmediateNotification(
       },
     });
 
-    // Log to history
-    await storage.createNotificationHistory({
-      userId,
-      notificationType: options.type,
-      title: options.title,
-      body: options.body,
-      channel: options.channel,
-      hapticType: options.haptic,
-      sentAt: new Date(),
-      sourceType: options.sourceType,
-      sourceId: options.sourceId,
-      metadata: {
-        actions: options.actions,
-      },
-    });
+    // Record in smart_notifications as 'sent' so dedup (findRecentlySentSmartNotification) works
+    if (options.sourceType && options.sourceId) {
+      try {
+        await storage.createSmartNotification({
+          userId,
+          sourceType: options.sourceType,
+          sourceId: options.sourceId,
+          notificationType: options.type,
+          title: options.title,
+          body: options.body,
+          scheduledAt: new Date(),
+          timezone: timezone,
+          route: options.route,
+          status: 'sent',
+          metadata: {
+            haptic: options.haptic,
+            channel: options.channel,
+          },
+        });
+      } catch (dedupErr) {
+        // Non-critical — dedup record failed but notification was sent
+        console.warn(`[SMART_NOTIFICATIONS] Failed to create dedup record:`, dedupErr);
+      }
+    }
 
     console.log(`[SMART_NOTIFICATIONS] Sent immediate notification: ${options.title}`);
   } catch (error) {
