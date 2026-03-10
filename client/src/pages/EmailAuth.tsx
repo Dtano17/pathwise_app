@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, Lock, User, Loader2, CheckCircle2, XCircle, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
-import { motion } from 'framer-motion';
+
 
 const heroVideoUrl = 'https://storage.googleapis.com/pathwise-media/public/hero_video.mp4';
 
@@ -165,12 +165,7 @@ export default function EmailAuth() {
       </div>
 
       <div className="flex-1 flex items-start justify-center px-4 pt-4 pb-8 relative z-10 overflow-y-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: 'easeOut' }}
-          className="w-full max-w-md"
-        >
+        <div className="w-full max-w-md">
           <div className="bg-white/10 backdrop-blur-2xl border border-white/15 rounded-3xl shadow-2xl p-6 sm:p-8">
             <div className="text-center mb-6">
               <h2 className="text-xl font-bold text-white">Welcome</h2>
@@ -178,9 +173,9 @@ export default function EmailAuth() {
             </div>
 
             <Tabs defaultValue="signup" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-white/10 border border-white/10 rounded-lg" style={{ display: 'grid' }}>
-                <TabsTrigger value="signup" data-testid="tab-signup" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60 rounded-md">Sign Up</TabsTrigger>
-                <TabsTrigger value="login" data-testid="tab-login" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60 rounded-md">Login</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-white/10 border border-white/10 rounded-lg h-10 p-1" style={{ display: 'grid' }}>
+                <TabsTrigger value="signup" data-testid="tab-signup" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60 rounded-md h-full">Sign Up</TabsTrigger>
+                <TabsTrigger value="login" data-testid="tab-login" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60 rounded-md h-full">Login</TabsTrigger>
               </TabsList>
 
               <TabsContent value="login" className="space-y-4 mt-4">
@@ -281,9 +276,10 @@ export default function EmailAuth() {
                   </Button>
                 </form>
               </TabsContent>
+              </div>{/* min-h wrapper */}
             </Tabs>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );
