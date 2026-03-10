@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCir
 import { useToast } from '@/hooks/use-toast';
 import { useKeywordDetection, getCategoryColor } from '@/hooks/useKeywordDetection';
 import { useLocation } from 'wouter';
+import { useAsyncJob } from '@/hooks/useAsyncJob';
 import { useDeviceLocation } from '@/hooks/useDeviceLocation';
 import TemplateSelector from './TemplateSelector';
 import JournalTimeline from './JournalTimeline';
@@ -1078,41 +1079,26 @@ export default function ConversationalPlanner({ onClose, initialMode, initialInp
   };
 
   // Generate plan from curated questions answers
-  const generatePlanFromCuratedAnswers = useMutation({
-    mutationFn: async () => {
-      if (!externalContent) throw new Error('No external content');
-      
-      const response = await fetch('/api/planner/generate-plan-from-content', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          externalContent,
-          userAnswers: curatedQuestionsAnswers,
-          mode: planningMode === 'quick' ? 'quick' : 'smart',
-          sourceUrl: externalSourceUrl
-        })
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to generate plan');
-      }
-      
-      return response.json();
-    },
-    onSuccess: async (data) => {
+  // Async job polling for curated plan generation (survives app backgrounding)
+  const [curatedPlanJobId, setCuratedPlanJobId] = useState<string | null>(null);
+  const curatedPlanJobQuery = useAsyncJob(curatedPlanJobId);
+
+  // Handle curated plan job completion/failure
+  useEffect(() => {
+    if (!curatedPlanJobQuery.data) return;
+
+    if (curatedPlanJobQuery.data.status === 'completed') {
+      const data = curatedPlanJobQuery.data.result;
+      setCuratedPlanJobId(null);
       setShowCuratedQuestionsDialog(false);
       setCuratedQuestions([]);
       setCuratedQuestionsAnswers({});
       setExternalContent(null);
       setExternalSourceUrl(null);
 
-      // CRITICAL: Invalidate activities cache (activities, tasks, progress)
-      await invalidateActivitiesCache();
-
-      // If venues were also journaled, invalidate journal cache too
+      invalidateActivitiesCache();
       if (data.journalEntryId || data.savedVenuesCount > 0) {
-        await invalidateJournalCache();
+        invalidateJournalCache();
       }
 
       const hasJournal = data.journalEntryId || data.savedVenuesCount > 0;
@@ -1133,6 +1119,45 @@ export default function ConversationalPlanner({ onClose, initialMode, initialInp
           </Button>
         ) : undefined
       });
+    }
+
+    if (curatedPlanJobQuery.data.status === 'failed') {
+      setCuratedPlanJobId(null);
+      toast({
+        title: "Generation Error",
+        description: curatedPlanJobQuery.data.error || "Failed to create plan from your answers",
+        variant: "destructive"
+      });
+    }
+  }, [curatedPlanJobQuery.data?.status]);
+
+  const generatePlanFromCuratedAnswers = useMutation({
+    mutationFn: async () => {
+      if (!externalContent) throw new Error('No external content');
+
+      const response = await fetch('/api/planner/generate-plan-from-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          externalContent,
+          userAnswers: curatedQuestionsAnswers,
+          mode: planningMode === 'quick' ? 'quick' : 'smart',
+          sourceUrl: externalSourceUrl
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to generate plan');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.jobId) {
+        setCuratedPlanJobId(data.jobId);
+      }
     },
     onError: (error: any) => {
       console.error('Plan generation error:', error);
@@ -3282,18 +3307,18 @@ export default function ConversationalPlanner({ onClose, initialMode, initialInp
                 setCuratedQuestionsAnswers({});
                 setExternalContent(null);
               }}
-              disabled={generatePlanFromCuratedAnswers.isPending}
+              disabled={generatePlanFromCuratedAnswers.isPending || !!curatedPlanJobId}
             >
               Cancel
             </Button>
             <Button
               onClick={() => generatePlanFromCuratedAnswers.mutate()}
-              disabled={generatePlanFromCuratedAnswers.isPending || curatedQuestions.some(q => 
+              disabled={generatePlanFromCuratedAnswers.isPending || !!curatedPlanJobId || curatedQuestions.some(q => 
                 q.required && !curatedQuestionsAnswers[q.id]
               )}
               className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
             >
-              {generatePlanFromCuratedAnswers.isPending ? (
+              {generatePlanFromCuratedAnswers.isPending || !!curatedPlanJobId ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Generating Plan...

@@ -604,6 +604,17 @@ export async function sendImmediateNotification(
       return;
     }
 
+    // Dedup: check if this exact notification was already sent recently
+    if (options.sourceType && options.sourceId) {
+      const recentlySent = await storage.findRecentlySentSmartNotification(
+        userId, options.sourceType, options.sourceId, options.type, 1
+      );
+      if (recentlySent) {
+        console.log(`[SMART_NOTIFICATIONS] Skipping duplicate: ${options.type} for user ${userId} (sourceId: ${options.sourceId})`);
+        return;
+      }
+    }
+
     // Send the notification
     await sendUserNotification(storage, userId, {
       title: options.title,

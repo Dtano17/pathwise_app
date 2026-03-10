@@ -117,6 +117,8 @@ export async function updateUserStreak(
           route: '/app?tab=reports',
           haptic: 'celebration',
           channel: message.channel,
+          sourceType: 'streak',
+          sourceId: `milestone_${newCurrentStreak}_${userId}`,
         });
       }
     }

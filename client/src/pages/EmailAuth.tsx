@@ -164,7 +164,7 @@ export default function EmailAuth() {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center px-4 pb-8 relative z-10">
+      <div className="flex-1 flex items-start justify-center px-4 pt-4 pb-8 relative z-10 overflow-y-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -178,9 +178,9 @@ export default function EmailAuth() {
             </div>
 
             <Tabs defaultValue="signup" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-white/10 border border-white/10">
-                <TabsTrigger value="signup" data-testid="tab-signup" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60">Sign Up</TabsTrigger>
-                <TabsTrigger value="login" data-testid="tab-login" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60">Login</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-white/10 border border-white/10 rounded-lg" style={{ display: 'grid' }}>
+                <TabsTrigger value="signup" data-testid="tab-signup" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60 rounded-md">Sign Up</TabsTrigger>
+                <TabsTrigger value="login" data-testid="tab-login" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60 rounded-md">Login</TabsTrigger>
               </TabsList>
 
               <TabsContent value="login" className="space-y-4 mt-4">

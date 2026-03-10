@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAsyncJob } from '@/hooks/useAsyncJob';
 import { useLocation, useRoute } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -86,13 +87,17 @@ export default function VerifyPage() {
     staleTime: 60000,
   });
 
-  // Verify mutation
-  const verifyMutation = useMutation({
-    mutationFn: async (input: { url?: string; content?: string }) => {
-      const response = await apiRequest('POST', '/api/verify', input);
-      return response.json();
-    },
-    onSuccess: (data) => {
+  // Async job polling for verification (survives app backgrounding)
+  const [verifyJobId, setVerifyJobId] = useState<string | null>(null);
+  const verifyJobQuery = useAsyncJob(verifyJobId);
+
+  // Handle verify job completion/failure
+  useEffect(() => {
+    if (!verifyJobQuery.data) return;
+
+    if (verifyJobQuery.data.status === 'completed') {
+      const data = verifyJobQuery.data.result;
+      setVerifyJobId(null);
       if (data.success && data.verification) {
         setCurrentResult(data.verification);
         queryClient.invalidateQueries({ queryKey: ['/api/verify/quota'] });
@@ -101,6 +106,28 @@ export default function VerifyPage() {
           title: "Verification complete",
           description: `Trust score: ${data.verification.trustScore}/100`,
         });
+      }
+    }
+
+    if (verifyJobQuery.data.status === 'failed') {
+      setVerifyJobId(null);
+      toast({
+        title: "Verification failed",
+        description: verifyJobQuery.data.error || "Unable to verify content",
+        variant: "destructive",
+      });
+    }
+  }, [verifyJobQuery.data?.status]);
+
+  // Verify mutation - now returns jobId for background polling
+  const verifyMutation = useMutation({
+    mutationFn: async (input: { url?: string; content?: string }) => {
+      const response = await apiRequest('POST', '/api/verify', input);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.jobId) {
+        setVerifyJobId(data.jobId);
       }
     },
     onError: (error: any) => {
@@ -226,7 +253,7 @@ export default function VerifyPage() {
   };
 
   const canVerify = quota?.quota?.remaining === 'unlimited' || (quota?.quota?.remaining ?? 0) > 0;
-  const isVerifying = verifyMutation.isPending;
+  const isVerifying = verifyMutation.isPending || !!verifyJobId;
 
   // Show result view if we have a result
   if (currentResult && !match) {

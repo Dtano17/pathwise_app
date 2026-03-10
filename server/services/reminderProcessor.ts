@@ -868,6 +868,10 @@ async function processDailyJournalPrompts(storage: IStorage): Promise<void> {
         );
         if (recentlySent) continue;
 
+        // Cross-type: skip journal prompt if EOD review fires within 30 min (at 9 PM)
+        const minutesUntilEOD = (21 * 60) - (userHour * 60 + userMinute);
+        if (minutesUntilEOD >= 0 && minutesUntilEOD <= 30) continue;
+
         const message = generateNotificationMessage('daily_journal_prompt', {});
         if (message) {
           await sendImmediateNotification(storage, userId, {
@@ -989,6 +993,12 @@ async function processEndOfDayReviewPrompts(storage: IStorage): Promise<void> {
           userId, 'accountability', `eod_review_${userToday}_${userId}`, 'end_of_day_review', 12
         );
         if (recentlySent) continue;
+
+        // Cross-type: skip EOD review if journal prompt was already sent in the last 2 hours
+        const recentJournal = await storage.findRecentlySentSmartNotification(
+          userId, 'journal', userId, 'daily_journal_prompt', 2
+        );
+        if (recentJournal) continue;
 
         // Get today's completed task count for contextual message
         const tasks = await storage.getUserTasks(userId);

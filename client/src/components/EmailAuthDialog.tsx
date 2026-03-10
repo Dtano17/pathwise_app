@@ -306,18 +306,18 @@ export function EmailAuthDialog({ open, onOpenChange }: EmailAuthDialogProps) {
             </div>
 
             <Tabs defaultValue="signup" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-white/10 border border-white/10">
+              <TabsList className="grid w-full grid-cols-2 bg-white/10 border border-white/10 rounded-lg" style={{ display: 'grid' }}>
                 <TabsTrigger
                   value="signup"
                   data-testid="tab-signup"
-                  className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60"
+                  className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60 rounded-md"
                 >
                   Sign Up
                 </TabsTrigger>
                 <TabsTrigger
                   value="login"
                   data-testid="tab-login"
-                  className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60"
+                  className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60 rounded-md"
                 >
                   Login
                 </TabsTrigger>

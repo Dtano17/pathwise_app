@@ -1430,6 +1430,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
 
+  // ========== ASYNC JOB STORE ==========
+  // In-memory store for long-running background jobs (plan generation, verification)
+  // Allows clients to poll for results after backgrounding the app
+  interface AsyncJob {
+    status: 'processing' | 'completed' | 'failed';
+    result?: any;
+    error?: string;
+    userId: string;
+    type: 'plan' | 'verify' | 'plan-from-content';
+    createdAt: number;
+  }
+  const asyncJobs = new Map<string, AsyncJob>();
+
+  // Cleanup stale jobs every 5 minutes (remove jobs older than 30 min)
+  setInterval(() => {
+    const cutoff = Date.now() - 30 * 60 * 1000;
+    asyncJobs.forEach((job, id) => {
+      if (job.createdAt < cutoff) asyncJobs.delete(id);
+    });
+  }, 5 * 60 * 1000);
+
+  // Poll job status endpoint
+  app.get("/api/jobs/:jobId", (req, res) => {
+    const { jobId } = req.params;
+    const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+    const job = asyncJobs.get(jobId);
+
+    if (!job) {
+      return res.status(404).json({ error: "Job not found or expired" });
+    }
+
+    if (job.userId !== String(userId)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (job.status === 'completed') {
+      const result = job.result;
+      // Clean up completed job after retrieval
+      asyncJobs.delete(jobId);
+      return res.json({ status: 'completed', result });
+    }
+
+    if (job.status === 'failed') {
+      const error = job.error;
+      asyncJobs.delete(jobId);
+      return res.json({ status: 'failed', error });
+    }
+
+    res.json({ status: 'processing' });
+  });
+
   // ========== APP STORAGE MEDIA PROXY ==========
   // Serves videos and images from Replit App Storage bucket
   // Works in both dev and production — disk-cache-first with GCS fallback
@@ -20749,6 +20800,14 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         });
       }
 
+      // Create async job and return immediately
+      const jobId = crypto.randomBytes(16).toString('hex');
+      asyncJobs.set(jobId, { status: 'processing', userId: String(userId), type: 'plan-from-content', createdAt: Date.now() });
+      res.json({ jobId, status: 'processing' });
+
+      // Process in background (fire-and-forget)
+      (async () => {
+        try {
       const validMode = mode === "quick" ? "quick" : "smart";
 
       // Generate personalized plan from content + answers
@@ -20972,20 +21031,34 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       onActivityProcessingComplete(storage, activity, parseInt(userId), createdTasks.length, sourceType)
         .catch(err => console.error("[NOTIFICATION] Activity ready hook error:", err));
 
-      res.json({
-        success: true,
-        plan: planResult,
-        activity: {
-          id: activity.id,
-          title: activity.title,
-          sourceUrl: sourceUrl,
-        },
-        createdTasks,
-        journalEntryId,
-        savedVenuesCount,
-        importId,
-        message: `Created "${activity.title}" with ${createdTasks.length} tasks${journalEntryId ? " and added to journal" : ""}${savedVenuesCount ? ` (${savedVenuesCount} venues saved for alternatives)` : ""}`,
-      });
+      // Update job with completed result
+      const job = asyncJobs.get(jobId);
+      if (job) {
+        job.status = 'completed';
+        job.result = {
+          success: true,
+          plan: planResult,
+          activity: {
+            id: activity.id,
+            title: activity.title,
+            sourceUrl: sourceUrl,
+          },
+          createdTasks,
+          journalEntryId,
+          savedVenuesCount,
+          importId,
+          message: `Created "${activity.title}" with ${createdTasks.length} tasks${journalEntryId ? " and added to journal" : ""}${savedVenuesCount ? ` (${savedVenuesCount} venues saved for alternatives)` : ""}`,
+        };
+      }
+        } catch (error) {
+          console.error("Error generating plan from content (background):", error);
+          const job = asyncJobs.get(jobId);
+          if (job) {
+            job.status = 'failed';
+            job.error = error instanceof Error ? error.message : "Failed to generate plan from content";
+          }
+        }
+      })();
     } catch (error) {
       console.error("Error generating plan from content:", error);
       res.status(500).json({ error: "Failed to generate plan from content" });
@@ -23340,6 +23413,15 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         return res.status(503).json({ error: "Verification service not configured" });
       }
 
+      // Create async job and return immediately
+      const jobId = crypto.randomBytes(16).toString('hex');
+      asyncJobs.set(jobId, { status: 'processing', userId: String(user.id), type: 'verify', createdAt: Date.now() });
+      res.json({ jobId, status: 'processing' });
+
+      // Process in background
+      (async () => {
+        try {
+
       let extractedContent = content;
       let detectedPlatform = platform;
       let postMetadata: { author?: string; likesCount?: number; viewsCount?: number; hashtags?: string[]; caption?: string; firstImageUrl?: string } | undefined;
@@ -23490,16 +23572,38 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
 
       console.log(`[VERIFY] Verification completed for user ${user.id}: trust score ${verificationResult.trustScore}`);
 
-      res.json({
-        success: true,
-        verification: {
-          id: verification[0].id,
-          ...verificationResult,
-          postMetadata,
-          shareToken,
-          shareUrl: `/verify/result/${shareToken}`,
-        },
-      });
+      // Send push notification that verification is ready
+      try {
+        const { onVerificationComplete } = await import('./services/notificationEventHooks');
+        await onVerificationComplete(storage as any, { id: verification[0].id, shareToken }, parseInt(user.id));
+      } catch (notifErr) {
+        console.error('[VERIFY] Notification hook error:', notifErr);
+      }
+
+      // Update job with completed result
+      const verifyJob = asyncJobs.get(jobId);
+      if (verifyJob) {
+        verifyJob.status = 'completed';
+        verifyJob.result = {
+          success: true,
+          verification: {
+            id: verification[0].id,
+            ...verificationResult,
+            postMetadata,
+            shareToken,
+            shareUrl: `/verify/result/${shareToken}`,
+          },
+        };
+      }
+        } catch (error) {
+          console.error('[VERIFY] Error during verification (background):', error);
+          const verifyJob = asyncJobs.get(jobId);
+          if (verifyJob) {
+            verifyJob.status = 'failed';
+            verifyJob.error = error instanceof Error ? error.message : 'Verification failed';
+          }
+        }
+      })();
     } catch (error) {
       console.error('[VERIFY] Error during verification:', error);
       res.status(500).json({

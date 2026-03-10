@@ -128,6 +128,8 @@ async function checkActivityCompletion(
             route: `/app?tab=activities&activity=${activity.id}`,
             haptic: 'celebration',
             channel: message.channel,
+            sourceType: 'activity',
+            sourceId: String(link.activityId),
           });
         }
       }
@@ -163,11 +165,16 @@ async function checkGoalMilestone(
 
     for (const milestone of milestones) {
       if (percentage >= milestone && previousPercentage < milestone) {
-        // Dedup: check if already sent for this milestone
+        // Dedup: check if already pending or recently sent for this milestone
         const existing = await storage.findPendingSmartNotification(
           userId, 'goal', task.goalId, `goal_milestone_${milestone}`
         );
         if (existing) break;
+
+        const recentlySent = await storage.findRecentlySentSmartNotification(
+          userId, 'goal', task.goalId!, `goal_milestone_${milestone}`, 24
+        );
+        if (recentlySent) break;
 
         const goals = await storage.getUserGoals(userId);
         const goal = goals.find(g => g.id === task.goalId);
@@ -189,6 +196,8 @@ async function checkGoalMilestone(
             route: '/app?tab=goals',
             haptic: milestone === 100 ? 'celebration' : 'medium',
             channel: message.channel,
+            sourceType: 'goal',
+            sourceId: task.goalId!,
           });
         }
         break; // Only fire the highest milestone crossed
@@ -363,6 +372,10 @@ export async function onGroupInviteSent(
 
     if (!inviter || !group || !invite.inviteeId) return;
 
+    // Check if invitee has group notifications enabled
+    const prefs = await storage.getNotificationPreferences(invite.inviteeId);
+    if (prefs?.enableGroupNotifications === false) return;
+
     const message = generateNotificationMessage('group_invite_received', {
       inviterName: inviter.displayName || inviter.email || 'Someone',
       groupName: group.name,
@@ -380,6 +393,8 @@ export async function onGroupInviteSent(
           { id: 'accept', title: 'Accept', action: 'accept_invite' },
           { id: 'decline', title: 'Decline', action: 'decline_invite' },
         ],
+        sourceType: 'group',
+        sourceId: `invite_${invite.id}`,
       });
     }
   } catch (error) {
@@ -412,6 +427,10 @@ export async function onGroupMemberJoined(
       // Notify all existing members except the new member
       for (const member of members) {
         if (member.userId !== newMemberUserId) {
+          // Check if member has group notifications enabled
+          const prefs = await storage.getNotificationPreferences(member.userId);
+          if (prefs?.enableGroupNotifications === false) continue;
+
           await sendImmediateNotification(storage, member.userId, {
             type: 'group_invite_accepted',
             title: message.title,
@@ -419,6 +438,8 @@ export async function onGroupMemberJoined(
             route: `/app?tab=groups&group=${group.id}`,
             haptic: 'medium',
             channel: message.channel,
+            sourceType: 'group',
+            sourceId: `join_${membership.groupId}_${newMemberUserId}`,
           });
         }
       }
@@ -452,6 +473,10 @@ export async function onGroupMemberLeft(
     if (message) {
       for (const member of members) {
         if (member.userId !== leavingUserId) {
+          // Check if member has group notifications enabled
+          const prefs = await storage.getNotificationPreferences(member.userId);
+          if (prefs?.enableGroupNotifications === false) continue;
+
           await sendImmediateNotification(storage, member.userId, {
             type: 'group_member_left',
             title: message.title,
@@ -459,6 +484,8 @@ export async function onGroupMemberLeft(
             route: `/app?tab=groups&group=${group.id}`,
             haptic: 'light',
             channel: message.channel,
+            sourceType: 'group',
+            sourceId: `leave_${groupId}_${leavingUserId}`,
           });
         }
       }
@@ -494,6 +521,10 @@ export async function onActivitySharedToGroup(
     if (message) {
       for (const member of members) {
         if (member.userId !== sharerId) {
+          // Check if member has group notifications enabled
+          const prefs = await storage.getNotificationPreferences(member.userId);
+          if (prefs?.enableGroupNotifications === false) continue;
+
           await sendImmediateNotification(storage, member.userId, {
             type: 'group_activity_shared',
             title: message.title,
@@ -501,6 +532,8 @@ export async function onActivitySharedToGroup(
             route: `/app?tab=groups&group=${groupId}&activity=${activity.id}`,
             haptic: 'medium',
             channel: message.channel,
+            sourceType: 'group',
+            sourceId: `share_${groupId}_${activity.id}`,
           });
         }
       }
@@ -574,6 +607,47 @@ export async function onActivityProcessingComplete(
     console.log(`[NOTIFICATION] Sent activity ready notification for activity ${activity.id}`);
   } catch (error) {
     console.error('[NOTIFICATION] Error in onActivityProcessingComplete:', error);
+  }
+}
+
+// ============================================
+// VERIFICATION EVENTS
+// ============================================
+
+/**
+ * Called when a verification job completes in the background.
+ * Sends a push notification so the user knows their fact-check is ready.
+ * Deduped via smart_notifications table.
+ */
+export async function onVerificationComplete(
+  storage: IStorage,
+  verification: { id: number; shareToken: string },
+  userId: number
+): Promise<void> {
+  try {
+    // Dedup: don't send if we already notified for this verification
+    const recentlySent = await storage.findRecentlySentSmartNotification(
+      userId.toString(), 'verification', verification.id.toString(), 'verification_ready', 1
+    );
+    if (recentlySent) {
+      console.log(`[NOTIFICATION] Skipping duplicate verification ready notification for verification ${verification.id}`);
+      return;
+    }
+
+    await sendImmediateNotification(storage, userId.toString(), {
+      type: 'verification_ready' as any,
+      title: '🔍 Verification Complete',
+      body: 'Your fact-check results are ready. Tap to see the verdict!',
+      route: `/verify/result/${verification.shareToken}`,
+      haptic: 'celebration',
+      channel: 'journalmate_activities',
+      sourceType: 'verification',
+      sourceId: verification.id.toString(),
+    });
+
+    console.log(`[NOTIFICATION] Sent verification ready notification for verification ${verification.id}`);
+  } catch (error) {
+    console.error('[NOTIFICATION] Error in onVerificationComplete:', error);
   }
 }
 

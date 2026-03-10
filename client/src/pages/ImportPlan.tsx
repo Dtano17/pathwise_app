@@ -59,6 +59,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SocialMediaShareDialog } from '@/components/SocialMediaShareDialog';
 import { useMutation } from '@tanstack/react-query';
+import { useAsyncJob } from '@/hooks/useAsyncJob';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import ThemeToggle from '@/components/ThemeToggle';
 
@@ -830,6 +831,45 @@ export default function ImportPlan() {
     }
   }, [authLoading, isAuthenticated, pendingUrl]);
 
+  // Async job polling for plan generation (survives app backgrounding)
+  const [planJobId, setPlanJobId] = useState<string | null>(null);
+  const planJobQuery = useAsyncJob(planJobId);
+
+  // Handle plan job completion/failure
+  useEffect(() => {
+    if (!planJobQuery.data) return;
+
+    if (planJobQuery.data.status === 'completed') {
+      const data = planJobQuery.data.result;
+      setPlanJobId(null);
+      setExtractingContent(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/journal'] });
+
+      toast({
+        title: 'Plan Created & Journaled!',
+        description: `Created "${data.activity?.title}" with ${data.createdTasks?.length || 0} tasks`
+      });
+
+      if (data.activity?.id) {
+        setTimeout(() => {
+          setLocation(`/activities/${data.activity.id}`);
+        }, 1500);
+      }
+    }
+
+    if (planJobQuery.data.status === 'failed') {
+      setPlanJobId(null);
+      setExtractingContent(false);
+      toast({
+        title: 'Failed to create plan',
+        description: planJobQuery.data.error || 'Unknown error',
+        variant: 'destructive'
+      });
+    }
+  }, [planJobQuery.data?.status]);
+
   const generatePlanMutation = useMutation({
     mutationFn: async ({ content, sourceUrl }: { content: string; sourceUrl: string }) => {
       const response = await apiRequest('POST', '/api/planner/generate-plan-from-content', {
@@ -843,29 +883,18 @@ export default function ImportPlan() {
           preferences: 'Create a practical plan based on this content'
         }
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to generate plan');
       }
-      
+
       return response.json();
     },
     onSuccess: (data) => {
-      setExtractingContent(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/journal'] });
-      
-      toast({
-        title: 'Plan Created & Journaled!',
-        description: `Created "${data.activity?.title}" with ${data.createdTasks?.length || 0} tasks`
-      });
-      
-      if (data.activity?.id) {
-        setTimeout(() => {
-          setLocation(`/activities/${data.activity.id}`);
-        }, 1500);
+      // Server now returns { jobId, status: 'processing' }
+      if (data.jobId) {
+        setPlanJobId(data.jobId);
       }
     },
     onError: (error: Error) => {
@@ -1007,7 +1036,7 @@ export default function ImportPlan() {
     setLocation('/login?returnTo=/app');
   };
 
-  const isProcessing = isLoading || extractingContent || generatePlanMutation.isPending;
+  const isProcessing = isLoading || extractingContent || generatePlanMutation.isPending || !!planJobId;
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -1161,7 +1190,7 @@ export default function ImportPlan() {
               />
             )}
 
-            {(isSuccess || generatePlanMutation.isSuccess) && (
+            {(isSuccess || (planJobQuery.data?.status === 'completed')) && (
               <SuccessState key="success" />
             )}
 
