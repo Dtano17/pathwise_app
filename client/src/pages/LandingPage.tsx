@@ -609,7 +609,7 @@ export default function LandingPage() {
             ref={el => { textRefs.current[2] = el; }}
             className="text-base md:text-xl text-white/90 mb-6 sm:mb-8 max-w-2xl font-medium leading-relaxed px-2 lg:px-0 drop-shadow-md"
           >
-            Where plans get activated. Turn anything you find on social media into a step-by-step action plan — or discover new ones. Stay on track solo or with your crew while we auto-journal every milestone of your journey.
+            Where plans get activated. Turn anything you find on social media into a step-by-step action plan — or discover new ones. Stay on track solo or with your crew while JournalMate auto-journals every milestone of your journey.
           </p>
 
           <div
