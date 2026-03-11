@@ -561,6 +561,32 @@ Make sure each step has a clear, actionable title and helpful description.`
       // Generate context chips for UI
       const contextChips = this.generateContextChips(mergedSlots, questions);
 
+      // Track asked questions and prevent repeats (used for location confirmation)
+      const askedQuestionIds = new Set(mergedSlots._askedQuestions || []);
+
+      // Force location confirmation if missing
+      const locationPrompt = this.getLocationPrompt(mergedSlots, userProfile, askedQuestionIds);
+      if (locationPrompt && !isConfirmingMode && !isRefinementMode) {
+        askedQuestionIds.add(locationPrompt.id);
+        const prefix = gapAnalysis.answeredCount === 0
+          ? `Great! Let's plan your ${context.domain.replace('_', ' ')}. `
+          : `Perfect! `;
+        return {
+          message: `${prefix}${locationPrompt.question}`,
+          phase: 'gathering',
+          progress: gapAnalysis.progress,
+          contextChips,
+          readyToGenerate: false,
+          planReady: false,
+          showGenerateButton: false,
+          updatedSlots: {
+            ...gapAnalysis.collectedSlots,
+            _askedQuestions: Array.from(askedQuestionIds)
+          },
+          domain: context.domain
+        };
+      }
+
       // USE CLAUDE TO INFER USER INTENT - This is the smart contextual layer
       const intentInference = await this.inferUserIntent(
         userMessage,
@@ -810,9 +836,8 @@ Make sure each step has a clear, actionable title and helpful description.`
           };
         }
 
-        // Track questions that have been asked to prevent repeats
-        const askedQuestionIds = new Set(mergedSlots._askedQuestions || []);
-        console.log(`[ASKED QUESTIONS] Already asked: ${Array.from(askedQuestionIds).join(', ')}`);
+      // Track questions that have been asked to prevent repeats
+      console.log(`[ASKED QUESTIONS] Already asked: ${Array.from(askedQuestionIds).join(', ')}`);
 
         // Use Claude's next question recommendation, but ensure it hasn't been asked before
         let nextQuestion = gapAnalysisResult.nextQuestionToAsk;
@@ -1129,6 +1154,42 @@ Example for interview_prep:
         answered: answeredQuestions.length,
         total: questions.length
       }
+    };
+  }
+
+  /**
+   * Determine if we should ask/confirm location before planning.
+   */
+  private getLocationPrompt(
+    slots: any,
+    userProfile: User,
+    askedQuestionIds: Set<string>
+  ): { id: string; question: string } | null {
+    const hasLocation = !!(
+      slots?.location?.destination ||
+      slots?.location?.current ||
+      slots?.location?.city
+    );
+
+    if (hasLocation) {
+      return null;
+    }
+
+    const locationId = 'location_confirm';
+    if (askedQuestionIds.has(locationId)) {
+      return null;
+    }
+
+    if (userProfile?.location) {
+      return {
+        id: locationId,
+        question: `I have you in ${userProfile.location}. Is that the right location for this plan, or should I use a different city/area?`
+      };
+    }
+
+    return {
+      id: locationId,
+      question: `What location should I plan for? (City/area)`
     };
   }
 

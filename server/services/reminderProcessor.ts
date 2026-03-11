@@ -15,6 +15,7 @@ import { processScheduledNotifications, sendImmediateNotification, scheduleSmart
 import { processStreakReminders } from './streakService';
 import { processAccountabilityCheckins } from './accountabilityService';
 import { generateNotificationMessage } from './notificationTemplates';
+import { processSeasonalNotifications, processTimeChangeNotifications } from './seasonalNotificationService';
 
 /**
  * Get a user's current local time based on their timezone.
@@ -301,6 +302,10 @@ async function processReminders(storage: IStorage): Promise<void> {
 
     // Step 10: Process end-of-day review prompts (9 PM in user's timezone)
     await processEndOfDayReviewPrompts(storage);
+
+    // Step 11: Seasonal and time-change notifications (location/timezone aware)
+    await processSeasonalNotifications(storage);
+    await processTimeChangeNotifications(storage);
 
     const duration = Date.now() - startTime;
     console.log(`[REMINDER] Processing cycle complete (${duration}ms)`);

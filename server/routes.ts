@@ -226,7 +226,7 @@ function formatActivitySuccessMessage(
 ): string {
   // Use full URL - just go to Activities tab (new activity will be at top)
   const baseUrl = process.env.APP_URL || "https://journalmate.ai";
-  const activityUrl = `${baseUrl}/app?tab=activities`;
+  const activityUrl = `${baseUrl}/app?tab=activities&activity=${activity.id}`;
   // If emoji is a standard emoji (not our marker), use it; otherwise use our marker
   const displayEmoji = emoji === "[TARGET_ICON]" || !emoji ? "[TARGET_ICON]" : emoji;
   const activityLink = `[${displayEmoji} ${activity.title}](${activityUrl})`;
@@ -14370,7 +14370,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
         // Use AI-provided emoji from the generated plan, fallback to 📝 if not provided
         const activityEmoji = generatedPlan.emoji || "[TARGET_ICON]";
-        const activityUrl = `/app?activity=${activity.id}&tab=tasks`;
+        const activityUrl = `/app?tab=activities&activity=${activity.id}`;
 
         return res.json({
           message: formatActivitySuccessMessage(

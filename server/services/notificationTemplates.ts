@@ -430,6 +430,43 @@ export const AccountabilityTemplates: Record<string, NotificationTemplate> = {
 };
 
 // ============================================
+// SEASONAL / TIME CHANGE NOTIFICATIONS
+// ============================================
+
+export const SeasonalTemplates: Record<string, NotificationTemplate> = {
+  season_change: {
+    title: (ctx) => `🍃 ${ctx.seasonName} has arrived`,
+    body: (ctx) => {
+      const location = ctx.location ? ` in ${ctx.location}` : '';
+      return `A new season starts today${location}. Take a moment to reset and plan ahead.`;
+    },
+    category: 'SEASONAL',
+    haptic: 'light',
+    channel: 'journalmate_assistant',
+    priority: 'low',
+  },
+};
+
+export const TimeChangeTemplates: Record<string, NotificationTemplate> = {
+  time_change: {
+    title: () => `⏰ Clock change today`,
+    body: (ctx) => {
+      if (ctx.changeType === 'forward') {
+        return `Clocks move forward today. Your schedule may feel an hour earlier.`;
+      }
+      if (ctx.changeType === 'back') {
+        return `Clocks move back today. Enjoy the extra hour.`;
+      }
+      return `Time change today — your schedule may shift by an hour.`;
+    },
+    category: 'TIME CHANGE',
+    haptic: 'light',
+    channel: 'journalmate_assistant',
+    priority: 'low',
+  },
+};
+
+// ============================================
 // MEDIA/ENTERTAINMENT NOTIFICATIONS
 // ============================================
 
@@ -628,6 +665,8 @@ export function getTemplate(notificationType: string): NotificationTemplate | nu
     ...GroupTemplates,
     ...StreakTemplates,
     ...AccountabilityTemplates,
+    ...SeasonalTemplates,
+    ...TimeChangeTemplates,
     ...MediaTemplates,
     ...ReservationTemplates,
     ...AssistantTemplates,

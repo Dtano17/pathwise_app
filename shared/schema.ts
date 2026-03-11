@@ -526,6 +526,8 @@ export const notificationPreferences = pgTable("notification_preferences", {
   enableStreakReminders: boolean("enable_streak_reminders").default(true),
   enableMediaReleaseAlerts: boolean("enable_media_release_alerts").default(true),
   enableTripPrepReminders: boolean("enable_trip_prep_reminders").default(true),
+  enableSeasonalAlerts: boolean("enable_seasonal_alerts").default(true),
+  enableTimeChangeAlerts: boolean("enable_time_change_alerts").default(true),
   weeklyCheckinDay: text("weekly_checkin_day").default("sunday"), // Day of week for weekly check-in
   weeklyCheckinTime: text("weekly_checkin_time").default("10:00"), // HH:MM format
   enableVibration: boolean("enable_vibration").default(true),
@@ -646,6 +648,12 @@ export const smartNotifications = pgTable("smart_notifications", {
   scheduledAtIndex: index("smart_notifications_scheduled_at_index").on(table.scheduledAt),
   pendingIndex: index("smart_notifications_pending_index").on(table.status, table.scheduledAt),
   sourceIndex: index("smart_notifications_source_index").on(table.sourceType, table.sourceId),
+  dedupIndex: uniqueIndex("smart_notifications_dedup_unique").on(
+    table.userId,
+    table.sourceType,
+    table.sourceId,
+    table.notificationType,
+  ),
 }));
 
 // Smart scheduling suggestions

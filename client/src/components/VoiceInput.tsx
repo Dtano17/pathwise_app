@@ -1120,7 +1120,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                             data-testid="button-view-activity"
                             onClick={() => {
                               // Navigate directly to the activity
-                              window.location.href = `/?activity=${message.createdActivity!.id}&tab=activities`;
+                            window.location.href = `/app?tab=activities&activity=${message.createdActivity!.id}`;
                             }}
                           >
                             <Target className="w-4 h-4" />

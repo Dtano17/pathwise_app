@@ -436,6 +436,19 @@ async function checkIOSPendingShare(retryCount = 0): Promise<void> {
       } else {
         console.log('[SHARE iOS] No pending share intent found');
       }
+    } else if ((window as any).Capacitor?.Plugins?.SharePlugin) {
+      console.log('[SHARE iOS] Using SharePlugin fallback...');
+      const result = await (window as any).Capacitor.Plugins.SharePlugin.getPendingShare();
+
+      if (result?.hasData && result?.data) {
+        shareProcessed = true;
+        try {
+          const parsed = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
+          setPendingShareData(parsed);
+        } catch (err) {
+          console.error('[SHARE iOS] Failed to parse SharePlugin data:', err);
+        }
+      }
     } else if ((window as any).Capacitor?.Plugins?.AppGroupPlugin) {
       // Fallback to AppGroupPlugin for older implementations
       console.log('[SHARE iOS] Using AppGroupPlugin fallback...');

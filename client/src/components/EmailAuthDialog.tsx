@@ -306,25 +306,25 @@ export function EmailAuthDialog({ open, onOpenChange }: EmailAuthDialogProps) {
             </div>
 
             <Tabs defaultValue="signup" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-white/10 border border-white/10 rounded-lg h-10 p-1" style={{ display: 'grid' }}>
+              <TabsList className="!grid !grid-cols-2 w-full !bg-white/10 border border-white/10 !rounded-lg !h-10 !p-1 mb-4">
                 <TabsTrigger
                   value="signup"
                   data-testid="tab-signup"
-                  className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60 rounded-md h-full"
+                  className="!bg-transparent data-[state=active]:!bg-white/20 data-[state=active]:!text-white !text-white/60 !rounded-md !text-sm !font-medium !shadow-none"
                 >
                   Sign Up
                 </TabsTrigger>
                 <TabsTrigger
                   value="login"
                   data-testid="tab-login"
-                  className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60 rounded-md h-full"
+                  className="!bg-transparent data-[state=active]:!bg-white/20 data-[state=active]:!text-white !text-white/60 !rounded-md !text-sm !font-medium !shadow-none"
                 >
                   Login
                 </TabsTrigger>
               </TabsList>
 
               <div className="min-h-[440px]">
-              <TabsContent value="login" className="space-y-4 mt-4">
+              <TabsContent value="login" className="space-y-4">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="login-email" className="text-white/80">Email</Label>
@@ -395,7 +395,7 @@ export function EmailAuthDialog({ open, onOpenChange }: EmailAuthDialogProps) {
                 </form>
               </TabsContent>
 
-              <TabsContent value="signup" className="space-y-4 mt-4">
+              <TabsContent value="signup" className="space-y-4">
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signup-username" className="text-white/80">Username *</Label>
@@ -529,7 +529,8 @@ export function EmailAuthDialog({ open, onOpenChange }: EmailAuthDialogProps) {
                   </Button>
                 </form>
               </TabsContent>
-              </div>{/* min-h wrapper */}
+              </div>
+
             </Tabs>
           </div>
         )}

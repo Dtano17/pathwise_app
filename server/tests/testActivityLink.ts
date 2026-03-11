@@ -14,7 +14,7 @@ function formatActivitySuccessMessage(
 ): string {
   // Use full URL for better compatibility with markdown rendering
   const baseUrl = process.env.APP_URL || 'https://journalmate.ai';
-  const activityUrl = `${baseUrl}/app?activity=${activity.id}&tab=Activities`;
+  const activityUrl = `${baseUrl}/app?tab=activities&activity=${activity.id}`;
   const activityLink = `[${emoji} ${activity.title}](${activityUrl})`;
   return isUpdate
     ? `${activityLink}\n\n♻️ Your plan has been updated!`
@@ -28,7 +28,7 @@ const testCases = [
     activity: { id: 'test-uuid-12345', title: 'Dennis Cozy Evening Plans' },
     emoji: '🍽️',
     isUpdate: false,
-    expectedUrl: 'https://journalmate.ai/app?activity=test-uuid-12345&tab=Activities',
+    expectedUrl: 'https://journalmate.ai/app?tab=activities&activity=test-uuid-12345',
     expectedMessage: '✨ Your plan is ready!'
   },
   {
@@ -36,7 +36,7 @@ const testCases = [
     activity: { id: 'abc-456', title: 'Trip to Austin' },
     emoji: '✈️',
     isUpdate: true,
-    expectedUrl: 'https://journalmate.ai/app?activity=abc-456&tab=Activities',
+    expectedUrl: 'https://journalmate.ai/app?tab=activities&activity=abc-456',
     expectedMessage: '♻️ Your plan has been updated!'
   }
 ];

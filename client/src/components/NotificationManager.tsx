@@ -349,6 +349,36 @@ export default function NotificationManager({ userId, compact = false }: Notific
               />
             </div>
 
+            {/* Seasonal Alerts */}
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Seasonal Alerts</p>
+                <p className="text-xs text-muted-foreground">
+                  Get notified at the start of each season (localized)
+                </p>
+              </div>
+              <Switch
+                checked={preferences.enableSeasonalAlerts ?? true}
+                onCheckedChange={(checked) => handlePreferenceChange('enableSeasonalAlerts', checked)}
+                data-testid="switch-seasonal-alerts"
+              />
+            </div>
+
+            {/* Time Change Alerts */}
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Clock Change Alerts</p>
+                <p className="text-xs text-muted-foreground">
+                  Daylight saving time reminders based on your timezone
+                </p>
+              </div>
+              <Switch
+                checked={preferences.enableTimeChangeAlerts ?? true}
+                onCheckedChange={(checked) => handlePreferenceChange('enableTimeChangeAlerts', checked)}
+                data-testid="switch-time-change-alerts"
+              />
+            </div>
+
             {/* Reminder Lead Time */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">

@@ -39,12 +39,12 @@ function simulateConfirmationResponse() {
     const activityEmoji = generatedPlan.emoji || '📝';
     console.log(`   activityEmoji: "${activityEmoji}" ✅`);
 
-    // Line 11031: const activityUrl = `/app?activity=${activity.id}&tab=Activities`;
-    const activityUrl = `/app?activity=${activity.id}&tab=Activities`;
+    // Line 11031: const activityUrl = `/app?tab=activities&activity=${activity.id}`;
+    const activityUrl = `/app?tab=activities&activity=${activity.id}`;
     console.log(`   activityUrl: "${activityUrl}" ✅`);
 
     // Simulate formatActivitySuccessMessage
-    const activityLink = `[${activityEmoji} ${activity.title}](/app?activity=${activity.id}&tab=Activities)`;
+    const activityLink = `[${activityEmoji} ${activity.title}](/app?tab=activities&activity=${activity.id})`;
     const message = isUpdate
       ? `${activityLink}\n\n♻️ Your plan has been updated!`
       : `${activityLink}\n\n✨ Your plan is ready!`;

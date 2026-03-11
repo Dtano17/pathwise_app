@@ -604,13 +604,46 @@ export async function sendImmediateNotification(
       return;
     }
 
-    // Dedup: check if this exact notification was already sent recently
+    let pendingRecordId: string | null = null;
+
+    // Dedup: reserve a pending record before sending (prevents duplicates across processors)
     if (options.sourceType && options.sourceId) {
+      const existingPending = await storage.findPendingSmartNotification(
+        userId, options.sourceType, options.sourceId, options.type
+      );
+      if (existingPending) {
+        console.log(`[SMART_NOTIFICATIONS] Skipping duplicate pending: ${options.type} for user ${userId} (sourceId: ${options.sourceId})`);
+        return;
+      }
+
       const recentlySent = await storage.findRecentlySentSmartNotification(
         userId, options.sourceType, options.sourceId, options.type, 1
       );
       if (recentlySent) {
         console.log(`[SMART_NOTIFICATIONS] Skipping duplicate: ${options.type} for user ${userId} (sourceId: ${options.sourceId})`);
+        return;
+      }
+
+      try {
+        const pending = await storage.createSmartNotification({
+          userId,
+          sourceType: options.sourceType,
+          sourceId: options.sourceId,
+          notificationType: options.type,
+          title: options.title,
+          body: options.body,
+          scheduledAt: new Date(),
+          timezone: timezone,
+          route: options.route,
+          status: 'pending',
+          metadata: {
+            haptic: options.haptic,
+            channel: options.channel,
+          },
+        });
+        pendingRecordId = pending.id;
+      } catch (dedupErr) {
+        console.warn(`[SMART_NOTIFICATIONS] Failed to reserve dedup record:`, dedupErr);
         return;
       }
     }
@@ -630,33 +663,29 @@ export async function sendImmediateNotification(
       },
     });
 
-    // Record in smart_notifications as 'sent' so dedup (findRecentlySentSmartNotification) works
-    if (options.sourceType && options.sourceId) {
-      try {
-        await storage.createSmartNotification({
-          userId,
-          sourceType: options.sourceType,
-          sourceId: options.sourceId,
-          notificationType: options.type,
-          title: options.title,
-          body: options.body,
-          scheduledAt: new Date(),
-          timezone: timezone,
-          route: options.route,
-          status: 'sent',
-          metadata: {
-            haptic: options.haptic,
-            channel: options.channel,
-          },
-        });
-      } catch (dedupErr) {
-        // Non-critical — dedup record failed but notification was sent
-        console.warn(`[SMART_NOTIFICATIONS] Failed to create dedup record:`, dedupErr);
-      }
+    // Mark pending record as sent so dedup works across processors
+    if (pendingRecordId) {
+      await storage.updateSmartNotification(pendingRecordId, {
+        status: 'sent',
+        sentAt: new Date(),
+      });
     }
 
     console.log(`[SMART_NOTIFICATIONS] Sent immediate notification: ${options.title}`);
   } catch (error) {
     console.error('[SMART_NOTIFICATIONS] Failed to send immediate notification:', error);
+
+    // If we reserved a pending record, mark it as failed
+    if (options.sourceType && options.sourceId) {
+      const existingPending = await storage.findPendingSmartNotification(
+        userId, options.sourceType, options.sourceId, options.type
+      );
+      if (existingPending) {
+        await storage.updateSmartNotification(existingPending.id, {
+          status: 'failed',
+          failureReason: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
   }
 }

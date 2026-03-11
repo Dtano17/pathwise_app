@@ -3092,7 +3092,29 @@ export class SimpleConversationalPlanner {
       // 8. Command hints are now shown as clickable buttons in the frontend
       // No longer adding text hints to responses
 
-      // 9. Ensure first response has questions (fix empty first response issue)
+      // 9. Enforce location confirmation before planning
+      const extractedLocation = response.extractedInfo?.location || response.extractedInfo?.destination;
+      const profileLocation = options?.userLocation?.city || context.user?.location || context.profile?.location;
+      const locationAlreadyAsked = conversationHistory
+        .slice(-2)
+        .some(msg => msg.role === 'assistant' && /location|city|area/i.test(msg.content));
+
+      if (!extractedLocation && !locationAlreadyAsked) {
+        response.message = profileLocation
+          ? `I have you in ${profileLocation}. Is that the right location for this plan, or should I use a different city/area?`
+          : `What location should I plan for? (City/area)`;
+        response.readyToGenerate = false;
+        delete (response as any).plan;
+        response.extractedInfo = {
+          ...response.extractedInfo,
+          _needsLocation: true
+        };
+        response.conversationHints = profileLocation
+          ? ["📍 Use my location", "🏙️ Choose another city"]
+          : ["🏙️ Choose a city", "📍 Use my location"];
+      }
+
+      // 10. Ensure first response has questions (fix empty first response issue)
       if (questionCount === 0 && !response.message.includes('?') && !response.readyToGenerate) {
         console.log(`[SIMPLE_PLANNER] ⚠️ First response has no questions - this should not happen`);
         // The AI prompt should handle this, but log for debugging
@@ -3382,7 +3404,29 @@ export class SimpleConversationalPlanner {
       // 8. Command hints are now shown as clickable buttons in the frontend
       // No longer adding text hints to responses
 
-      // 9. Ensure first response has questions (fix empty first response issue)
+      // 9. Enforce location confirmation before planning
+      const extractedLocation = response.extractedInfo?.location || response.extractedInfo?.destination;
+      const profileLocation = options?.userLocation?.city || context.user?.location || context.profile?.location;
+      const locationAlreadyAsked = conversationHistory
+        .slice(-2)
+        .some(msg => msg.role === 'assistant' && /location|city|area/i.test(msg.content));
+
+      if (!extractedLocation && !locationAlreadyAsked) {
+        response.message = profileLocation
+          ? `I have you in ${profileLocation}. Is that the right location for this plan, or should I use a different city/area?`
+          : `What location should I plan for? (City/area)`;
+        response.readyToGenerate = false;
+        delete (response as any).plan;
+        response.extractedInfo = {
+          ...response.extractedInfo,
+          _needsLocation: true
+        };
+        response.conversationHints = profileLocation
+          ? ["📍 Use my location", "🏙️ Choose another city"]
+          : ["🏙️ Choose a city", "📍 Use my location"];
+      }
+
+      // 10. Ensure first response has questions (fix empty first response issue)
       if (questionCount === 0 && !response.message.includes('?') && !response.readyToGenerate) {
         console.log(`[SIMPLE_PLANNER_STREAM] ⚠️ First response has no questions - this should not happen`);
       }

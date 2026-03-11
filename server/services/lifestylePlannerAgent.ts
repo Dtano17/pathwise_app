@@ -474,11 +474,33 @@ export class LifestylePlannerAgent {
     const isFirstInteraction = session.externalContext?.isFirstInteraction === true;
     
     // Use slot completeness engine to determine what's missing
-    const completenessAnalysis = SlotCompletenessEngine.analyzeCompleteness(
+    let completenessAnalysis = SlotCompletenessEngine.analyzeCompleteness(
       currentSlots, 
       activityType || 'general', 
       currentMode as 'quick' | 'smart'
     );
+
+    // Enforce location confirmation before planning
+    const locationPrompt = this.getLocationPrompt(currentSlots, userProfile);
+    if (locationPrompt) {
+      completenessAnalysis = {
+        ...completenessAnalysis,
+        isReady: false,
+        missingRequired: [
+          {
+            key: 'location.destination',
+            label: locationPrompt.label,
+            description: locationPrompt.description
+          },
+          ...completenessAnalysis.missingRequired
+        ],
+        nextPrioritySlot: {
+          key: 'location.destination',
+          label: locationPrompt.label,
+          description: locationPrompt.description
+        }
+      };
+    }
     
     const firstMessageGuidance = isFirstInteraction 
       ? `\n\n🎯 FIRST MESSAGE SPECIAL HANDLING:
@@ -784,6 +806,35 @@ GENERAL ACTIVITY QUESTIONS:
   }
 
   /**
+   * Build a location question/confirmation when missing.
+   */
+  private getLocationPrompt(
+    slots: any,
+    userProfile?: User
+  ): { label: string; description: string; question: string } | null {
+    const hasLocation = !!(
+      slots?.location?.destination ||
+      slots?.location?.current ||
+      slots?.location?.city
+    );
+    if (hasLocation) return null;
+
+    if (userProfile?.location) {
+      return {
+        label: 'Location',
+        description: 'Confirm your planning location',
+        question: `I have you in ${userProfile.location}. Is that the right location for this plan, or should I use a different city/area?`
+      };
+    }
+
+    return {
+      label: 'Location',
+      description: 'Planning location (city/area)',
+      question: 'What location should I plan for? (City/area)'
+    };
+  }
+
+  /**
    * Convert AI response to conversation response format
    */
   private async convertToConversationResponse(
@@ -810,6 +861,19 @@ GENERAL ACTIVITY QUESTIONS:
     const askedQuestions = externalContext.askedQuestions || [];
     const lastUserMessage = externalContext.lastUserMessage || '';
     const lastAIQuestion = externalContext.lastAIQuestion || '';
+
+    // Enforce location confirmation if missing
+    const locationPrompt = this.getLocationPrompt(updatedSlots, userProfile);
+    if (locationPrompt) {
+      const alreadyAskedLocation = askedQuestions.some((q: string) =>
+        this.areQuestionsSimilar(q, locationPrompt.question)
+      );
+      if (!alreadyAskedLocation) {
+        aiResponse.action = 'ask_question';
+        aiResponse.message = locationPrompt.question;
+        aiResponse.nextQuestion = locationPrompt.question;
+      }
+    }
 
     // Detect if we're stuck in a loop (same question asked multiple times)
     const currentQuestion = aiResponse.nextQuestion || aiResponse.message || '';
@@ -882,11 +946,31 @@ GENERAL ACTIVITY QUESTIONS:
     
     // Use slot completeness engine to check if we're ready for confirmation
     const sessionMode = (session.externalContext?.currentMode || 'smart') as 'quick' | 'smart';
-    const completenessAnalysis = SlotCompletenessEngine.analyzeCompleteness(
+    let completenessAnalysis = SlotCompletenessEngine.analyzeCompleteness(
       updatedSlots, 
       updatedSlots.activityType || 'general', 
       sessionMode
     );
+    const locationPromptForCompleteness = this.getLocationPrompt(updatedSlots, userProfile);
+    if (locationPromptForCompleteness) {
+      completenessAnalysis = {
+        ...completenessAnalysis,
+        isReady: false,
+        missingRequired: [
+          {
+            key: 'location.destination',
+            label: locationPromptForCompleteness.label,
+            description: locationPromptForCompleteness.description
+          },
+          ...completenessAnalysis.missingRequired
+        ],
+        nextPrioritySlot: {
+          key: 'location.destination',
+          label: locationPromptForCompleteness.label,
+          description: locationPromptForCompleteness.description
+        }
+      };
+    }
     const hasMinimumContext = completenessAnalysis.isReady; // Use proper completeness check
 
     // SERVER-ENFORCED COMPLETENESS GATING: Override AI decisions with completeness engine
