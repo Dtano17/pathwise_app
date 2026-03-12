@@ -306,7 +306,22 @@ export default function VerifyResultCard({ result, isLoading, error, onDismiss, 
                                   </span>
                                 </div>
 
-                                <p className="text-sm font-medium leading-snug">{claim.text}</p>
+                                <p className="text-[13px] font-semibold leading-snug text-foreground">{claim.text}</p>
+
+                                {claim.evidence && (
+                                  <div className={`text-xs mt-1.5 leading-relaxed flex items-start gap-1.5 ${
+                                    ['false', 'misleading', 'unverified', 'unverifiable'].includes(claim.verdict)
+                                      ? 'px-2 py-1.5 rounded bg-red-500/5 border border-red-500/20 text-foreground/80'
+                                      : 'px-2 py-1.5 rounded bg-muted/40 text-foreground/70'
+                                  }`}>
+                                    {['false', 'misleading', 'unverified', 'unverifiable'].includes(claim.verdict) ? (
+                                      <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-red-500/70" />
+                                    ) : (
+                                      <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-muted-foreground/60" />
+                                    )}
+                                    <span>{claim.evidence}</span>
+                                  </div>
+                                )}
 
                                 {claim.statusReason && (
                                   <p className="text-xs mt-1.5 px-2 py-1 rounded bg-muted/50 border border-border/50">
@@ -323,19 +338,6 @@ export default function VerifyResultCard({ result, isLoading, error, onDismiss, 
                                   </p>
                                 )}
 
-                                {claim.evidence && (
-                                  <div className={`text-xs mt-1.5 leading-relaxed flex items-start gap-1.5 ${
-                                    ['false', 'misleading', 'unverified', 'unverifiable'].includes(claim.verdict)
-                                      ? 'px-2 py-1.5 rounded bg-red-500/5 border border-red-500/20 text-foreground/70'
-                                      : 'text-muted-foreground'
-                                  }`}>
-                                    {['false', 'misleading', 'unverified', 'unverifiable'].includes(claim.verdict) && (
-                                      <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-red-500/70" />
-                                    )}
-                                    <span>{claim.evidence}</span>
-                                  </div>
-                                )}
-
                                 {['false', 'misleading', 'unverified', 'unverifiable'].includes(claim.verdict) &&
                                   (!claim.sources || claim.sources.length === 0) && (
                                   <p className="text-[10px] text-muted-foreground mt-1.5 italic">
@@ -344,35 +346,43 @@ export default function VerifyResultCard({ result, isLoading, error, onDismiss, 
                                 )}
 
                                 {claim.sources && claim.sources.length > 0 && (
-                                  <div className="mt-2 flex flex-wrap gap-1.5">
-                                    {claim.sources.map((source, idx) => {
-                                      if (typeof source === 'string') {
+                                  <div className="mt-2 space-y-1">
+                                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Sources</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {claim.sources.map((source, idx) => {
+                                        if (typeof source === 'string') {
+                                          return (
+                                            <a
+                                              key={idx}
+                                              href={source}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 hover:underline bg-blue-500/10 px-1.5 py-0.5 rounded"
+                                            >
+                                              <Link2 className="w-2.5 h-2.5" />
+                                              Source {idx + 1}
+                                            </a>
+                                          );
+                                        }
                                         return (
                                           <a
                                             key={idx}
-                                            href={source}
+                                            href={source.url}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 hover:underline bg-blue-500/10 px-1.5 py-0.5 rounded"
                                           >
                                             <Link2 className="w-2.5 h-2.5" />
-                                            Source {idx + 1}
+                                            {source.title || `Source ${idx + 1}`}
+                                            {source.credibility != null && (
+                                              <span className={`ml-0.5 ${source.credibility >= 70 ? 'text-green-600 dark:text-green-400' : source.credibility >= 40 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                                                ({source.credibility}%)
+                                              </span>
+                                            )}
                                           </a>
                                         );
-                                      }
-                                      return (
-                                        <a
-                                          key={idx}
-                                          href={source.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 hover:underline bg-blue-500/10 px-1.5 py-0.5 rounded"
-                                        >
-                                          <Link2 className="w-2.5 h-2.5" />
-                                          {source.title || `Source ${idx + 1}`}
-                                        </a>
-                                      );
-                                    })}
+                                      })}
+                                    </div>
                                   </div>
                                 )}
                               </div>
