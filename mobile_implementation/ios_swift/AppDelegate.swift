@@ -398,10 +398,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     private func sendTokenToServer(_ token: String) {
         // Get userId from shared preferences (set by Capacitor app)
-        guard let userId = UserDefaults.standard.string(forKey: "userId") else {
-            print("[JournalMate] No userId found, cannot register token with server")
-            return
-        }
+        let userId = UserDefaults.standard.string(forKey: "userId")
+        let authToken = UserDefaults.standard.string(forKey: "auth_token")
 
         guard let url = URL(string: "\(apiBaseURL)/api/user/device-token") else {
             print("[JournalMate] Invalid API URL")
@@ -411,7 +409,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(userId, forHTTPHeaderField: "X-User-ID")
+        if let token = authToken, !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else if let userId = userId {
+            request.setValue(userId, forHTTPHeaderField: "X-User-ID")
+        }
         request.timeoutInterval = 10
 
         let deviceName = UIDevice.current.name

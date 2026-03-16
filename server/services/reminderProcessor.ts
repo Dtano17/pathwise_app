@@ -91,6 +91,36 @@ interface UpcomingActivity {
 let processorInterval: NodeJS.Timeout | null = null;
 let isProcessing = false;
 
+/** Connection-related errors that warrant a retry (e.g. Neon scale-to-zero, idle timeout) */
+function isConnectionError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  const cause = err instanceof Error && 'cause' in err ? String((err as any).cause) : '';
+  return (
+    /connection terminated|connection timeout|ECONNRESET|ECONNREFUSED|ETIMEDOUT|57P01|connection.*closed/i.test(msg) ||
+    /connection terminated|connection timeout/i.test(cause)
+  );
+}
+
+/** Run processReminders with retry on transient connection errors */
+async function processRemindersWithRetry(storage: IStorage, maxRetries = 2): Promise<void> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await processReminders(storage);
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxRetries && isConnectionError(err)) {
+        console.warn(`[REMINDER] Connection error (attempt ${attempt}/${maxRetries}), retrying in 5s...`, err instanceof Error ? err.message : err);
+        await new Promise(r => setTimeout(r, 5000));
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw lastErr;
+}
+
 /**
  * Start the reminder processor
  * Runs every 5 minutes to check for pending reminders
@@ -104,13 +134,13 @@ export function startReminderProcessor(storage: IStorage): void {
   console.log('[REMINDER] Starting reminder processor (5 minute intervals)');
   
   // Run immediately on start
-  processReminders(storage).catch(err => {
+  processRemindersWithRetry(storage).catch(err => {
     console.error('[REMINDER] Initial processing error:', err);
   });
 
   // Then run every 5 minutes
   processorInterval = setInterval(() => {
-    processReminders(storage).catch(err => {
+    processRemindersWithRetry(storage).catch(err => {
       console.error('[REMINDER] Processing error:', err);
     });
   }, 5 * 60 * 1000);

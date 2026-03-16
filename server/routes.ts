@@ -58,7 +58,7 @@ import {
   type User,
   passwordResetTokens,
 } from "@shared/schema";
-import { eq, and, or, isNull, isNotNull, ne, sql } from "drizzle-orm";
+import { eq, and, or, isNull, isNotNull, ne, sql, desc } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import crypto from "crypto";
@@ -1698,14 +1698,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastmod?: string;
       }> = [];
       try {
-        const publicPlans = await db.query.activities.findMany({
-          where: eq(activities.communityStatus, "live"),
-          limit: 1000,
-          columns: {
-            shareToken: true,
-            updatedAt: true,
-          },
-        });
+        const publicPlans = await db
+          .select({ shareToken: activities.shareToken, updatedAt: activities.updatedAt })
+          .from(activities)
+          .where(eq(activities.communityStatus, "live"))
+          .limit(1000);
 
         // Build dynamic URLs from public plans with null-safe date handling
         dynamicUrls = publicPlans
@@ -1785,18 +1782,18 @@ ${allUrls
       const today = new Date().toISOString();
 
       // Fetch recent public community plans
-      const recentPlans = await db.query.activities.findMany({
-        where: eq(activities.communityStatus, "live"),
-        limit: 50,
-        orderBy: (activities, { desc }) => [desc(activities.updatedAt)],
-        columns: {
-          id: true,
-          title: true,
-          description: true,
-          shareToken: true,
-          updatedAt: true,
-        },
-      });
+      const recentPlans = await db
+        .select({
+          id: activities.id,
+          title: activities.title,
+          description: activities.description,
+          shareToken: activities.shareToken,
+          updatedAt: activities.updatedAt,
+        })
+        .from(activities)
+        .where(eq(activities.communityStatus, "live"))
+        .orderBy(desc(activities.updatedAt))
+        .limit(50);
 
       const feedItems = recentPlans
         .map(
@@ -1871,14 +1868,11 @@ ${feedItems}
   app.get("/image-sitemap.xml", async (_req, res) => {
     try {
       // Fetch plans with image data
-      const plansWithImages = await db.query.activities.findMany({
-        where: eq(activities.communityStatus, "live"),
-        limit: 1000,
-        columns: {
-          shareToken: true,
-          backdropImageUrl: true,
-        },
-      });
+      const plansWithImages = await db
+        .select({ shareToken: activities.shareToken, backdropImageUrl: activities.backdropImageUrl })
+        .from(activities)
+        .where(eq(activities.communityStatus, "live"))
+        .limit(1000);
 
       const imageUrls = plansWithImages
         .filter((plan) => plan.backdropImageUrl || plan.shareToken)
@@ -3514,7 +3508,17 @@ ${sitemaps
   // Register device token for push notifications
   app.post("/api/user/device-token", async (req: any, res) => {
     try {
-      const userId = getUserId(req);
+      let userId = getUserId(req);
+      if (!userId) {
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+          const token = authHeader.substring(7);
+          const tokenRecord = await storage.getOAuthTokenByAccessToken("native_app", token);
+          if (tokenRecord?.userId) {
+            userId = tokenRecord.userId;
+          }
+        }
+      }
       if (!userId) {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -13639,7 +13643,20 @@ Return ONLY valid JSON, no markdown or explanation.`;
   // Device Token Management (for push notifications)
   app.post("/api/notifications/register-device", async (req: any, res) => {
     try {
-      const userId = getUserId(req) || DEMO_USER_ID;
+      let userId = getUserId(req);
+      if (!userId) {
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+          const token = authHeader.substring(7);
+          const tokenRecord = await storage.getOAuthTokenByAccessToken("native_app", token);
+          if (tokenRecord?.userId) {
+            userId = tokenRecord.userId;
+          }
+        }
+      }
+      if (!userId) {
+        userId = DEMO_USER_ID;
+      }
       const { token, platform, deviceInfo } = req.body;
 
       if (!token || !platform) {

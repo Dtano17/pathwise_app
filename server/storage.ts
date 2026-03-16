@@ -157,6 +157,8 @@ export const pool = new Pool({
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
+  // Keep connections alive to avoid stale connections (e.g. Neon scale-to-zero, server idle close)
+  keepAlive: true,
 });
 
 // Prevent unhandled pool errors from crashing the process (e.g. 57P01 admin_shutdown)
