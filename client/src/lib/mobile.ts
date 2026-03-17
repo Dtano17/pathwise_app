@@ -246,7 +246,8 @@ export type { LocationCoords, LocationWithAddress } from './geolocation';
  */
 export async function initializeMobileFeatures() {
   if (isNative()) {
-    initializePushNotifications();
+    // Push notifications are initialized in useAuth.ts after authentication (with userId)
+    // Avoid calling initializePushNotifications() here to prevent duplicate init without userId
     console.log('Mobile features initialized');
   }
 }

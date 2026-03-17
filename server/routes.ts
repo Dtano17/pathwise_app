@@ -1869,18 +1869,18 @@ ${feedItems}
     try {
       // Fetch plans with image data
       const plansWithImages = await db
-        .select({ shareToken: activities.shareToken, backdropImageUrl: activities.backdropImageUrl })
+        .select({ shareToken: activities.shareToken, backdrop: activities.backdrop })
         .from(activities)
         .where(eq(activities.communityStatus, "live"))
         .limit(1000);
 
       const imageUrls = plansWithImages
-        .filter((plan) => plan.backdropImageUrl || plan.shareToken)
+        .filter((plan) => plan.backdrop || plan.shareToken)
         .map((plan) => {
           const images = [];
-          if (plan.backdropImageUrl) {
+          if (plan.backdrop && plan.backdrop.startsWith('http')) {
             images.push(
-              `<image:image><image:loc>${plan.backdropImageUrl}</image:loc></image:image>`,
+              `<image:image><image:loc>${plan.backdrop}</image:loc></image:image>`,
             );
           }
           if (plan.shareToken) {

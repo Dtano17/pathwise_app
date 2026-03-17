@@ -211,8 +211,12 @@ async function initializeBackground() {
   log('[SOCKET.IO] WebSocket server initialized');
 
   // Initialize Firebase Cloud Messaging for push notifications (gracefully fails if not configured)
-  await initializePushNotifications();
-  log('[PUSH] Push notification service initialized');
+  const fcmReady = await initializePushNotifications();
+  if (fcmReady) {
+    log('[PUSH] Push notification service initialized');
+  } else {
+    log('[PUSH] Push notifications NOT available (Firebase credentials not configured)');
+  }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

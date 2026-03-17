@@ -1,6 +1,7 @@
 // PushNotifications import is handled dynamically to avoid errors on web
 import { Capacitor } from '@capacitor/core';
 import { isNative } from '@/lib/mobile';
+import { apiUrl } from '@/lib/api';
 
 let isInitialized = false;
 
@@ -126,11 +127,25 @@ async function registerDeviceToken(token: string, userId: string): Promise<void>
     const platform = Capacitor.getPlatform();
     const deviceName = await getDeviceName();
 
-    const response = await fetch('/api/user/device-token', {
+    // Build headers - add Bearer auth for native platforms where cookies may not be available
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (isNative()) {
+      try {
+        const { getStoredAuthToken } = await import('@/lib/nativeGoogleAuth');
+        const authToken = await getStoredAuthToken();
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`;
+        }
+      } catch (e) {
+        console.warn('[PUSH] Could not get native auth token:', e);
+      }
+    }
+
+    const response = await fetch(apiUrl('/api/user/device-token'), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       credentials: 'include',
       body: JSON.stringify({
         token,
@@ -140,7 +155,7 @@ async function registerDeviceToken(token: string, userId: string): Promise<void>
     });
 
     if (!response.ok) {
-      throw new Error('Failed to register device token');
+      throw new Error(`Failed to register device token: ${response.status}`);
     }
 
     console.log('[PUSH] Device token registered with backend');
