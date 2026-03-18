@@ -287,9 +287,33 @@ async function initializeBackground() {
       console.error('[SEED] Failed to seed sample groups:', error);
     });
 
-    // Start the reminder processor for plan notifications (non-blocking)
-    startReminderProcessor(storage);
-    console.log('[REMINDER] Reminder processor started');
+    // Auto-apply missing notification_preferences columns, then start reminder processor
+    pool.query(`
+      DO $$ BEGIN
+        BEGIN ALTER TABLE notification_preferences ADD COLUMN enable_seasonal_alerts BOOLEAN DEFAULT true; EXCEPTION WHEN duplicate_column THEN NULL; END;
+        BEGIN ALTER TABLE notification_preferences ADD COLUMN enable_time_change_alerts BOOLEAN DEFAULT true; EXCEPTION WHEN duplicate_column THEN NULL; END;
+        BEGIN ALTER TABLE notification_preferences ADD COLUMN enable_accountability_reminders BOOLEAN DEFAULT true; EXCEPTION WHEN duplicate_column THEN NULL; END;
+        BEGIN ALTER TABLE notification_preferences ADD COLUMN enable_streak_reminders BOOLEAN DEFAULT true; EXCEPTION WHEN duplicate_column THEN NULL; END;
+        BEGIN ALTER TABLE notification_preferences ADD COLUMN enable_media_release_alerts BOOLEAN DEFAULT true; EXCEPTION WHEN duplicate_column THEN NULL; END;
+        BEGIN ALTER TABLE notification_preferences ADD COLUMN enable_trip_prep_reminders BOOLEAN DEFAULT true; EXCEPTION WHEN duplicate_column THEN NULL; END;
+        BEGIN ALTER TABLE notification_preferences ADD COLUMN weekly_checkin_day TEXT DEFAULT 'sunday'; EXCEPTION WHEN duplicate_column THEN NULL; END;
+        BEGIN ALTER TABLE notification_preferences ADD COLUMN weekly_checkin_time TEXT DEFAULT '10:00'; EXCEPTION WHEN duplicate_column THEN NULL; END;
+        BEGIN ALTER TABLE notification_preferences ADD COLUMN enable_vibration BOOLEAN DEFAULT true; EXCEPTION WHEN duplicate_column THEN NULL; END;
+        BEGIN ALTER TABLE notification_preferences ADD COLUMN enable_sound BOOLEAN DEFAULT true; EXCEPTION WHEN duplicate_column THEN NULL; END;
+        BEGIN ALTER TABLE notification_preferences ADD COLUMN channel_settings JSONB; EXCEPTION WHEN duplicate_column THEN NULL; END;
+        BEGIN ALTER TABLE notification_preferences ADD COLUMN streak_reminder_time TEXT DEFAULT '20:00'; EXCEPTION WHEN duplicate_column THEN NULL; END;
+      END $$;
+    `).then(() => {
+      console.log('[SCHEMA] Notification preferences columns verified/applied');
+      // Start the reminder processor after schema is ready
+      startReminderProcessor(storage);
+      console.log('[REMINDER] Reminder processor started');
+    }).catch((err: any) => {
+      console.error('[SCHEMA] Failed to verify notification preferences columns:', err.message);
+      // Start reminder processor anyway — the fallback in storage.ts will handle missing columns
+      startReminderProcessor(storage);
+      console.log('[REMINDER] Reminder processor started (with column fallback)');
+    });
 
     // Journal enrichment runs on-demand when users fetch their entries
     // Background enrichment triggers automatically via GET /api/journal/entries

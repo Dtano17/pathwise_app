@@ -1809,23 +1809,126 @@ export class DatabaseStorage implements IStorage {
 
   // Notification Preferences
   async getUserNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined> {
-    const result = await db.select().from(notificationPreferences)
-      .where(eq(notificationPreferences.userId, userId))
-      .limit(1);
-    return result[0];
+    try {
+      const result = await db.select().from(notificationPreferences)
+        .where(eq(notificationPreferences.userId, userId))
+        .limit(1);
+      return result[0];
+    } catch (err: any) {
+      // If columns don't exist yet (migration not run), fall back to raw SQL with only columns that exist
+      if (err?.code === '42703') {
+        console.warn('[STORAGE] Notification preferences missing column, using raw SQL fallback. Run db:push to fix permanently.');
+        const fallback = await pool.query(
+          `SELECT id, user_id, enable_browser_notifications, enable_task_reminders,
+                  enable_deadline_warnings, enable_daily_planning, enable_group_notifications,
+                  notify_admin_on_changes, reminder_lead_time, daily_planning_time,
+                  quiet_hours_start, quiet_hours_end, created_at, updated_at
+           FROM notification_preferences WHERE user_id = $1 LIMIT 1`,
+          [userId]
+        );
+        if (fallback.rows[0]) {
+          const row = fallback.rows[0];
+          return {
+            id: row.id,
+            userId: row.user_id,
+            enableBrowserNotifications: row.enable_browser_notifications ?? true,
+            enableTaskReminders: row.enable_task_reminders ?? true,
+            enableDeadlineWarnings: row.enable_deadline_warnings ?? true,
+            enableDailyPlanning: row.enable_daily_planning ?? false,
+            enableGroupNotifications: row.enable_group_notifications ?? true,
+            notifyAdminOnChanges: row.notify_admin_on_changes ?? true,
+            reminderLeadTime: row.reminder_lead_time ?? 30,
+            dailyPlanningTime: row.daily_planning_time ?? '09:00',
+            quietHoursStart: row.quiet_hours_start ?? '22:00',
+            quietHoursEnd: row.quiet_hours_end ?? '08:00',
+            enableAccountabilityReminders: true,
+            enableStreakReminders: true,
+            enableMediaReleaseAlerts: true,
+            enableTripPrepReminders: true,
+            enableSeasonalAlerts: true,
+            enableTimeChangeAlerts: true,
+            weeklyCheckinDay: 'sunday',
+            weeklyCheckinTime: '10:00',
+            enableVibration: true,
+            enableSound: true,
+            channelSettings: null,
+            streakReminderTime: '20:00',
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+          } as NotificationPreferences;
+        }
+        return undefined;
+      }
+      throw err;
+    }
   }
 
   async createNotificationPreferences(prefs: InsertNotificationPreferences & { userId: string }): Promise<NotificationPreferences> {
-    const result = await db.insert(notificationPreferences).values(prefs).returning();
-    return result[0];
+    try {
+      const result = await db.insert(notificationPreferences).values(prefs).returning();
+      return result[0];
+    } catch (err: any) {
+      if (err?.code === '42703') {
+        console.warn('[STORAGE] createNotificationPreferences missing column, using raw SQL fallback');
+        await pool.query(
+          `INSERT INTO notification_preferences (id, user_id, enable_browser_notifications, enable_task_reminders,
+            enable_deadline_warnings, enable_daily_planning, enable_group_notifications, notify_admin_on_changes,
+            reminder_lead_time, daily_planning_time, quiet_hours_start, quiet_hours_end)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           ON CONFLICT DO NOTHING`,
+          [prefs.userId, prefs.enableBrowserNotifications ?? true, prefs.enableTaskReminders ?? true,
+           prefs.enableDeadlineWarnings ?? true, prefs.enableDailyPlanning ?? false,
+           prefs.enableGroupNotifications ?? true, prefs.notifyAdminOnChanges ?? true,
+           prefs.reminderLeadTime ?? 30, prefs.dailyPlanningTime ?? '09:00',
+           prefs.quietHoursStart ?? '22:00', prefs.quietHoursEnd ?? '08:00']
+        );
+        const created = await this.getUserNotificationPreferences(prefs.userId);
+        return created!;
+      }
+      throw err;
+    }
   }
 
   async updateNotificationPreferences(userId: string, updates: Partial<NotificationPreferences>): Promise<NotificationPreferences | undefined> {
-    const result = await db.update(notificationPreferences)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(notificationPreferences.userId, userId))
-      .returning();
-    return result[0];
+    try {
+      const result = await db.update(notificationPreferences)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(notificationPreferences.userId, userId))
+        .returning();
+      return result[0];
+    } catch (err: any) {
+      if (err?.code === '42703') {
+        console.warn('[STORAGE] updateNotificationPreferences missing column, using raw SQL fallback');
+        // Build SET clause from only the core columns that exist
+        const coreUpdates: Record<string, any> = {};
+        const columnMap: Record<string, string> = {
+          enableBrowserNotifications: 'enable_browser_notifications',
+          enableTaskReminders: 'enable_task_reminders',
+          enableDeadlineWarnings: 'enable_deadline_warnings',
+          enableDailyPlanning: 'enable_daily_planning',
+          enableGroupNotifications: 'enable_group_notifications',
+          notifyAdminOnChanges: 'notify_admin_on_changes',
+          reminderLeadTime: 'reminder_lead_time',
+          dailyPlanningTime: 'daily_planning_time',
+          quietHoursStart: 'quiet_hours_start',
+          quietHoursEnd: 'quiet_hours_end',
+        };
+        for (const [key, col] of Object.entries(columnMap)) {
+          if ((updates as any)[key] !== undefined) {
+            coreUpdates[col] = (updates as any)[key];
+          }
+        }
+        if (Object.keys(coreUpdates).length > 0) {
+          const setClauses = Object.keys(coreUpdates).map((col, i) => `${col} = $${i + 2}`);
+          await pool.query(
+            `UPDATE notification_preferences SET ${setClauses.join(', ')}, updated_at = NOW() WHERE user_id = $1`,
+            [userId, ...Object.values(coreUpdates)]
+          );
+        }
+        return this.getUserNotificationPreferences(userId);
+      }
+      throw err;
+    }
   }
 
   async getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined> {
